@@ -144,6 +144,19 @@ en:
           alt_saved: Alt text saved.
           removed: Image removed.
           moved: Image moved.
+        translations:
+          title: Translations
+          help: "Approving an entry translates it automatically, and the translation is published with the English text. A translation you edit is kept until the English text changes; then it is translated again. A stale or missing translation is not shown: visitors see the English text."
+          not_approved: Translations are written when the entry is approved.
+          missing: Missing
+          stale: Stale
+          current: Up to date
+          edited: Edited by an admin
+          retranslate: Retranslate
+          saved: Translation saved.
+          queued: Translation queued. Refresh in a moment.
+          only_approved: Only approved entries are translated.
+          no_rewriter: Translating needs config.rewriter, which is not set.
         category_options:
           feature: New feature
           change: Improvement

@@ -10,7 +10,7 @@ module Shiplog
       @page = page_number
       scope = Entry.published_changelog.newest_first
       @query = search_query
-      scope = scope.search(@query) if @query
+      scope = scope.search(@query, locale: I18n.locale) if @query
       scope = scope.where(area_id: @area.id) if @area
       @areas = filter_areas
       records = scope.includes(:area).with_images_loaded.offset((@page - 1) * PER_PAGE).limit(PER_PAGE + 1).to_a
@@ -20,9 +20,11 @@ module Shiplog
       @older = records.size > PER_PAGE
       @months = records.first(PER_PAGE).group_by { |entry| entry.released_on.beginning_of_month }
       @result_count = scope.count if @query
+      shown = @months.values.flatten
+      preload_translations(shown)
       fresh_when etag: [ *shiplog_etag_parts, *shiplog_area_etag_parts, @areas.map(&:id), @query, @page, @older,
-        @months.values.flatten.map { |entry| [ entry.id, entry.updated_at, entry.area_id ] },
-        shiplog_image_etag_parts(@months.values.flatten) ]
+        shown.map { |entry| [ entry.id, entry.updated_at, entry.area_id ] },
+        shiplog_image_etag_parts(shown), shiplog_translation_etag_parts(shown) ]
     end
 
     private

@@ -153,6 +153,14 @@ Shiplog.configure do |config|
   # config.images = true
   # config.max_images_per_entry = 4
 
+  # Translations of entries. Entries are translated into each of these locales with config.rewriter when they are
+  # approved, and again when the English title or body of an approved entry changes; the translation is published
+  # at once, with no second approval. One LLM call per entry, locale and change. Admins can edit a translation on
+  # the entry page (kept until the English text changes) or retranslate it. Pages render the translation when
+  # I18n.locale is one of these and it matches the current English text, and English otherwise. Your routes
+  # decide which URLs set the locale (e.g. a /es scope). The default locale is dropped from the list.
+  # config.locales = []   # e.g. [:es]
+
   # Callables above cannot be part of the public pages' ETag. Bump this when the output of a callable you
   # configured changes (a new label, another path) so cached pages are refreshed.
   # config.cache_version = nil

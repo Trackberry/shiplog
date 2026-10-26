@@ -1,0 +1,216 @@
+# Textos de Shiplog en español. Los hosts pueden sobrescribir cualquier clave en sus propios archivos de idioma.
+es:
+  activerecord:
+    attributes:
+      shiplog/entry:
+        changelog_kind: Categoría
+  # Los nombres de los meses que usa el formato de fecha de Shiplog (rails-i18n los trae también; son los mismos).
+  date:
+    month_names: [~, enero, febrero, marzo, abril, mayo, junio, julio, agosto, septiembre, octubre, noviembre, diciembre]
+  shiplog:
+    columns:
+      in_progress: En desarrollo
+      coming_soon: Próximamente
+      later: Más adelante
+      in_progress_description: Lo que estamos construyendo ahora
+      coming_soon_description: Lo siguiente en la lista
+      later_description: En nuestro radar
+    categories:
+      feature: Nuevo
+      change: Mejorado
+    empty: Todavía no hay nada
+    date_format: "%-d de %B de %Y"
+    roadmap:
+      title: Hoja de ruta
+      lede: En qué estamos trabajando y qué viene después.
+      parts:
+        one: Incluye %{count} parte
+        other: Incluye %{count} partes
+      shipped_heading: Lanzado recientemente
+      shipped_date_format: "%-d de %B"
+      full_changelog: Ver todas las novedades
+      footnote: ""
+      suggest: Sugerir una función
+    switcher:
+      label: Novedades del producto
+      roadmap: Hoja de ruta
+      changelog: Novedades
+    changelog:
+      title: Novedades
+      lede: Nuevas funciones y mejoras, a medida que se lanzan.
+      pagination:
+        label: Paginación
+        older: Anteriores
+        newer: Más recientes
+      search:
+        label: Buscar en las novedades
+        submit: Buscar
+        summary:
+          one: "%{count} resultado para “%{query}”"
+          other: "%{count} resultados para “%{query}”"
+        clear: Borrar búsqueda
+        empty: "Ninguna entrada coincide con “%{query}”."
+      areas:
+        label: Filtrar por área
+        all: Todas
+    permalink:
+      title: "%{title} · %{changelog}"
+      back: "← Volver a las novedades"
+      nav_label: Más novedades
+      newer: "← Más reciente: %{title}"
+      older: "Anterior: %{title} →"
+    feed:
+      title_with_product: "Novedades de %{product}"
+      link_title: Novedades (Atom)
+      subscribe: Suscribirse (Atom)
+    admin:
+      title: Administración de Shiplog
+      nav:
+        drafts: Borradores
+        board: Tablero de la hoja de ruta
+        sync: Sincronización
+        areas: Áreas
+      areas:
+        title: Áreas del producto
+        help: La IA agrupa las entradas en áreas (como máximo %{max}) mientras las reescribe. Los visitantes pueden filtrar las novedades por área cuando hay dos áreas con entradas publicadas.
+        detect: Detectar áreas
+        recheck: Revisar de nuevo las entradas sin área
+        recheck_help: Vuelve a preguntar a la IA por las entradas que dejó sin área, por ejemplo después de renombrar, fusionar o añadir áreas.
+        no_rewriter: La detección necesita config.rewriter, que no está configurado.
+        last_detection: "Última detección: %{time}, %{count} asignadas"
+        last_error: "La última detección falló (%{time}): %{error}"
+        detection_queued: Detección en cola. Actualiza en un momento.
+        empty: Todavía no hay áreas. Detecta áreas para que se propongan a partir de tus entradas.
+        columns:
+          name: Nombre
+          entries: Entradas
+          order: Orden
+          merge: Fusionar con
+        name_label: Nombre
+        rename: Renombrar
+        renamed: Área renombrada.
+        move_up: Subir
+        move_down: Bajar
+        merge: Fusionar
+        merge_into: Fusionar con
+        merged: "%{from} se fusionó con %{into}."
+        merge_target: Elige otra área con la que fusionar.
+        merge_help: Al fusionar, las entradas pasan a la otra área y esta se elimina. Si eliminas un área, sus entradas se quedan sin área.
+        delete: Eliminar
+        deleted: Área eliminada. Sus entradas ya no tienen área.
+      entries:
+        title: Entradas
+        filters: Filtrar entradas
+        all_kinds: Todos los tipos
+        empty: Ninguna entrada coincide.
+        pagination: Paginación
+        older: Anteriores
+        newer: Más recientes
+        saved: Entrada guardada.
+        approved: Entrada aprobada.
+        discarded: Entrada descartada.
+        restored: Entrada devuelta a borrador.
+        invalid_transition: Esa acción no está disponible para esta entrada en su estado actual.
+        rewrite_queued: Reescritura en cola. Actualiza en un momento.
+        edit: Editar
+        edit_title: "Editar %{kind}"
+        approve: Aprobar
+        discard: Descartar
+        restore: Restaurar
+        save: Guardar
+        regenerate: Regenerar
+        no_area: Ninguna
+        area_gone: ya no existe
+        regenerate_warning: Al regenerar, esta entrada deja de estar publicada hasta que se apruebe de nuevo.
+        source_changed: El texto de GitHub cambió desde este borrador
+        rewrite_error: Falló la reescritura
+        not_rewritten: Todavía sin reescribir
+        public_text: Texto público
+        source: Origen en GitHub
+        back: Volver a los borradores
+        images:
+          title: Capturas de pantalla
+          help: Se muestran bajo el texto en las novedades (la primera en la lista, todas en la página de la entrada). Se toman de la incidencia o del pull request de GitHub al escribir el borrador; también puedes subir las tuyas.
+          empty: Todavía no hay capturas.
+          alt: Texto alternativo
+          alt_placeholder: Describe la imagen (por defecto, el título)
+          save_alt: Guardar texto alternativo
+          remove: Quitar
+          move_up: Subir
+          move_down: Bajar
+          upload: Subir imágenes
+          upload_label: Imágenes (PNG, JPEG, GIF o WebP, hasta 5 MB cada una)
+          none_selected: Elige al menos una imagen.
+          rejected: "No se añadieron; solo se aceptan imágenes PNG, JPEG, GIF y WebP de hasta 5 MB: %{names}"
+          added:
+            one: Imagen añadida.
+            other: "%{count} imágenes añadidas."
+          alt_saved: Texto alternativo guardado.
+          removed: Imagen quitada.
+          moved: Imagen movida.
+        translations:
+          title: Traducciones
+          help: "Al aprobar una entrada se traduce automáticamente, y la traducción se publica junto con el texto en inglés. Una traducción que edites se conserva hasta que cambie el texto en inglés; entonces se vuelve a traducir. Una traducción desactualizada o ausente no se muestra: los visitantes ven el texto en inglés."
+          not_approved: Las traducciones se escriben cuando se aprueba la entrada.
+          missing: Falta
+          stale: Desactualizada
+          current: Al día
+          edited: Editada por un administrador
+          retranslate: Traducir de nuevo
+          saved: Traducción guardada.
+          queued: Traducción en cola. Actualiza en un momento.
+          only_approved: Solo se traducen las entradas aprobadas.
+          no_rewriter: Traducir necesita config.rewriter, que no está configurado.
+        category_options:
+          feature: Nueva función
+          change: Mejora
+        statuses:
+          draft: Borradores
+          approved: Aprobadas
+          discarded: Descartadas
+        kinds:
+          roadmap: Hoja de ruta
+          feature: Función
+          change: Cambio
+        columns:
+          entry: Entrada
+          kind: Tipo
+          source: Origen
+          actions: Acciones
+        fields:
+          title: Título
+          body: Texto
+          released_on: Fecha de lanzamiento
+          category: Categoría
+          area: Área
+          reason: Motivo
+      board:
+        title: Tablero de la hoja de ruta
+        help: Arrastra las tarjetas entre columnas para fijarlas y ordenarlas. Sin JavaScript, usa el botón Mover de cada tarjeta.
+        updated: Tablero actualizado.
+        not_approved: Sin aprobar
+        pinned: Fijada
+        move_to: Mover a
+        move: Mover
+        unpin: Desfijar
+      sync:
+        title: Estado de la sincronización
+        queued: Sincronización en cola.
+        webhook_secret_missing: El secreto del webhook no está configurado, así que se rechazan los webhooks de GitHub.
+        github_token_missing: El token de GitHub no está configurado, así que no se puede sincronizar.
+        sync_now: Sincronizar ahora
+        sync_and_scan: Sincronizar y buscar cambios
+        repositories: Repositorios
+        no_repositories: No hay repositorios configurados.
+        repository: Repositorio
+        synced_at: Última sincronización
+        changes_scanned_at: Cambios revisados
+        last_error: Último error
+        never: Nunca
+        deliveries: Últimas entregas de webhook
+        no_deliveries: Todavía no hay entregas.
+        event: Evento
+        action: Acción
+        received_at: Recibida
+        processed_at: Procesada
+        error: Error

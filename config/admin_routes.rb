@@ -5,6 +5,9 @@ Shiplog::Admin::Engine.routes.draw do
       resource :approval, only: :create
       resource :discard, only: %i[create destroy]
       resource :rewrite, only: :create
+      resources :translations, only: :update, param: :locale, constraints: { locale: /[A-Za-z][A-Za-z0-9_-]*/ } do
+        resource :retranslation, only: :create, module: :translations
+      end
       resources :images, only: %i[create update destroy] do
         resource :move, only: :create, module: :images
       end

@@ -42,13 +42,13 @@ module Shiplog
 
     # The body, on one line and cut for a meta description. Plain text: tag helpers escape it.
     def shiplog_entry_description(entry)
-      truncate(entry.body.to_s.squish, length: DESCRIPTION_LENGTH, separator: " ")
+      truncate(entry.display_body.to_s.squish, length: DESCRIPTION_LENGTH, separator: " ")
     end
 
     # The Open Graph meta tags of a permalink page, for `content_for :shiplog_og`.
     def shiplog_og_tags(entry, url:)
       tags = {
-        "og:title" => entry.title, "og:description" => shiplog_entry_description(entry),
+        "og:title" => entry.display_title, "og:description" => shiplog_entry_description(entry),
         "og:type" => "article", "og:url" => url, "og:image" => shiplog_entry_og_image(entry)
       }
       safe_join(tags.compact_blank.map { |property, content| tag.meta(property:, content:) }, "\n")
@@ -66,7 +66,7 @@ module Shiplog
         url = shiplog_image_url(image)
         tag.p(tag.img(src: url, alt: entry.image_alt(image), **shiplog_image_size(image))) if url
       end
-      safe_join([ simple_format(h(entry.body)), *images ], "\n")
+      safe_join([ simple_format(h(entry.display_body)), *images ], "\n")
     end
 
     # An entry's images in order, or none while screenshots are off.

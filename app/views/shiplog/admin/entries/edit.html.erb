@@ -67,6 +67,10 @@
     </aside>
   </div>
 
+  <% if Shiplog.config.locales.any? %>
+    <%= render "shiplog/admin/entries/translations", entry: @entry %>
+  <% end %>
+
   <% if Shiplog.images? %>
     <%= render "shiplog/admin/entries/images", entry: @entry %>
   <% end %>

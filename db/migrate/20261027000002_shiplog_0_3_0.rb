@@ -56,6 +56,21 @@ class Shiplog030 < ActiveRecord::Migration[8.1]
     # ({ "12" => "The dark theme" }); a missing alt text falls back to the entry's title.
     add_column :shiplog_entries, :image_order, :jsonb, null: false, default: []
     add_column :shiplog_entries, :image_alts, :jsonb, null: false, default: {}
+
+    # --- Translations of entries (config.locales) ---
+    # One row per entry and locale, published with the English text (no second approval). `source_digest` is the
+    # digest of the English title and body it was made from: a row whose digest differs from the entry's current
+    # text is stale and never shown. `edited_by_admin` keeps an admin's edit until the English text changes.
+    create_table :shiplog_entry_translations do |t|
+      t.references :entry, null: false, index: false, foreign_key: { to_table: :shiplog_entries, on_delete: :cascade }
+      t.string :locale, null: false
+      t.string :title, null: false
+      t.text :body, null: false, default: ""
+      t.string :source_digest, null: false
+      t.boolean :edited_by_admin, null: false, default: false
+      t.timestamps
+    end
+    add_index :shiplog_entry_translations, [ :entry_id, :locale ], unique: true
   end
 
   # Gives every approved feature and change with a release date, and no slug, one: the title as [a-z0-9-] only

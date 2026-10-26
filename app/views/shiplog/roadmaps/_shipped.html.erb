@@ -8,7 +8,7 @@
     <% entries.each do |entry| %>
       <li class="<%= shiplog_class(:shipped_item) %>">
         <time class="<%= shiplog_class(:shipped_date) %>" datetime="<%= entry.released_on.iso8601 %>"><%= l(entry.released_on, format: t("shiplog.roadmap.shipped_date_format", default: "%-d %B")) %></time>
-        <%= link_to entry.title, changelog_path(anchor: "shiplog-month-#{entry.released_on.strftime("%Y-%m")}"), class: shiplog_class(:shipped_link) %>
+        <%= link_to entry.display_title, changelog_path(anchor: "shiplog-month-#{entry.released_on.strftime("%Y-%m")}"), class: shiplog_class(:shipped_link) %>
       </li>
     <% end %>
   </ul>

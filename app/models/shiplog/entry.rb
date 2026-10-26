@@ -6,6 +6,7 @@ module Shiplog
 
     belongs_to :subject, polymorphic: true
     belongs_to :area, class_name: "Shiplog::Area", optional: true
+    has_many :translations, class_name: "Shiplog::EntryTranslation", dependent: :destroy, inverse_of: :entry
 
     enum :kind, %w[roadmap feature change].index_by(&:itself), validate: true
     enum :status, %w[draft approved discarded].index_by(&:itself), default: "draft", validate: true
@@ -17,6 +18,10 @@ module Shiplog
     validate :kind_change_allowed, on: :update
     validate :kind_free_for_subject, on: :update
 
+    # Approving an entry, or changing the English text of an approved one, translates it into every configured
+    # locale (see TranslateEntryJob). After the commit, so the job reads what was saved.
+    after_commit :enqueue_translations, on: :update, if: :translation_due?
+
     SEARCH_MAX_LENGTH = 100
     SEARCH_MAX_WORDS = 5
 
@@ -26,13 +31,37 @@ module Shiplog
     end
 
     # Entries whose title or body contains every word of the query (case-insensitive, LIKE wildcards escaped).
-    # A blank query leaves the scope unchanged.
-    def self.search(query)
+    # With a configured `locale` other than the default, a word also matches the current translation of that
+    # locale (the text the page shows), not a stale one. A blank query leaves the scope unchanged.
+    def self.search(query, locale: nil)
+      locale = locale.to_s.presence_in(Shiplog.config.locales.map(&:to_s))
       search_terms(query).reduce(all) do |scope, term|
         pattern = "%#{sanitize_sql_like(term)}%"
-        scope.where("#{table_name}.title ILIKE :pattern OR #{table_name}.body ILIKE :pattern", pattern:)
+        english = "#{table_name}.title ILIKE :pattern OR #{table_name}.body ILIKE :pattern"
+        next scope.where(english, pattern:) unless locale
+
+        translated = EntryTranslation.where("#{EntryTranslation.table_name}.entry_id = #{table_name}.id")
+          .where(locale:).where("#{EntryTranslation.table_name}.source_digest = #{TRANSLATION_DIGEST_SQL}")
+          .where("#{EntryTranslation.table_name}.title ILIKE :pattern OR #{EntryTranslation.table_name}.body ILIKE :pattern", pattern:)
+        scope.where("#{english} OR EXISTS (#{translated.select(1).to_sql})", pattern:)
       end
     end
+
+    # Loads the translations of `entries` for the current locale in one query, and none under a locale that is
+    # not translated (then the entries show English and nothing is queried). Only that locale's rows are loaded.
+    def self.preload_translations(entries, locale: I18n.locale)
+      entries = Array(entries).compact
+      return unless entries.any? && translated_locale?(locale)
+
+      ActiveRecord::Associations::Preloader.new(records: entries, associations: :translations,
+        scope: EntryTranslation.where(locale: locale.to_s)).call
+    end
+
+    # Whether pages in this locale show translations: it is one of config.locales.
+    def self.translated_locale?(locale) = Shiplog.config.locales.any? { |configured| configured.to_s == locale.to_s }
+
+    # The SQL twin of #translation_source_digest: SHA-256 of "title\nbody" (a missing text is empty), in hex.
+    TRANSLATION_DIGEST_SQL = "encode(sha256(convert_to(COALESCE(#{table_name}.title, '') || E'\\n' || COALESCE(#{table_name}.body, ''), 'UTF8')), 'hex')".freeze
 
     UNSEEN_COUNT_CAP = 99
     SLUG_MAX_LENGTH = 80
@@ -116,11 +145,40 @@ module Shiplog
       update!(status: "draft", discard_reason: nil)
     end
 
+    # The digest of the English title and body, stored in a translation made from them. A translation whose digest
+    # differs from it is stale.
+    def translation_source_digest
+      Digest::SHA256.hexdigest([ title, body ].join("\n"))
+    end
+
+    # The current translation for a locale (the request's by default): nil under a locale that is not configured,
+    # when none exists, and when it is stale. Reads the preloaded translations (see Entry.preload_translations)
+    # and asks the database only when they were not loaded.
+    def translation(locale = I18n.locale)
+      return unless self.class.translated_locale?(locale)
+
+      found = translations.loaded? ? translations.find { |record| record.locale == locale.to_s } : translations.find_by(locale: locale.to_s)
+      found if found && found.source_digest == translation_source_digest
+    end
+
+    # What public pages show: the translation for the request's locale when there is a current one, else English.
+    def display_title(locale = I18n.locale) = translation(locale)&.title || title
+
+    def display_body(locale = I18n.locale) = translation(locale)&.body || body
+
     def source_changed?
       source_digest.present? && source_digest != self.class.digest_for(subject)
     end
 
     private
+
+    def translation_due?
+      approved? && Shiplog.config.locales.any? && (saved_change_to_status? || saved_change_to_title? || saved_change_to_body?)
+    end
+
+    def enqueue_translations
+      Shiplog.config.locales.each { |locale| TranslateEntryJob.perform_later(self, locale) }
+    end
 
     def permalinked? = CHANGELOG_KINDS.include?(kind)
 

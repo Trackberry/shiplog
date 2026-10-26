@@ -50,6 +50,23 @@ module Shiplog
       Shiplog.images? ? entries.compact.map { |entry| [ entry.id, entry.image_etag_parts ] } : []
     end
 
+    # Loads the translations the page shows (the request locale's) for these entries in one query; see
+    # Entry.preload_translations. Call it before the entries are rendered or their ETag is computed.
+    def preload_translations(*entries)
+      Entry.preload_translations(entries.flatten)
+    end
+
+    # What the markup shows of the entries' translations: which current translation each entry shows, and when
+    # it last changed. Nothing under a locale that is not translated.
+    def shiplog_translation_etag_parts(entries)
+      return [] unless Entry.translated_locale?(I18n.locale)
+
+      entries.compact.filter_map do |entry|
+        translation = entry.translation
+        [ entry.id, translation.id, translation.updated_at ] if translation
+      end
+    end
+
     # What the rendered markup depends on besides the data: the locale, the gem version and the styling
     # config. Host parent controllers rendering per-user layout content should declare `etag { current_user&.id }`.
     def shiplog_etag_parts

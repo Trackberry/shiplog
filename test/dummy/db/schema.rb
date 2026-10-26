@@ -93,6 +93,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_27_000002) do
     t.index ["subject_type", "subject_id", "kind"], name: "index_shiplog_entries_on_subject_type_and_subject_id_and_kind", unique: true
   end
 
+  create_table "shiplog_entry_translations", force: :cascade do |t|
+    t.bigint "entry_id", null: false
+    t.string "locale", null: false
+    t.string "title", null: false
+    t.text "body", default: "", null: false
+    t.string "source_digest", null: false
+    t.boolean "edited_by_admin", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["entry_id", "locale"], name: "index_shiplog_entry_translations_on_entry_id_and_locale", unique: true
+  end
+
   create_table "shiplog_issue_links", force: :cascade do |t|
     t.string "issue_node_id", null: false
     t.string "pull_request_node_id", null: false
@@ -199,6 +211,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_27_000002) do
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "shiplog_entries", "shiplog_areas", column: "area_id", on_delete: :nullify
+  add_foreign_key "shiplog_entry_translations", "shiplog_entries", column: "entry_id", on_delete: :cascade
   add_foreign_key "shiplog_issues", "shiplog_repositories", column: "repository_id"
   add_foreign_key "shiplog_pull_request_upgrades", "shiplog_pull_requests", column: "pull_request_id"
   add_foreign_key "shiplog_pull_requests", "shiplog_repositories", column: "repository_id"

@@ -28,6 +28,12 @@ module Shiplog
         nil
       end
 
+      # "Spanish (es)" for a locale of config.locales; the code alone when Shiplog has no name for the language.
+      def translation_language_label(locale)
+        name = Shiplog::Translator.language_name(locale)
+        name == locale.to_s ? name : "#{name} (#{locale})"
+      end
+
       def entries_filter_path(status: nil, kind: nil, page: nil)
         root_path({ status:, kind:, page: }.compact_blank)
       end

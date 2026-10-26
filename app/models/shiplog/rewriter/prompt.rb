@@ -44,6 +44,11 @@ module Shiplog
       MAX_LIST_ITEMS = 20
       SOURCE_TAG = %r{<\s*(/?)\s*source\s*>}i
 
+      # Truncates and neutralises <source> tags so untrusted text cannot close the delimiter.
+      def self.clean(text, limit)
+        text.to_s.truncate(limit, omission: "…").gsub(SOURCE_TAG) { "[#{Regexp.last_match(1)}source]" }
+      end
+
       def initialize(entry)
         @entry = entry
         @subject = entry.subject
@@ -85,10 +90,7 @@ module Shiplog
           end
         end
 
-        # Truncates and neutralises <source> tags so untrusted text cannot close the delimiter.
-        def clean(text, limit)
-          text.to_s.truncate(limit, omission: "…").gsub(SOURCE_TAG) { "[#{Regexp.last_match(1)}source]" }
-        end
+        def clean(text, limit) = self.class.clean(text, limit)
 
         def render_context
           lines = [ "Title: #{context[:title]}", "Description: #{context[:body]}" ]

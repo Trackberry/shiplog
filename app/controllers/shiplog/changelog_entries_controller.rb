@@ -8,7 +8,9 @@ module Shiplog
       notify_changelog_seen
       @newer = @entry.newer_changelog_entry
       @older = @entry.older_changelog_entry
-      fresh_when etag: [ *shiplog_etag_parts, *shiplog_area_etag_parts, [ @entry, @newer, @older ].map { |entry| [ entry&.id, entry&.updated_at, entry&.area_id ] }, shiplog_image_etag_parts([ @entry ]) ]
+      preload_translations(@entry, @newer, @older)
+      fresh_when etag: [ *shiplog_etag_parts, *shiplog_area_etag_parts, [ @entry, @newer, @older ].map { |entry| [ entry&.id, entry&.updated_at, entry&.area_id ] },
+        shiplog_image_etag_parts([ @entry ]), shiplog_translation_etag_parts([ @entry, @newer, @older ]) ]
     end
 
     private

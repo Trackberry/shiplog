@@ -1,0 +1,42 @@
+<%# locals: (entry:) %>
+<%# one editable title and body per configured locale (config.locales), with its state: missing, stale (made from older English text), edited by an admin, or up to date. Needs Shiplog::Admin::EntriesHelper. %>
+<% translations = entry.translations.index_by(&:locale) %>
+<section class="shiplog-admin-panel shiplog-translations">
+  <h2><%= t("shiplog.admin.entries.translations.title", default: "Translations") %></h2>
+  <p class="shiplog-admin__muted"><%= t("shiplog.admin.entries.translations.help", default: "Approving an entry translates it automatically, and the translation is published with the English text. A translation you edit is kept until the English text changes; then it is translated again. A stale or missing translation is not shown: visitors see the English text.") %></p>
+  <% unless entry.approved? %>
+    <p class="shiplog-admin__muted"><%= t("shiplog.admin.entries.translations.not_approved", default: "Translations are written when the entry is approved.") %></p>
+  <% end %>
+  <% Shiplog.config.locales.each do |locale| %>
+    <% translation = translations[locale.to_s] %>
+    <div class="shiplog-translation" data-locale="<%= locale %>">
+      <h3>
+        <%= translation_language_label(locale) %>
+        <% if translation.nil? %>
+          <span class="shiplog-badge"><%= t("shiplog.admin.entries.translations.missing", default: "Missing") %></span>
+        <% elsif translation.stale? %>
+          <span class="shiplog-badge"><%= t("shiplog.admin.entries.translations.stale", default: "Stale") %></span>
+        <% else %>
+          <span class="shiplog-badge"><%= t("shiplog.admin.entries.translations.current", default: "Up to date") %></span>
+        <% end %>
+        <% if translation&.edited_by_admin %>
+          <span class="shiplog-badge"><%= t("shiplog.admin.entries.translations.edited", default: "Edited by an admin") %></span>
+        <% end %>
+      </h3>
+      <%= form_with url: entry_translation_path(entry, locale, inbox_filter_params), scope: :translation, method: :patch, class: "shiplog-admin-form" do |form| %>
+        <p>
+          <%= form.label :title, t("shiplog.admin.entries.fields.title"), for: "translation_#{locale}_title" %>
+          <%= form.text_field :title, value: translation&.title, id: "translation_#{locale}_title", lang: locale %>
+        </p>
+        <p>
+          <%= form.label :body, t("shiplog.admin.entries.fields.body"), for: "translation_#{locale}_body" %>
+          <%= form.text_area :body, value: translation&.body, rows: 5, id: "translation_#{locale}_body", lang: locale %>
+        </p>
+        <%= form.submit t("shiplog.admin.entries.save"), class: "shiplog-button shiplog-button--primary" %>
+      <% end %>
+      <% if entry.approved? %>
+        <%= button_to t("shiplog.admin.entries.translations.retranslate", default: "Retranslate"), entry_translation_retranslation_path(entry, locale, inbox_filter_params), class: "shiplog-button" %>
+      <% end %>
+    </div>
+  <% end %>
+</section>

@@ -24,7 +24,7 @@ module Shiplog::Entry::Images
 
   # The alt text of an image: the one set for its blob, else the entry's title.
   def image_alt(attachment)
-    image_alts.to_h[attachment.blob_id.to_s].presence || title.to_s
+    image_alts.to_h[attachment.blob_id.to_s].presence || display_title.to_s
   end
 
   # What public pages depend on, for ETags: each image's blob id and alt text, in order.

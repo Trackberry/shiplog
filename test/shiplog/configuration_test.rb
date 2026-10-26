@@ -349,4 +349,38 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
     config.changelog_path = "/Changelog/"
     assert_equal "Changelog", config.changelog_path
   end
+
+  test "locales defaults to none" do
+    assert_equal [], Shiplog::Configuration.new.locales
+  end
+
+  test "locales takes Symbols or Strings, stores symbols, drops the default locale and duplicates" do
+    config = Shiplog::Configuration.new
+    config.locales = [ :es, "fr", "es", :en, "pt-BR" ]
+    assert_equal [ :es, :fr, :"pt-BR" ], config.locales
+  end
+
+  test "the default locale is removed whatever I18n.default_locale is" do
+    config = Shiplog::Configuration.new
+    config.locales = [ :es, :en ]
+    original = I18n.default_locale
+    I18n.default_locale = :es
+    assert_equal [ :en ], config.locales
+  ensure
+    I18n.default_locale = original
+  end
+
+  test "locales rejects anything but an Array of Symbols or Strings and keeps the previous value" do
+    config = Shiplog::Configuration.new
+    config.locales = [ :es ]
+    [ :es, "es", nil, { es: 1 }, [ 1 ], [ nil ], [ "" ], [ "  " ], [ :es, [ :fr ] ], [ "e s" ] ].each do |value|
+      assert_raises(ArgumentError, value.inspect) { config.locales = value }
+    end
+    assert_equal [ :es ], config.locales
+  end
+
+  test "locales is part of the render digest, and the default locale does not count" do
+    assert_not_equal digest_config.render_digest, digest_config(locales: [ :es ]).render_digest
+    assert_equal digest_config.render_digest, digest_config(locales: [ :en ]).render_digest
+  end
 end

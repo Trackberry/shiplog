@@ -49,6 +49,9 @@ module Shiplog
     # Screenshots in entries. `images` (default true) is effective only when Active Storage is loaded in the host
     # (see Shiplog.images?). `max_images_per_entry` (default 4) caps the images fetched from GitHub per entry.
     attr_reader :images, :max_images_per_entry
+    # Locales entries are translated into when approved, e.g. [:es] (default none). The default locale is never
+    # in the list: it is the language entries are written in. See Shiplog::Translator.
+    LOCALE_FORMAT = /\A[A-Za-z][A-Za-z0-9_-]*\z/
 
     EXTRA_PAGE_KEYS = %i[label path].freeze
 
@@ -69,7 +72,7 @@ module Shiplog
         stylesheet, roadmap_shipped_count, cache_version, product_name, canonical_url,
         extra_pages.map { |page| [ stable.(page[:label]), stable.(page[:path]) ] },
         repository_labels.sort_by { |name, _| name.to_s }.map { |name, label| [ name, stable.(label) ] },
-        stable.(feedback_path), changelog_search, images, max_images_per_entry
+        stable.(feedback_path), changelog_search, images, max_images_per_entry, locales
       ]
       Digest::SHA256.hexdigest(JSON.generate(data))
     end
@@ -128,6 +131,17 @@ module Shiplog
     def max_images_per_entry=(value)
       raise ArgumentError, "max_images_per_entry must be a non-negative Integer, got #{value.inspect}" unless value.is_a?(Integer) && value >= 0
       @max_images_per_entry = value
+    end
+
+    # The locales to translate into, as symbols and without the default locale (I18n.default_locale, read each
+    # time so an initializer that sets it later still counts).
+    def locales = @locales - [ I18n.default_locale.to_sym ]
+
+    def locales=(value)
+      unless value.is_a?(Array) && value.all? { |item| (item.is_a?(Symbol) || item.is_a?(String)) && LOCALE_FORMAT.match?(item.to_s) }
+        raise ArgumentError, "locales must be an Array of locale Symbols or Strings like [:es, \"pt-BR\"], got #{value.inspect}"
+      end
+      @locales = value.map(&:to_sym).uniq.freeze
     end
 
     def changelog_path=(value)
@@ -216,6 +230,7 @@ module Shiplog
       @max_areas = 8
       @images = true
       @max_images_per_entry = 4
+      @locales = [].freeze
     end
 
     def resolved_github_token
