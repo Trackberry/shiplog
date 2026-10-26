@@ -40,8 +40,10 @@ module Shiplog
 
         skip_before_horizon
         pending = @repository.pull_requests.awaiting_upgrade_check.limit(MAX_PER_CALL).to_a
-        pending.each { |pull_request| inspect_pull_request(pull_request) }
-        pending.size
+        # A transient failure stops the batch: GitHub is then usually failing every request, and going on would
+        # spend an attempt of each pending pull request.
+        inspected = pending.take_while { |pull_request| inspect_pull_request(pull_request) != :transient }
+        inspected.size
       end
 
       private
@@ -71,6 +73,7 @@ module Shiplog
         else
           pull_request.update_columns(upgrade_check_attempts: attempts)
         end
+        :transient
       rescue StandardError => error
         # Marked as checked anyway: a permanent failure (a malformed or conflicted lockfile, unexpected data, a
         # database error) must not keep taking one of the limited slots, nor stop the pull requests after it.

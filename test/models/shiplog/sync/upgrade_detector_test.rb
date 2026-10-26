@@ -430,8 +430,10 @@ class Shiplog::Sync::UpgradeDetectorTest < ActiveSupport::TestCase
     stub_request(:post, GRAPHQL).with { |req| JSON.parse(req.body).dig("variables", "expression") == "#{oid}:Gemfile.lock" }.to_return(status:)
   end
 
-  test "a transient failure counts an attempt, leaves the pull request pending and goes on to the next" do
-    other = make_pull_request(number: 1953, merged_at: Time.utc(2026, 10, 19, 12) + 1.day, base_oid: "okbase", merge_oid: "okmerge")
+  # GitHub failing transiently usually fails every request, so the batch stops: an outage costs one attempt per
+  # sync, not one per pending pull request.
+  test "a transient failure counts an attempt, leaves the pull request pending and stops the batch" do
+    older = make_pull_request(number: 1950, merged_at: Time.utc(2026, 10, 20, 9), base_oid: "okbase", merge_oid: "okmerge")
     stub_blob_status(BASE, 502)
     stub_blob("okbase", lockfile)
     stub_blob("okmerge", lockfile)
@@ -440,7 +442,8 @@ class Shiplog::Sync::UpgradeDetectorTest < ActiveSupport::TestCase
 
     assert_equal 1, @pull_request.reload.upgrade_check_attempts
     assert_nil @pull_request.upgrades_checked_at
-    assert other.reload.upgrades_checked_at
+    assert_equal 0, older.reload.upgrade_check_attempts
+    assert_nil older.upgrades_checked_at
   end
 
   test "the third transient failure marks the pull request checked and warns" do
