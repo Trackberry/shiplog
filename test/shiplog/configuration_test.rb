@@ -236,7 +236,8 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
     base = digest_config.render_digest
     [ { classes: { card: "other" } }, { stylesheet: false }, { roadmap_shipped_count: 2 }, { feedback_path: "/other" },
       { repository_labels: { "Acme/ios" => "iOS" } }, { extra_pages: [ { label: "News", path: "/n" } ] },
-      { cache_version: "2" }, { changelog_search: false } ].each do |change|
+      { cache_version: "2" }, { changelog_search: false }, { product_name: "Acme" },
+      { canonical_url: "https://trackberry.com" } ].each do |change|
       assert_not_equal base, digest_config(**change).render_digest, "expected #{change.inspect} to change the digest"
     end
   end
@@ -268,5 +269,45 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
     [ "/", "/news", "/news/archive?x=1#top", "https://example.com/news", "mailto:hi@example.com" ].each do |url|
       assert Shiplog::Configuration.safe_url?(url), url.inspect
     end
+  end
+
+  test "canonical_url defaults to nil" do
+    assert_nil Shiplog::Configuration.new.canonical_url
+  end
+
+  test "canonical_url accepts an http(s) origin, without a trailing slash" do
+    config = Shiplog::Configuration.new
+    {
+      "https://trackberry.com" => "https://trackberry.com",
+      "https://trackberry.com/" => "https://trackberry.com",
+      " http://localhost:3000 " => "http://localhost:3000",
+      "HTTPS://Track.Example.com" => "https://track.example.com"
+    }.each do |given, expected|
+      config.canonical_url = given
+      assert_equal expected, config.canonical_url, given
+    end
+    config.canonical_url = nil
+    assert_nil config.canonical_url
+    config.canonical_url = ""
+    assert_nil config.canonical_url
+  end
+
+  test "canonical_url rejects anything but an http(s) origin: no path, query, fragment or credentials" do
+    config = Shiplog::Configuration.new
+    [ "trackberry.com", "//trackberry.com", "ftp://trackberry.com", "javascript:alert(1)", "https://", "https://trackberry.com/blog",
+      "https://trackberry.com?x=1", "https://trackberry.com#top", "https://user:pw@trackberry.com", "https://track berry.com", 42 ].each do |value|
+      assert_raises(ArgumentError, value.inspect) { config.canonical_url = value }
+    end
+    assert_nil config.canonical_url
+  end
+
+  test "changelog_path must be one path segment of a-z, 0-9 and dashes" do
+    config = Shiplog::Configuration.new
+    config.changelog_path = "whats-new"
+    assert_equal "whats-new", config.changelog_path
+    [ "", "  ", nil, "/changelog", "changelog/", "a/b", "Changelog", "change log", "changelog.atom", "..", :changelog ].each do |value|
+      assert_raises(ArgumentError, value.inspect) { config.changelog_path = value }
+    end
+    assert_equal "whats-new", config.changelog_path
   end
 end

@@ -5,7 +5,7 @@ module Shiplog
       :rewriter, :product_name, :audience, :tone, :prompt_builder,
       :public_layout, :admin_layout,
       :stylesheet, :admin_flash, :authorize_admin, :current_admin,
-      :roadmap_path, :changelog_path
+      :roadmap_path
 
     ADMIN_CHROMES = %i[standalone hosted].freeze
     # Segments of only dots ("." and "..") are path traversal, not names.
@@ -15,6 +15,17 @@ module Shiplog
     attr_reader :repositories
     # Path of the lockfile read in merged pull requests to detect gem upgrades (see config.repositories `gem:`).
     attr_accessor :lockfile_path
+
+    # The public changelog's path: one segment of a-z, 0-9 and dashes, without slashes (permalinks live below
+    # it, and the Atom feed is "<path>.atom"). Read when routes are drawn.
+    attr_reader :changelog_path
+    CHANGELOG_PATH = /\A[a-z0-9-]+\z/
+
+    # The site's canonical origin, e.g. "https://trackberry.com" (nil by default). When set, the Atom feed's ids
+    # and links, entry links, og:url and the other absolute URLs use it instead of the request's host, which
+    # varies (apex and www, a forged X-Forwarded-Host). An origin only: scheme, host and optional port. Any path
+    # prefix of the engine's mount comes from the routes, so it needs no place here.
+    attr_reader :canonical_url
 
     attr_reader :admin_chrome, :classes, :public_parent_controller, :admin_parent_controller
 
@@ -51,7 +62,7 @@ module Shiplog
       stable = ->(value) { value.respond_to?(:call) ? "callable" : value }
       data = [
         classes.sort_by { |key, _| key.to_s }.map { |key, value| [ key.to_s, Array(value).map(&:to_s) ] },
-        stylesheet, roadmap_shipped_count, cache_version,
+        stylesheet, roadmap_shipped_count, cache_version, product_name, canonical_url,
         extra_pages.map { |page| [ stable.(page[:label]), stable.(page[:path]) ] },
         repository_labels.sort_by { |name, _| name.to_s }.map { |name, label| [ name, stable.(label) ] },
         stable.(feedback_path), changelog_search
@@ -103,6 +114,17 @@ module Shiplog
     def max_areas=(value)
       raise ArgumentError, "max_areas must be a non-negative Integer, got #{value.inspect}" unless value.is_a?(Integer) && value >= 0
       @max_areas = value
+    end
+
+    def changelog_path=(value)
+      unless value.is_a?(String) && CHANGELOG_PATH.match?(value)
+        raise ArgumentError, "changelog_path must be a single path segment of a-z, 0-9 and dashes (like \"changelog\"), got #{value.inspect}"
+      end
+      @changelog_path = value
+    end
+
+    def canonical_url=(value)
+      @canonical_url = normalize_canonical_url(value)
     end
 
     def on_changelog_seen=(value)
@@ -214,6 +236,22 @@ module Shiplog
     end
 
     private
+
+    def normalize_canonical_url(value)
+      return if value.nil? || (value.is_a?(String) && value.strip.empty?)
+      raise ArgumentError, "canonical_url must be a String like \"https://example.com\", got #{value.inspect}" unless value.is_a?(String)
+
+      uri = begin
+        URI.parse(value.strip)
+      rescue URI::InvalidURIError
+        nil
+      end
+      valid = uri.is_a?(URI::HTTP) && uri.host.present? && [ "", "/" ].include?(uri.path) && uri.query.nil? && uri.fragment.nil? && uri.userinfo.nil?
+      raise ArgumentError, "canonical_url must be an http(s) origin without path, query or credentials (\"https://example.com\"), got #{value.inspect}" unless valid
+
+      port = ":#{uri.port}" unless uri.port == uri.default_port
+      "#{uri.scheme}://#{uri.host.downcase}#{port}"
+    end
 
     def normalize_repositories(value)
       raise ArgumentError, "config.repositories must be an Array, got #{value.inspect}" unless value.is_a?(Array)

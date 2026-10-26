@@ -12,6 +12,25 @@ module Shiplog
       nil
     end
 
+    # The absolute URL of a named engine route: config.canonical_url plus the route's path (which carries the
+    # engine's mount prefix) when it is set, the request's own origin otherwise.
+    #   shiplog_absolute_url(:changelog_feed)  # => "https://trackberry.com/changelog.atom"
+    def shiplog_absolute_url(route, *args)
+      canonical = Shiplog.config.canonical_url
+      canonical ? "#{canonical}#{public_send("#{route}_path", *args)}" : public_send("#{route}_url", *args)
+    end
+
+    # The absolute URL of an entry's permalink page, or nil when it has no valid slug.
+    def shiplog_entry_url(entry)
+      shiplog_absolute_url(:changelog_entry, entry.slug) if shiplog_entry_path(entry)
+    end
+
+    # The authority of the feed's tag URIs: the canonical host, else the request's.
+    def shiplog_tag_host
+      canonical = Shiplog.config.canonical_url
+      canonical ? URI.parse(canonical).host : request.host
+    end
+
     # A link to an entry's permalink page, or the plain content in a span when it has none.
     def shiplog_entry_link(entry, name = nil, html_options = {}, &block)
       name, html_options = capture(&block), name || {} if block

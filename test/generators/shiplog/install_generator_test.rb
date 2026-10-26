@@ -50,6 +50,7 @@ class Shiplog::Generators::InstallGeneratorTest < Rails::Generators::TestCase
       assert_includes content, "content_for :shiplog_feed"
       assert_match(/^  # config\.max_areas = 8$/, content)
       assert_includes content, "Detect areas"
+      assert_match(/^  # config\.canonical_url = "https:\/\/example\.com"$/, content)
     end
   end
 

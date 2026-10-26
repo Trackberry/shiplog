@@ -1,5 +1,5 @@
 <% content_for :title, t("shiplog.changelog.title") %>
-<% content_for :shiplog_feed, auto_discovery_link_tag(:atom, changelog_feed_url, title: t("shiplog.feed.link_title", default: "Changelog (Atom)")) %>
+<% content_for :shiplog_feed, auto_discovery_link_tag(:atom, shiplog_absolute_url(:changelog_feed), title: t("shiplog.feed.link_title", default: "Changelog (Atom)")) %>
 <%= render layout: "shiplog/page", locals: { name: "changelog" } do %>
   <%= render "shiplog/page_header", title: t("shiplog.changelog.title"), lede: t("shiplog.changelog.lede") %>
   <% if @query %>

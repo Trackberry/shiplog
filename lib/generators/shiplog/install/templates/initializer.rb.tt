@@ -97,7 +97,12 @@ Shiplog.configure do |config|
 
   # Public paths, read when routes are drawn.
   # config.roadmap_path = "roadmap"
-  # config.changelog_path = "changelog"
+  # config.changelog_path = "changelog"   # one segment of a-z, 0-9 and dashes
+
+  # The site's canonical origin (scheme, host, optional port; no path). The Atom feed's ids and links, og:url
+  # and the other absolute URLs use it instead of the request's host, which varies (apex vs www, a forged
+  # X-Forwarded-Host). Behind a proxy, also set config.assume_ssl = true (or send X-Forwarded-Proto) in Rails.
+  # config.canonical_url = "https://example.com"
 
   # Pages added to the Roadmap / Changelog switcher. label and path are Strings, or callables evaluated in the
   # view (route helpers, I18n). Render the same switcher on your own pages with `helper Shiplog::SwitcherHelper`

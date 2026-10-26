@@ -1,7 +1,7 @@
 <% content_for :title, t("shiplog.permalink.title", title: @entry.title, changelog: t("shiplog.changelog.title", default: "Changelog"), default: "%{title} · %{changelog}") %>
 <% content_for :shiplog_description, shiplog_entry_description(@entry) %>
-<% content_for :shiplog_og, shiplog_og_tags(@entry, url: changelog_entry_url(@entry.slug)) %>
-<% content_for :shiplog_feed, auto_discovery_link_tag(:atom, changelog_feed_url, title: t("shiplog.feed.link_title", default: "Changelog (Atom)")) %>
+<% content_for :shiplog_og, shiplog_og_tags(@entry, url: shiplog_entry_url(@entry)) %>
+<% content_for :shiplog_feed, auto_discovery_link_tag(:atom, shiplog_absolute_url(:changelog_feed), title: t("shiplog.feed.link_title", default: "Changelog (Atom)")) %>
 <%= render layout: "shiplog/page", locals: { name: "permalink" } do %>
   <%= render "shiplog/page_header", title: t("shiplog.changelog.title", default: "Changelog"), lede: nil %>
   <article class="<%= shiplog_class(:permalink, @entry.kind) %>">

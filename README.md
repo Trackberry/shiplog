@@ -107,7 +107,8 @@ All settings live in `config/initializers/shiplog.rb`:
 | `authorize_admin` | `->(controller) { false }` | Admin check; return false for a 403. Denies everyone until set; the generated initializer opens it, relying on your route constraint. |
 | `current_admin` | `->(controller) { controller.try(:current_user)&.try(:email) }` | Stored as the approver of an entry. |
 | `roadmap_path` | `"roadmap"` | Path of the public roadmap. |
-| `changelog_path` | `"changelog"` | Path of the public changelog. |
+| `changelog_path` | `"changelog"` | Path of the public changelog: one segment of `a-z`, `0-9` and dashes (no slashes; anything else raises `ArgumentError`). Permalinks live below it and the feed is `<path>.atom`. |
+| `canonical_url` | `nil` | The site's canonical origin, e.g. `"https://trackberry.com"`. See [Canonical URL](#canonical-url). |
 | `extra_pages` | `[]` | Pages added to the switcher after Roadmap and Changelog: `[{ label:, path: }]`, each a String or a callable evaluated in the view. See [Product updates navigation](#product-updates-navigation). Anything else raises `ArgumentError`. |
 | `repository_labels` | `{}` | Tag shown on a roadmap card for the repository of its issue: `{ "owner/name" => "iPhone & iPad" }`. Values are Strings or callables evaluated in the view; repositories without one show no tag. |
 | `roadmap_shipped_count` | `4` | How many recently shipped changelog entries (features and changes) the roadmap lists below its columns. `0` hides the section. |
@@ -368,6 +369,18 @@ Every approved feature and change has its own page at `GET /changelog/:slug` (un
 `GET /changelog.atom` serves the latest 50 approved features and changes (newest first) as an Atom feed. An entry has a stable id (a tag URI built from the permalink path, so a title edit does not change it), its permalink, `published` (the release date), `updated`, and its body as HTML. All URLs are absolute. The feed is cached with an ETag like the pages and answers 304 on a match; it does not call `on_changelog_seen`.
 
 The changelog and permalink pages advertise it with a `<link rel="alternate" type="application/atom+xml">` (`content_for :shiplog_feed`, rendered by Shiplog's layout; render it in a host layout too, see above) and the changelog shows a visible "Subscribe (Atom)" link (the `footnote_link` key). The feed has an `<author>` (the product name, or "Changelog"), which RFC 4287 requires when entries carry none. The feed is titled "Changelog", or "<product_name> changelog" when `config.product_name` is set, and follows the request locale. Texts: `shiplog.feed.title_with_product`, `.link_title` and `.subscribe`.
+
+### Canonical URL
+
+By default the feed's ids and every absolute URL (the feed's self and alternate links, entry links, `og:url`, the feed discovery link) are built from the request's host, which varies: apex and `www`, or a forged `X-Forwarded-Host`. A feed reader treats a changed id as a new entry, so set the origin once:
+
+```ruby
+config.canonical_url = "https://trackberry.com"
+```
+
+It must be an `http(s)` origin: scheme, host and an optional port, no path, query or credentials (a trailing slash is dropped; anything else raises `ArgumentError`). A path prefix is not needed: if you mount the engine under one (`mount Shiplog::Engine => "/updates"`), the routes already add it, so the feed lives at `https://trackberry.com/updates/changelog.atom`. The feed's tag URIs use the canonical host. It is part of `render_digest`, so changing it refreshes cached pages, as does `product_name`. Leave it `nil` to keep the request's host.
+
+Behind a proxy or load balancer, the scheme of the URLs built from the request (when `canonical_url` is `nil`) comes from `X-Forwarded-Proto`: set `config.assume_ssl = true` in production (or have your proxy send the header), or the URLs say `http://`.
 
 ## What's new: the unseen count
 
