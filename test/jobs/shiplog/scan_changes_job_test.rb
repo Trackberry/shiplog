@@ -55,6 +55,25 @@ class Shiplog::ScanChangesJobTest < ActiveJob::TestCase
     assert_not repository.commits.find_by!(sha: "c" * 40).entries.exists?
   end
 
+  test "a bot's gem upgrade gets one change entry dated at its merge, and the gem repository drafts none of its own" do
+    Shiplog.config.repositories = [ "Acme/widgets", { name: "Acme/gadgets", changelog: false, gem: "gadgets" } ]
+    host = Shiplog::Repository.create!(full_name: "Acme/widgets", changes_scanned_at: Time.utc(2026, 10, 1))
+    gem_repo = Shiplog::Repository.create!(full_name: "Acme/gadgets", changes_scanned_at: Time.utc(2026, 10, 1))
+    bump = host.pull_requests.create!(node_id: "PR_bump", number: 7, title: "chore(deps): Bump gadgets from 1.0 to 1.1", state: "merged",
+      merged_at: Time.utc(2026, 10, 18, 9), author_login: "dependabot[bot]", labels: [ "dependencies" ], github_updated_at: Time.utc(2026, 10, 18))
+    Shiplog::PullRequestUpgrade.create!(pull_request: bump, gem_name: "gadgets", from_ref: "v1.0", to_ref: "v1.1", gem_repository: "Acme/gadgets",
+      gem_changes: [ { "number" => 3, "title" => "Faster gadgets", "body_excerpt" => "", "url" => "u" } ])
+    gem_repo.pull_requests.create!(node_id: "PR_gadgets_3", number: 3, title: "Faster gadgets", state: "merged", merged_at: Time.utc(2026, 10, 10),
+      author_login: "ed", labels: [], github_updated_at: Time.utc(2026, 10, 10))
+
+    Shiplog::ScanChangesJob.perform_now
+
+    entry = bump.entries.find_by!(kind: "change")
+    assert_equal Date.new(2026, 10, 18), entry.released_on
+    assert_equal 0, Shiplog::Entry.change.where(subject: gem_repo.pull_requests).count
+    assert_equal 1, Shiplog::Entry.change.where(subject_type: "Shiplog::PullRequest", subject_id: host.pull_requests.select(:id)).count
+  end
+
   test "a changelog: false repository is synced but never drafts changes" do
     Shiplog.config.repositories = [ { name: "Acme/widgets", changelog: false } ]
     repository = Shiplog::Repository.create!(full_name: "Acme/widgets", changes_scanned_at: Time.utc(2026, 10, 1))

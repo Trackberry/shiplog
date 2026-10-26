@@ -50,6 +50,25 @@ class Shiplog::ChangeCandidatesTest < ActiveSupport::TestCase
     assert_equal [ fix, untyped ], candidates & [ ci, chore, fix, untyped ]
   end
 
+  def upgrade(pull_request, changes: [ { "number" => 38, "title" => "Fix annotations", "body_excerpt" => "x", "url" => "u" } ], gem_name: "market_data")
+    Shiplog::PullRequestUpgrade.create!(pull_request:, gem_name:, from_ref: "0.2.1", to_ref: "0.2.2", gem_repository: "Trackberry/market_data", gem_changes: changes)
+  end
+
+  test "a pull request with a tracked upgrade is a candidate despite bot author, chore type and dependencies label" do
+    bump = pull_request(80, title: "chore(deps): Bump market_data from 0.2.1 to 0.2.2", author_login: "dependabot[bot]", labels: [ "dependencies" ])
+    upgrade(bump)
+
+    assert_includes candidates, bump
+  end
+
+  test "bots, chore types and excluded labels are still excluded without an upgrade" do
+    plain = pull_request(81, title: "chore(deps): Bump rails", author_login: "dependabot[bot]", labels: [ "dependencies" ])
+    empty = pull_request(82, title: "chore(deps): Bump seaports", author_login: "dependabot[bot]", labels: [ "dependencies" ])
+    upgrade(empty, changes: [])
+
+    assert_empty candidates & [ plain, empty ]
+  end
+
   test "keeps PR titles that only start with a topic, not a conventional type" do
     topic = pull_request(61, title: "Importers: merge keys across exporters")
     scoped = pull_request(62, title: "Callao: read manifests whole")

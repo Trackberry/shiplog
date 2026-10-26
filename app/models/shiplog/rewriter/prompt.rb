@@ -49,6 +49,7 @@ module Shiplog
       private
         def context
           @context ||= { title: clean(@subject.title, MAX_ITEM_CHARS), body: clean(@subject.body, MAX_BODY_CHARS) }.tap do |data|
+            data[:upgrades] = upgrades if upgrades.any?
             next unless @entry.feature?
 
             data[:sections] = IssueForm.parse(@subject.body).compact.transform_values { |text| clean(text, MAX_BODY_CHARS) }
@@ -65,9 +66,27 @@ module Shiplog
         def render_context
           lines = [ "Title: #{context[:title]}", "Description: #{context[:body]}" ]
           context[:sections]&.each { |name, text| lines << "#{name.humanize}: #{text}" }
+          context[:upgrades]&.each { |upgrade| lines.concat(upgrade_lines(upgrade)) }
           lines << "Sub-issues: #{context[:child_issues].join('; ')}" if context[:child_issues].present?
           lines << "Pull requests: #{context[:pull_requests].join('; ')}" if context[:pull_requests].present?
           lines.join("\n")
+        end
+
+        # What a gem upgrade brings, for a pull request that upgraded a tracked gem; only upgrades with changes.
+        def upgrades
+          return [] unless @subject.is_a?(PullRequest)
+
+          @upgrades ||= @subject.upgrades.order(:gem_name).filter_map do |upgrade|
+            changes = upgrade.gem_changes.first(MAX_LIST_ITEMS).map do |change|
+              { number: change["number"], title: clean(change["title"], MAX_ITEM_CHARS), excerpt: clean(change["body_excerpt"], MAX_ITEM_CHARS) }
+            end
+            { gem: clean(upgrade.gem_name, MAX_ITEM_CHARS), from: clean(upgrade.from_ref, MAX_ITEM_CHARS), to: clean(upgrade.to_ref, MAX_ITEM_CHARS), changes: } if changes.any?
+          end
+        end
+
+        def upgrade_lines(upgrade)
+          [ "This update to #{upgrade[:gem]} (#{upgrade[:from]} → #{upgrade[:to]}) includes these changes:",
+            *upgrade[:changes].map { |change| "- ##{change[:number]} #{change[:title]}: #{change[:excerpt]}" } ]
         end
 
         def children = @children ||= @subject.descendants

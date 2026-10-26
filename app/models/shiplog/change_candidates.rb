@@ -16,9 +16,21 @@ module Shiplog
     private
       def pull_requests
         candidates = @repository.pull_requests.where(state: "merged", merged_at: @window).where.missing(:entries).to_a
-          .reject { |pull_request| excluded_label?(pull_request) || excluded_type?(pull_request) || Shiplog.config.excluded_author?(pull_request.author_login) }
+        upgrade_ids = ids_with_upgrades(candidates)
+        candidates = candidates.reject do |pull_request|
+          next false if upgrade_ids.include?(pull_request.id)
+
+          excluded_label?(pull_request) || excluded_type?(pull_request) || Shiplog.config.excluded_author?(pull_request.author_login)
+        end
         public_ids = pull_request_ids_in_public_tree(candidates)
         candidates.reject { |pull_request| public_ids.include?(pull_request.node_id) }
+      end
+
+      # A pull request that upgrades a tracked gem with customer-visible changes is how customers receive them,
+      # so a Dependabot author, a chore(deps) title or a dependencies label does not exclude it.
+      def ids_with_upgrades(pull_requests)
+        PullRequestUpgrade.where(pull_request_id: pull_requests.map(&:id)).where("jsonb_array_length(gem_changes) > 0")
+          .distinct.pluck(:pull_request_id).to_set
       end
 
       def commits
