@@ -1,4 +1,8 @@
 en:
+  activerecord:
+    attributes:
+      shiplog/entry:
+        changelog_kind: Category
   shiplog:
     columns:
       in_progress: In progress

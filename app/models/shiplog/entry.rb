@@ -11,7 +11,7 @@ module Shiplog
 
     validates :released_on, presence: true, if: -> { approved? && !roadmap? }
     validate :kind_change_allowed, on: :update
-    validates :kind, uniqueness: { scope: %i[subject_type subject_id] }, on: :update, if: :will_save_change_to_kind?
+    validate :kind_free_for_subject, on: :update
 
     def changelog_kind = kind
 
@@ -46,6 +46,12 @@ module Shiplog
     end
 
     private
+
+    def kind_free_for_subject
+      return unless will_save_change_to_kind? && self.class.where(subject_type:, subject_id:, kind:).where.not(id:).exists?
+
+      errors.add(:changelog_kind, :taken)
+    end
 
     def kind_change_allowed
       return unless will_save_change_to_kind?

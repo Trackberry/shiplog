@@ -126,6 +126,6 @@ class Shiplog::EntryTest < ActiveSupport::TestCase
     entry = shiplog_entries(:csv_change_draft)
     Shiplog::Entry.create!(kind: "feature", subject: entry.subject, title: "Other")
     assert_not entry.update(changelog_kind: "feature")
-    assert entry.errors.of_kind?(:kind, :taken)
+    assert entry.errors.of_kind?(:changelog_kind, :taken)
   end
 end

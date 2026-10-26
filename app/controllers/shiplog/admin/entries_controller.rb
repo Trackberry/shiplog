@@ -28,6 +28,10 @@ module Shiplog
         else
           render :edit, status: :unprocessable_content
         end
+      rescue ActiveRecord::RecordNotUnique
+        # Two concurrent kind switches can both pass the validation; the unique index has the last word.
+        @entry.errors.add(:changelog_kind, :taken)
+        render :edit, status: :unprocessable_content
       end
 
       private

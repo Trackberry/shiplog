@@ -186,8 +186,20 @@ class Shiplog::Admin::EntriesControllerTest < ActionDispatch::IntegrationTest
     Shiplog::Entry.create!(kind: "feature", subject: entry.subject, title: "Other")
     patch "/admin/shiplog/entries/#{entry.id}", params: { entry: { changelog_kind: "feature" } }
     assert_response :unprocessable_content
-    assert_select "[role=alert]", text: /Kind has already been taken/
+    assert_select "[role=alert]", text: /Category has already been taken/
     assert_equal "change", entry.reload.kind
+  end
+
+  test "update shows the same error when the database unique index is hit by a race" do
+    entry = shiplog_entries(:csv_change_draft)
+    racer = Module.new { def save(*) = raise(ActiveRecord::RecordNotUnique, "UNIQUE constraint failed") }
+    Shiplog::Entry.prepend(racer)
+    patch "/admin/shiplog/entries/#{entry.id}", params: { entry: { changelog_kind: "feature" } }
+    assert_response :unprocessable_content
+    assert_select "[role=alert]", text: /Category has already been taken/
+    assert_select ".field_with_errors select[name='entry[changelog_kind]']"
+  ensure
+    racer.send(:remove_method, :save)
   end
 
   test "the edit page offers the category only for features and changes" do
