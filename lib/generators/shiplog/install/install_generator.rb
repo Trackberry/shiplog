@@ -17,6 +17,8 @@ module Shiplog
         page_header: "mb-8",
         page_title: "text-3xl font-semibold tracking-tight",
         page_lede: "mt-2 text-gray-600 dark:text-gray-400",
+        switcher: "mt-6 inline-flex gap-1 rounded-full bg-gray-100 p-1 text-sm font-medium dark:bg-gray-900",
+        switcher_link: "rounded-full px-4 py-1.5 text-gray-600 transition-colors hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 aria-[current=page]:bg-white aria-[current=page]:text-gray-900 aria-[current=page]:shadow-sm dark:text-gray-400 dark:hover:text-white dark:aria-[current=page]:bg-gray-700 dark:aria-[current=page]:text-white",
         columns: "grid gap-6 md:grid-cols-3",
         column: "rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-900/50",
         column_header: "mb-4 border-b border-gray-200 pb-3 dark:border-gray-800",

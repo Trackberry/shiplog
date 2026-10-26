@@ -7,6 +7,8 @@ module Shiplog
       page_header: "shiplog-page__header",
       page_title: "shiplog-page__title",
       page_lede: "shiplog-page__lede",
+      switcher: "shiplog-switcher",
+      switcher_link: "shiplog-switcher__link",
       columns: "shiplog-columns",
       column: "shiplog-column",
       column_header: "shiplog-column__header",

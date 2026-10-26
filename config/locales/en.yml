@@ -19,6 +19,10 @@ en:
     roadmap:
       title: Roadmap
       lede: What we're working on and what comes next.
+    switcher:
+      label: Product updates
+      roadmap: Roadmap
+      changelog: Changelog
     changelog:
       title: Changelog
       lede: New features and improvements, as they ship.

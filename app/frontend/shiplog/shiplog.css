@@ -67,6 +67,37 @@
   .shiplog-page__title { font-size: 1.875rem; line-height: 1.2; margin: 0; }
   .shiplog-page__lede { color: var(--sl-muted); margin: 0.5rem 0 0; }
 
+  /* Switcher: Roadmap / Changelog / host pages. It can sit outside .shiplog-page (host pages), so it
+     falls back to the host-safe palette when the page variables are not inherited. */
+  .shiplog-switcher {
+    --sw-border: var(--sl-border, var(--shiplog-border, color-mix(in srgb, currentColor 22%, transparent)));
+    --sw-card: var(--sl-card, var(--shiplog-card, color-mix(in srgb, currentColor 5%, transparent)));
+    --sw-muted: var(--sl-muted, var(--shiplog-muted, color-mix(in srgb, currentColor 65%, transparent)));
+    --sw-accent: var(--sl-accent, var(--shiplog-accent, #2f81f7));
+    background: var(--sw-card);
+    border: 1px solid var(--sw-border);
+    border-radius: 999px;
+    display: inline-flex;
+    flex-wrap: wrap;
+    font-size: 0.875rem;
+    font-weight: 500;
+    gap: 0.25rem;
+    margin-top: var(--sl-space, 1rem);
+    padding: 0.25rem;
+  }
+  .shiplog-switcher__link {
+    border-radius: 999px;
+    color: var(--sw-muted);
+    padding: 0.25rem 1rem;
+    text-decoration: none;
+    transition: background-color 0.15s, color 0.15s;
+  }
+  .shiplog-switcher__link:hover { color: inherit; }
+  .shiplog-switcher__link:focus-visible { outline: 2px solid var(--sw-accent); outline-offset: 2px; }
+  .shiplog-switcher__link--current,
+  .shiplog-switcher__link--current:hover { background: var(--sw-accent); color: #fff; }
+  @media (prefers-reduced-motion: reduce) { .shiplog-switcher__link { transition: none; } }
+
   .shiplog-empty,
   .shiplog-column__empty { color: var(--sl-muted); margin: 0; }
 

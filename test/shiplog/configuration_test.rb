@@ -20,6 +20,27 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
     assert_equal :standalone, config.admin_chrome
     assert_equal true, config.admin_flash
     assert_not config.authorize_admin.call(Object.new)
+    assert_equal [], config.extra_pages
+  end
+
+  test "extra_pages accepts Strings and callables for label and path, and string keys" do
+    config = Shiplog::Configuration.new
+    config.extra_pages = [ { label: "News", path: "/learn/news" }, { "label" => -> { "Docs" }, "path" => -> { "/docs" } } ]
+
+    assert_equal %i[label path], config.extra_pages.first.keys
+    assert_equal %i[label path], config.extra_pages.last.keys
+    assert config.extra_pages.frozen?
+    config.extra_pages = nil
+    assert_equal [], config.extra_pages
+  end
+
+  test "extra_pages rejects anything but an Array of { label:, path: } Hashes" do
+    config = Shiplog::Configuration.new
+    [ "News", [ "News" ], [ { label: "News" } ], [ { label: "News", path: "/n", extra: 1 } ],
+      [ { label: 1, path: "/n" } ], [ { label: "News", path: nil } ], [ { label: "", path: "/n" } ] ].each do |value|
+      assert_raises(ArgumentError, "expected #{value.inspect} to raise") { config.extra_pages = value }
+    end
+    assert_equal [], config.extra_pages
   end
 
   test "github_token accepts a string or a callable" do

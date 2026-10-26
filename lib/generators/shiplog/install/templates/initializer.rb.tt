@@ -98,4 +98,9 @@ Shiplog.configure do |config|
   # Public paths, read when routes are drawn.
   # config.roadmap_path = "roadmap"
   # config.changelog_path = "changelog"
+
+  # Pages added to the Roadmap / Changelog switcher. label and path are Strings, or callables evaluated in the
+  # view (route helpers, I18n). Render the same switcher on your own pages with `helper Shiplog::SwitcherHelper`
+  # and `<%%= shiplog_switcher %>`.
+  # config.extra_pages = [ { label: "News", path: -> { main_app.news_path } } ]
 end

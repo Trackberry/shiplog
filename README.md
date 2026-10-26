@@ -108,6 +108,7 @@ All settings live in `config/initializers/shiplog.rb`:
 | `current_admin` | `->(controller) { controller.try(:current_user)&.try(:email) }` | Stored as the approver of an entry. |
 | `roadmap_path` | `"roadmap"` | Path of the public roadmap. |
 | `changelog_path` | `"changelog"` | Path of the public changelog. |
+| `extra_pages` | `[]` | Pages added to the switcher after Roadmap and Changelog: `[{ label:, path: }]`, each a String or a callable evaluated in the view. See [Product updates navigation](#product-updates-navigation). Anything else raises `ArgumentError`. |
 
 Example:
 
@@ -267,6 +268,32 @@ Approved changelog entries do not react to later GitHub changes (a reverted pull
 
 Drafts whose rewrite job was lost (no result and no error after an hour) are queued again by the next sync, and the admin marks them "Not rewritten yet" until then.
 
+## Product updates navigation
+
+The default page header shows a switcher under the lede: **Roadmap**, **Changelog**, then `config.extra_pages`. The current page carries `aria-current="page"` (an extra page is current when the request path is, or is below, its path). Add your own pages, for example a news section:
+
+```ruby
+config.extra_pages = [
+  { label: "News", path: "/learn/news" },
+  # Callables are evaluated in the view, so route helpers and I18n work:
+  { label: -> { t("pages.docs") }, path: -> { main_app.docs_path } }
+]
+```
+
+To show the same switcher on your own pages, add the helper to the controller and call it in the view. It links the stylesheet (unless `config.stylesheet` is `false`) and only uses the `shiplog` route proxy, so it works in main-app views:
+
+```ruby
+class NewsController < ApplicationController
+  helper Shiplog::SwitcherHelper
+end
+```
+
+```erb
+<%= shiplog_switcher %>
+```
+
+Labels come from `shiplog.switcher.roadmap`, `.changelog` and `.label` (the `nav` label). Style it with the `switcher` and `switcher_link` keys of [`config.classes`](#3-configclasses-tailwind-and-other-utility-frameworks); the current link also has `shiplog-switcher__link--current`. Hosts that override `shiplog/_page_header` keep their own header; render `shiplog_switcher` or the `shiplog/switcher` partial in it to get the links.
+
 ## Styling
 
 The public pages ship plain semantic HTML with stable [BEM](https://getbem.com) classes (`shiplog-card`, `shiplog-entry__title`, ...) and a small, framework-free stylesheet. Pick the level that fits your app; the same views work in all of them.
@@ -341,6 +368,8 @@ Without it, `shiplog` is first seen when `shiplog.css` loads, which can put it a
 | `page_header` | `shiplog-page__header` | Header with title and lede |
 | `page_title` | `shiplog-page__title` | `h1` |
 | `page_lede` | `shiplog-page__lede` | Intro paragraph |
+| `switcher` | `shiplog-switcher` | Switcher `nav` (Roadmap, Changelog, extra pages) |
+| `switcher_link` | `shiplog-switcher__link` (+ `--current`) | One switcher link |
 | `columns` | `shiplog-columns` | Roadmap column grid |
 | `column` | `shiplog-column` (+ `--in-progress` / `--coming-soon` / `--later`) | One roadmap column |
 | `column_header` | `shiplog-column__header` | Column heading block |
@@ -366,13 +395,14 @@ Without it, `shiplog` is first seen when `shiplog.css` loads, which can put it a
 | `pagination_link` | `shiplog-pagination__link` (+ `--newer` / `--older`) | Newer/older links |
 | `empty` | `shiplog-empty` | "Nothing here yet" notice |
 
-Values may be strings or arrays. The list is `Shiplog::Classes::KEYS`; assigning `config.classes` raises `ArgumentError` (listing the valid keys) for any other key, in every environment. String keys are accepted and normalised to symbols, and the hash is stored frozen. Texts come from I18n (`shiplog.roadmap.title`, `shiplog.roadmap.lede`, `shiplog.changelog.*`, `shiplog.categories.feature` / `change`, `shiplog.date_format` (default `%-d %B %Y`, used for entry dates), `shiplog.columns.<column>_description`), so override them in your locale files.
+Values may be strings or arrays. The list is `Shiplog::Classes::KEYS`; assigning `config.classes` raises `ArgumentError` (listing the valid keys) for any other key, in every environment. String keys are accepted and normalised to symbols, and the hash is stored frozen. Texts come from I18n (`shiplog.roadmap.title`, `shiplog.roadmap.lede`, `shiplog.switcher.*`, `shiplog.changelog.*`, `shiplog.categories.feature` / `change`, `shiplog.date_format` (default `%-d %B %Y`, used for entry dates), `shiplog.columns.<column>_description`), so override them in your locale files.
 
 ### 4. Override the partials
 
 Copy any view from the engine's `app/views/shiplog/` into your app with the same path and edit it. Each partial documents its locals in a comment on its first lines:
 
 - `shiplog/_page.html.erb`, `shiplog/_page_header.html.erb`, `shiplog/_pagination.html.erb`, `shiplog/_empty.html.erb`
+- `shiplog/_switcher.html.erb`
 - `shiplog/roadmaps/_column.html.erb`, `shiplog/roadmaps/_card.html.erb`
 - `shiplog/changelogs/_month.html.erb`, `shiplog/changelogs/_entry.html.erb`
 

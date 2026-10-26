@@ -16,6 +16,30 @@ module Shiplog
 
     attr_reader :admin_chrome, :classes, :public_parent_controller, :admin_parent_controller
 
+    # Product updates navigation.
+    attr_reader :extra_pages
+
+    EXTRA_PAGE_KEYS = %i[label path].freeze
+
+    # Pages added to the switcher after Roadmap and Changelog: [{ label:, path: }]. Each is a String, or a callable
+    # evaluated in the view (instance_exec), e.g. `path: -> { main_app.news_path }`.
+    def extra_pages=(value)
+      raise ArgumentError, "extra_pages must be an Array of { label:, path: } Hashes, got #{value.inspect}" unless value.nil? || value.is_a?(Array)
+      pages = (value || []).map do |page|
+        raise ArgumentError, "Each extra page must be a Hash with :label and :path, got #{page.inspect}" unless page.is_a?(Hash)
+        page = page.to_h.transform_keys { |key| key.to_s.to_sym }
+        unless page.keys.sort == EXTRA_PAGE_KEYS
+          raise ArgumentError, "An extra page needs exactly the keys :label and :path, got #{page.keys.inspect}"
+        end
+        page.each do |key, item|
+          valid = item.respond_to?(:call) || (item.is_a?(String) && item.present?)
+          raise ArgumentError, "Extra page #{key} must be a non-empty String or a callable, got #{item.inspect}" unless valid
+        end
+        { label: page[:label], path: page[:path] }.freeze
+      end
+      @extra_pages = pages.freeze
+    end
+
     # :standalone (default) wraps the admin in Shiplog's own page chrome; :hosted renders it inside the
     # layout of config.admin_layout (compact sub-nav, no page chrome of its own).
     def admin_chrome=(value)
@@ -78,6 +102,7 @@ module Shiplog
       @current_admin = ->(controller) { controller.try(:current_user)&.try(:email) }
       @roadmap_path = "roadmap"
       @changelog_path = "changelog"
+      @extra_pages = [].freeze
     end
 
     def resolved_github_token
