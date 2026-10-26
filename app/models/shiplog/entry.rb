@@ -91,6 +91,30 @@ module Shiplog
       published_changelog.where(slug: nil).order(:released_on, :approved_at, :id).to_a.count { |entry| entry.ensure_slug!.present? }
     end
 
+    # Approved entries with no current translation into `locale`: none at all, or one made from older English text
+    # (compared with the SQL twin of the digest, in one query).
+    def self.missing_translation(locale)
+      translations = EntryTranslation.table_name
+      current = EntryTranslation.where(locale: locale.to_s).where("#{translations}.entry_id = #{table_name}.id")
+        .where("#{translations}.source_digest = #{TRANSLATION_DIGEST_SQL}")
+      approved.where("NOT EXISTS (#{current.select(1).to_sql})")
+    end
+
+    # Enqueues a TranslateEntryJob for every approved entry and configured locale that has no current translation,
+    # reading the entries in batches. Repeating it is harmless: the job itself skips a translation that is current.
+    # Returns { approved: how many approved entries, enqueued: { locale => how many jobs } }.
+    def self.enqueue_missing_translations(batch_size: 100)
+      enqueued = Shiplog.config.locales.index_with do |locale|
+        count = 0
+        missing_translation(locale).find_each(batch_size:) do |entry|
+          TranslateEntryJob.perform_later(entry, locale.to_s)
+          count += 1
+        end
+        count
+      end
+      { approved: approved.count, enqueued: }
+    end
+
     # Whether the entry has a slug the permalink route accepts. Entries without one (approved by older code) or
     # with a stray one render without a link rather than raising.
     def permalink?
