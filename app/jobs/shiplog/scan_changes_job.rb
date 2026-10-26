@@ -12,10 +12,12 @@ module Shiplog
     private
       def scan(repository, client)
         since = repository.changes_scanned_at || DEFAULT_WINDOW.ago
-        window_end = Time.current
+        started_at = Time.current
+        # Import late-synced PRs first so anything merged before `started_at` is visible to the scan.
+        Sync::RepositorySync.new(repository, client:).call
         Sync::CommitScanner.new(repository, client:).call(since:)
-        draft_changes(ChangeCandidates.new(repository:, since:, until: window_end).to_a)
-        repository.update!(changes_scanned_at: window_end)
+        draft_changes(ChangeCandidates.new(repository:, since:, before: started_at).to_a)
+        repository.update!(changes_scanned_at: started_at)
       rescue Github::RateLimited
         raise
       rescue StandardError => error

@@ -94,7 +94,114 @@ class Shiplog::RewriterTest < ActiveSupport::TestCase
     entry = shiplog_entries(:bulk_upload_roadmap)
 
     assert_equal "Upload many shipments at once", rewrite(entry, reply).title
-    assert_equal "T", rewrite(entry, reply, force: true).title
     assert entry.approved?
+  end
+
+  test "forced regeneration of an approved entry applies the text and returns it to draft" do
+    entry = rewrite(shiplog_entries(:bulk_upload_roadmap), reply, force: true)
+
+    assert_equal "T", entry.title
+    assert entry.draft?
+    assert_nil entry.approved_at
+    assert_nil entry.approved_by
+  end
+
+  test "a non-forced rewrite never overwrites an entry approved during the LLM call" do
+    entry = shiplog_entries(:csv_change_draft)
+    original = entry.title
+    Shiplog.config.rewriter = lambda do |_prompt|
+      Shiplog::Entry.find(entry.id).approve!(by: "ed")
+      reply
+    end
+
+    returned = Shiplog::Rewriter.new(entry).call
+
+    assert_same entry, returned
+    entry.reload
+    assert entry.approved?
+    assert_equal original, entry.title
+  end
+
+  test "auto-discard never discards an entry approved during the LLM call" do
+    entry = shiplog_entries(:csv_change_draft)
+    Shiplog.config.rewriter = lambda do |_prompt|
+      Shiplog::Entry.find(entry.id).approve!(by: "ed")
+      reply(customer_facing: false)
+    end
+
+    Shiplog::Rewriter.new(entry).call(force: true)
+
+    assert_not entry.reload.discarded?
+  end
+
+  test "call returns the entry on every path" do
+    entry = shiplog_entries(:csv_change_draft)
+    Shiplog.config.rewriter = ->(_prompt) { reply }
+    assert_same entry, Shiplog::Rewriter.new(entry).call
+    Shiplog.config.rewriter = ->(_prompt) { "nope" }
+    assert_same entry, Shiplog::Rewriter.new(entry).call
+    Shiplog.config.rewriter = ->(_prompt) { raise "down" }
+    assert_same entry, Shiplog::Rewriter.new(entry).call
+    assert_same shiplog_entries(:bulk_upload_roadmap), Shiplog::Rewriter.new(shiplog_entries(:bulk_upload_roadmap)).call
+  end
+
+  test "takes the first valid object when the reply contains several" do
+    entry = rewrite(shiplog_entries(:csv_change_draft), '{"foo":1} then {"title":"First","body":"B"} and {"title":"Second"}')
+
+    assert_equal "First", entry.title
+  end
+
+  test "handles nested braces and braces inside strings" do
+    entry = rewrite(shiplog_entries(:csv_change_draft), '{"title":"Use {curly} \\"quotes\\"","body":"a } b","meta":{"x":{"y":1}}}')
+
+    assert_equal 'Use {curly} "quotes"', entry.title
+    assert_equal "a } b", entry.body
+  end
+
+  test "ignores prose with braces after the JSON" do
+    entry = rewrite(shiplog_entries(:csv_change_draft), '{"title":"T","body":"B"} Note: use {placeholders} like } this {')
+
+    assert_equal "T", entry.title
+    assert_nil entry.rewrite_error
+  end
+
+  test "treats a missing customer_facing as true" do
+    entry = rewrite(shiplog_entries(:csv_change_draft), '{"title":"T","body":"B"}')
+
+    assert entry.draft?
+    assert_nil entry.rewrite_error
+  end
+
+  test "rejects invalid field types" do
+    [ '{"title":"","body":"B"}', '{"title":"   ","body":"B"}', '{"title":5}', '{"title":"T","body":5}', '{"title":"T","customer_facing":"yes"}' ].each do |text|
+      entry = rewrite(shiplog_entries(:csv_change_draft), text)
+
+      assert_equal "Could not parse rewriter output", entry.rewrite_error, text
+      assert_equal "Better CSV validation", entry.title
+    end
+  end
+
+  test "accepts a null body" do
+    entry = rewrite(shiplog_entries(:csv_change_draft), '{"title":"T","body":null}')
+
+    assert_equal "", entry.body.to_s
+    assert_nil entry.rewrite_error
+  end
+
+  test "strips control characters and squishes the title" do
+    entry = rewrite(shiplog_entries(:csv_change_draft), { title: "  A\u0000 \u0007b\n  c ", body: "line1\u0000\nline2\u001b" }.to_json)
+
+    assert_equal "A b c", entry.title
+    assert_equal "line1\nline2", entry.body
+  end
+
+  test "truncates long titles and bodies on a word boundary" do
+    entry = rewrite(shiplog_entries(:csv_change_draft), { title: "word " * 60, body: "sentence " * 400 }.to_json)
+
+    assert_operator entry.title.length, :<=, 120
+    assert entry.title.end_with?("…")
+    assert_operator entry.body.length, :<=, 2000
+    assert entry.body.end_with?("…")
+    assert_nil entry.rewrite_error
   end
 end

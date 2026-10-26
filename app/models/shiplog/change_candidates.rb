@@ -2,9 +2,9 @@ module Shiplog
   class ChangeCandidates
     COMMIT_TYPE = /\A(\w+)(\([^)]*\))?!?:/
 
-    def initialize(repository:, since:, until:)
+    def initialize(repository:, since:, before:)
       @repository = repository
-      @window = since...binding.local_variable_get(:until)
+      @window = since...before
     end
 
     def to_a

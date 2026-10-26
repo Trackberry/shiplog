@@ -2,12 +2,12 @@ require "test_helper"
 
 class Shiplog::ChangeCandidatesTest < ActiveSupport::TestCase
   SINCE = Time.utc(2026, 10, 1)
-  UNTIL = Time.utc(2026, 10, 20)
+  BEFORE = Time.utc(2026, 10, 20)
 
   setup { @repository = shiplog_repositories(:app) }
 
-  def candidates(since: SINCE, until_time: UNTIL)
-    Shiplog::ChangeCandidates.new(repository: @repository, since:, until: until_time).to_a
+  def candidates(since: SINCE, before: BEFORE)
+    Shiplog::ChangeCandidates.new(repository: @repository, since:, before:).to_a
   end
 
   def pull_request(number, **attributes)
@@ -96,7 +96,7 @@ class Shiplog::ChangeCandidatesTest < ActiveSupport::TestCase
   end
 
   test "includes commits with conventional types and excludes others" do
-    kept = [ commit("a", "feat: add x"), commit("b", "fix(scope): y"), commit("c", "perf!: z") ]
+    kept = [ commit("a", "feat: add x"), commit("b", "fix(scope): y"), commit("c", "perf!: z"), commit("g", "feat!: breaking"), commit("h", "feat(api)!: breaking scoped") ]
     dropped = [ commit("d", "chore: bump"), commit("e", "test: add"), commit("f", "plain message") ]
 
     result = candidates

@@ -26,7 +26,10 @@ module Shiplog
     end
 
     def reject_oversized_body
-      head :content_too_large if request.content_length.to_i > MAX_BODY_BYTES
+      return head :content_too_large if request.content_length.to_i > MAX_BODY_BYTES
+
+      # Content-Length may be absent (chunked) or wrong; check what was actually received.
+      head :content_too_large if request.raw_post.bytesize > MAX_BODY_BYTES
     end
 
     def require_secret
@@ -49,6 +52,7 @@ module Shiplog
       nil
     end
 
+    # Returns the delivery to process: a new one, or an earlier one that failed (error, never processed).
     def record_delivery(event, payload)
       WebhookDelivery.create!(
         delivery_id: request.headers["X-GitHub-Delivery"].to_s,
@@ -58,7 +62,14 @@ module Shiplog
         received_at: Time.current
       )
     rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid
-      nil
+      retry_failed_delivery
+    end
+
+    # Claims atomically (clearing the error) so concurrent redeliveries do not both reprocess.
+    def retry_failed_delivery
+      failed = WebhookDelivery.where(delivery_id: request.headers["X-GitHub-Delivery"].to_s, processed_at: nil).where.not(error: nil)
+      delivery = failed.first
+      delivery if delivery && failed.where(id: delivery.id).update_all(error: nil, updated_at: Time.current) == 1
     end
 
     def enqueue_refreshes(delivery, event, payload)

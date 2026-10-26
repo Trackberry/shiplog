@@ -105,6 +105,18 @@ class Shiplog::WebhooksControllerTest < ActionDispatch::IntegrationTest
     assert_equal 1, Shiplog::WebhookDelivery.where(delivery_id: "d-2").count
   end
 
+  test "redelivery of a failed delivery is reprocessed" do
+    Shiplog::WebhookDelivery.create!(delivery_id: "d-4", event: "issues", received_at: Time.current, error: "RuntimeError: queue down")
+    deliver "issues", { action: "opened", issue: { number: 7 }, repository: { full_name: "o/r" } }, id: "d-4"
+
+    assert_response :accepted
+    assert_equal [ [ "o/r", "issue", 7 ] ], enqueued_refreshes
+    delivery = Shiplog::WebhookDelivery.find_by!(delivery_id: "d-4")
+    assert delivery.processed_at
+    assert_nil delivery.error
+    assert_equal 1, Shiplog::WebhookDelivery.where(delivery_id: "d-4").count
+  end
+
   test "bad signature is rejected and nothing is recorded" do
     deliver "issues", { action: "opened", issue: { number: 7 }, repository: { full_name: "o/r" } }, secret: "wrong"
 
@@ -146,6 +158,21 @@ class Shiplog::WebhooksControllerTest < ActionDispatch::IntegrationTest
       "CONTENT_TYPE" => "application/json", "CONTENT_LENGTH" => (25.megabytes + 1).to_s,
       "X-GitHub-Event" => "issues", "X-GitHub-Delivery" => "big"
     }
+
+    assert_response :content_too_large
+    assert_equal 1, Shiplog::WebhookDelivery.count
+  end
+
+  test "bodies over 25 MB are refused even when Content-Length is absent or wrong" do
+    request_class = ActionDispatch::Request
+    request_class.alias_method :original_raw_post, :raw_post
+    request_class.define_method(:raw_post) { "x" * (25.megabytes + 1) }
+    begin
+      deliver "issues", { action: "opened", issue: { number: 7 }, repository: { full_name: "o/r" } }, id: "big2"
+    ensure
+      request_class.alias_method :raw_post, :original_raw_post
+      request_class.remove_method :original_raw_post
+    end
 
     assert_response :content_too_large
     assert_equal 1, Shiplog::WebhookDelivery.count

@@ -1,6 +1,8 @@
 require "test_helper"
 
 class Shiplog::DrafterTest < ActiveJob::TestCase
+  setup { travel_to Time.utc(2026, 10, 26, 12) }
+
   def roadmap_entries = Shiplog::Entry.roadmap
 
   test "creates a roadmap draft for every roadmap item without one and enqueues a rewrite" do
@@ -31,7 +33,7 @@ class Shiplog::DrafterTest < ActiveJob::TestCase
 
   test "creates a feature draft for a completed issue with a merged PR on a descendant" do
     issue = shiplog_issues(:bulk_upload)
-    issue.update!(state: "closed", state_reason: "completed")
+    issue.update!(state: "closed", state_reason: "completed", closed_at: Time.utc(2026, 10, 12))
 
     Shiplog::Drafter.call
 
@@ -42,7 +44,7 @@ class Shiplog::DrafterTest < ActiveJob::TestCase
 
   test "released_on is the newest merged_at across the tree" do
     issue = shiplog_issues(:bulk_upload)
-    issue.update!(state: "closed", state_reason: "completed")
+    issue.update!(state: "closed", state_reason: "completed", closed_at: Time.utc(2026, 10, 12))
     pr = Shiplog::PullRequest.create!(repository: issue.repository, node_id: "PR_late", number: 99, title: "Late", state: "merged",
       merged_at: Time.utc(2026, 10, 20, 8), labels: [], github_updated_at: Time.current)
     Shiplog::IssueLink.create!(issue_node_id: issue.node_id, pull_request_node_id: pr.node_id)
@@ -50,6 +52,15 @@ class Shiplog::DrafterTest < ActiveJob::TestCase
     Shiplog::Drafter.call
 
     assert_equal Date.new(2026, 10, 20), issue.entries.find_by!(kind: "feature").released_on
+  end
+
+  test "does not create a feature draft for issues closed more than 90 days ago" do
+    issue = shiplog_issues(:bulk_upload)
+    issue.update!(state: "closed", state_reason: "completed", closed_at: Time.utc(2026, 10, 26, 12) - 91.days)
+
+    Shiplog::Drafter.call
+
+    assert_not issue.entries.exists?(kind: "feature")
   end
 
   test "does not create a feature draft when closed as not planned" do
@@ -63,7 +74,7 @@ class Shiplog::DrafterTest < ActiveJob::TestCase
 
   test "does not create a feature draft without a merged PR" do
     issue = shiplog_issues(:export_report)
-    issue.update!(state: "closed", state_reason: "completed")
+    issue.update!(state: "closed", state_reason: "completed", closed_at: Time.utc(2026, 10, 12))
 
     Shiplog::Drafter.call
 
@@ -72,7 +83,7 @@ class Shiplog::DrafterTest < ActiveJob::TestCase
 
   test "does not create a feature draft for a child of a public issue" do
     child = shiplog_issues(:bulk_upload_csv_validation)
-    child.update!(state: "closed", state_reason: "completed")
+    child.update!(state: "closed", state_reason: "completed", closed_at: Time.utc(2026, 10, 12))
 
     Shiplog::Drafter.call
 

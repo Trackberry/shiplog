@@ -2,20 +2,32 @@ require "test_helper"
 
 class Shiplog::ScanChangesJobTest < ActiveJob::TestCase
   GRAPHQL = "https://api.github.com/graphql".freeze
+  EMPTY_ISSUES = { data: { repository: { issues: { pageInfo: { hasNextPage: false }, nodes: [] } } } }.to_json
+  EMPTY_PULLS = { data: { repository: { pullRequests: { pageInfo: { hasNextPage: false }, nodes: [] } } } }.to_json
+
+  def stub_marker(marker, body)
+    stub_request(:post, GRAPHQL).with { |req| JSON.parse(req.body)["query"].include?(marker) }.to_return(body:)
+  end
+
+  def commit_requests = proc { |req| JSON.parse(req.body)["query"].include?("history") }
 
   setup do
     Shiplog.config.github_token = "tok"
     Shiplog.config.repositories = [ "Acme/widgets" ]
-    @stub = stub_request(:post, GRAPHQL).to_return(body: github_fixture("commits"))
+    stub_marker("issues(first", EMPTY_ISSUES)
+    stub_marker("pullRequests(first", EMPTY_PULLS)
+    stub_marker("history", github_fixture("commits"))
     travel_to Time.utc(2026, 10, 26, 12)
   end
+
+  teardown { Rails.error.unsubscribe(@subscriber) if @subscriber }
 
   test "scans from seven days ago when never scanned and advances the window" do
     Shiplog::ScanChangesJob.perform_now
 
     repository = Shiplog::Repository.find_by!(full_name: "Acme/widgets")
     assert_equal Time.utc(2026, 10, 26, 12), repository.changes_scanned_at
-    assert_requested(:post, GRAPHQL) { |req| JSON.parse(req.body).dig("variables", "since") == "2026-10-19T12:00:00Z" }
+    assert_requested(:post, GRAPHQL) { |req| commit_requests.call(req) && JSON.parse(req.body).dig("variables", "since") == "2026-10-19T12:00:00Z" }
   end
 
   test "scans from changes_scanned_at" do
@@ -23,7 +35,7 @@ class Shiplog::ScanChangesJobTest < ActiveJob::TestCase
 
     Shiplog::ScanChangesJob.perform_now
 
-    assert_requested(:post, GRAPHQL) { |req| JSON.parse(req.body).dig("variables", "since") == "2026-10-10T00:00:00Z" }
+    assert_requested(:post, GRAPHQL) { |req| commit_requests.call(req) && JSON.parse(req.body).dig("variables", "since") == "2026-10-10T00:00:00Z" }
   end
 
   test "drafts change entries for candidates and enqueues rewrites" do
@@ -47,16 +59,36 @@ class Shiplog::ScanChangesJobTest < ActiveJob::TestCase
     Shiplog::Repository.create!(full_name: "Acme/widgets", changes_scanned_at: Time.utc(2026, 10, 1))
     Shiplog::ScanChangesJob.perform_now
 
+    errors = []
+    @subscriber = Class.new { define_method(:report) { |error, **| errors << error } }.new
+    Rails.error.subscribe(@subscriber)
+
+    travel_to Time.utc(2026, 10, 27, 12)
     assert_no_difference -> { Shiplog::Entry.count } do
-      Shiplog::Repository.update_all(changes_scanned_at: Time.utc(2026, 10, 1))
       Shiplog::ScanChangesJob.perform_now
     end
+
+    assert_empty errors
+    assert_equal Time.utc(2026, 10, 27, 12), Shiplog::Repository.find_by!(full_name: "Acme/widgets").changes_scanned_at
+  end
+
+  test "drafts a PR merged before the scan that was only imported by the in-job sync" do
+    repository = Shiplog::Repository.create!(full_name: "Acme/widgets", changes_scanned_at: Time.utc(2026, 10, 20))
+    late = JSON.parse(github_fixture("pull_requests"))
+    node = late.dig("data", "repository", "pullRequests", "nodes", 0)
+    node.merge!("mergedAt" => "2026-10-25T09:00:00Z", "updatedAt" => "2026-10-25T09:00:00Z", "closingIssuesReferences" => { "nodes" => [] },
+      "labels" => { "nodes" => [] })
+    late["data"]["repository"]["pullRequests"].merge!("nodes" => [ node ], "pageInfo" => { "hasNextPage" => false })
+    stub_marker("pullRequests(first", late.to_json)
+
+    Shiplog::ScanChangesJob.perform_now
+
+    pull_request = repository.pull_requests.find_by!(node_id: node["id"])
+    assert pull_request.entries.exists?(kind: "change")
   end
 
   test "advances the window even with no candidates" do
-    stub_request(:post, GRAPHQL).to_return(body: { data: { repository: { defaultBranchRef: nil } } }.to_json)
-
-
+    stub_marker("history", { data: { repository: { defaultBranchRef: nil } } }.to_json)
     assert_no_difference -> { Shiplog::Entry.count } do
       Shiplog::ScanChangesJob.perform_now
     end
@@ -68,8 +100,10 @@ class Shiplog::ScanChangesJobTest < ActiveJob::TestCase
     Shiplog.config.repositories = [ "Acme/widgets", "Acme/gadgets" ]
     stub_request(:post, GRAPHQL).with { |req| JSON.parse(req.body).dig("variables", "name") == "widgets" }
       .to_return(status: 500, body: "boom")
-    stub_request(:post, GRAPHQL).with { |req| JSON.parse(req.body).dig("variables", "name") == "gadgets" }
-      .to_return(body: github_fixture("commits"))
+    { "issues(first" => EMPTY_ISSUES, "pullRequests(first" => EMPTY_PULLS, "history" => github_fixture("commits") }.each do |marker, body|
+      stub_request(:post, GRAPHQL).with { |req| JSON.parse(req.body).dig("variables", "name") == "gadgets" && JSON.parse(req.body)["query"].include?(marker) }
+        .to_return(body:)
+    end
 
     Shiplog::ScanChangesJob.perform_now
 

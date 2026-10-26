@@ -1,5 +1,9 @@
 module Shiplog
   module Drafter
+    # Only issues closed within this window get a feature draft, so a first-run backfill
+    # cannot flood the inbox with years-old work. Recently closed issues are still backfilled.
+    FEATURE_LOOKBACK = 90.days
+
     def self.call
       draft_roadmap_items
       draft_shipped_features
@@ -39,7 +43,8 @@ module Shiplog
 
     def self.shipped_candidates
       drafted = Entry.feature.where(subject_type: Issue.name).select(:subject_id)
-      Issue.publicly_labeled.where(state: "closed", state_reason: "completed").where.not(id: drafted)
+      Issue.publicly_labeled.where(state: "closed", state_reason: "completed", closed_at: FEATURE_LOOKBACK.ago..)
+        .where.not(id: drafted)
         .includes(:parent).reject { |issue| issue.parent&.public? }
     end
 
