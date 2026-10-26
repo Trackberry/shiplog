@@ -45,3 +45,16 @@ dark_mode_pr:
   labels: []
   url: https://github.com/Trackberry/trackberry/pull/13
   github_updated_at: 2026-10-09 15:00:00
+
+typo_fix:
+  repository: app
+  node_id: PR_typo_fix
+  number: 14
+  title: Fix typo in invoice email
+  body: Corrects a misspelling.
+  state: merged
+  merged_at: 2026-10-08 10:00:00
+  author_login: edouard
+  labels: []
+  url: https://github.com/Trackberry/trackberry/pull/14
+  github_updated_at: 2026-10-08 10:00:00

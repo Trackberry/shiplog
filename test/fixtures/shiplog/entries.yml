@@ -36,7 +36,7 @@ dark_mode_feature:
 csv_change_draft:
   kind: change
   status: draft
-  subject: validation_fix (Shiplog::PullRequest)
+  subject: typo_fix (Shiplog::PullRequest)
   title: Better CSV validation
   body: Files with unknown headers are now rejected.
 

@@ -48,7 +48,12 @@ class Shiplog::EntryTest < ActiveSupport::TestCase
     assert_raises(ActiveRecord::RecordNotUnique) { duplicate.save!(validate: false) }
   end
 
-  test "fixtures cover every status" do
-    assert_equal %w[approved discarded draft], Shiplog::Entry.distinct.pluck(:status).sort
+  test "an unknown kind or status makes the record invalid" do
+    entry = shiplog_entries(:csv_change_draft)
+    entry.kind = "bogus"
+    assert_not entry.valid?
+    entry.kind = "change"
+    entry.status = "bogus"
+    assert_not entry.valid?
   end
 end

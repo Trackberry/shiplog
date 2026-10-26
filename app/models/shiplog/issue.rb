@@ -12,14 +12,26 @@ module Shiplog
     enum :pinned_column, COLUMNS.index_by(&:itself), prefix: :pinned, validate: { allow_nil: true }
 
     scope :open, -> { where(state: "open") }
-    scope :labeled, ->(name) { where("labels @> ?", [ name ].to_json) }
+    scope :labeled, ->(name) { where("#{table_name}.labels @> ?", [ name ].to_json) }
     scope :publicly_labeled, -> { labeled(Shiplog.config.public_label) }
 
     def public? = labels.include?(Shiplog.config.public_label)
     def open? = state == "open"
 
+    MAX_DEPTH = 8
+
     def descendants
-      children.flat_map { |child| [ child, *child.descendants ] }
+      visited = Set[node_id]
+      frontier = [ node_id ]
+      found = []
+      MAX_DEPTH.times do
+        break if frontier.empty?
+        level = self.class.where(parent_node_id: frontier).where.not(node_id: visited.to_a).to_a
+        level = level.select { |issue| visited.add?(issue.node_id) }
+        found.concat(level)
+        frontier = level.map(&:node_id)
+      end
+      found
     end
   end
 end

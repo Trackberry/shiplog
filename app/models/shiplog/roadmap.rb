@@ -9,13 +9,44 @@ module Shiplog
     end
 
     def items
-      issues = Issue.open.publicly_labeled.includes(:parent, :entries)
-        .order(Arel.sql("position ASC NULLS LAST, github_updated_at DESC"))
-      issues.reject { |issue| issue.parent&.public? }.filter_map do |issue|
+      candidates = Issue.open.publicly_labeled.includes(:parent, :entries)
+        .order(Issue.arel_table[:position].asc.nulls_last, Issue.arel_table[:github_updated_at].desc)
+        .reject { |issue| issue.parent&.public? }
+      children_index = load_children_index(candidates)
+      open_pr_node_ids = open_pr_issue_node_ids(candidates, children_index)
+
+      candidates.filter_map do |issue|
         entry = issue.entries.find(&:roadmap?)
         next if @published_only && !entry&.approved?
-        Item.new(issue:, entry:, column: ColumnResolver.new(issue).column)
+        column = ColumnResolver.new(issue, children_index:, open_pr_node_ids:).column
+        Item.new(issue:, entry:, column:)
       end
     end
+
+    private
+      # Loads every descendant of the candidates breadth-first, one query per level.
+      def load_children_index(candidates)
+        index = Hash.new { |hash, key| hash[key] = [] }
+        visited = candidates.map(&:node_id).to_set
+        frontier = visited.to_a
+
+        Issue::MAX_DEPTH.times do
+          break if frontier.empty?
+          level = Issue.where(parent_node_id: frontier).to_a
+          frontier = []
+          level.each do |child|
+            index[child.parent_node_id] << child
+            frontier << child.node_id if visited.add?(child.node_id)
+          end
+        end
+        index
+      end
+
+      def open_pr_issue_node_ids(candidates, children_index)
+        node_ids = candidates.map(&:node_id) + children_index.values.flatten.map(&:node_id)
+        IssueLink.where(issue_node_id: node_ids.uniq)
+          .joins(:pull_request).merge(PullRequest.where(state: "open"))
+          .distinct.pluck(:issue_node_id).to_set
+      end
   end
 end

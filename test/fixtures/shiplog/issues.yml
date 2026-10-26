@@ -21,7 +21,7 @@ bulk_upload_csv:
   labels: ["public"]
   assignees_count: 0
   parent_node_id: I_bulk_upload
-  url: https://github.com/Trackberry/trackberry/issues/2
+  url: https://github.com/Trackberry/trackberry-ios/issues/2
   github_created_at: 2026-10-01 09:00:00
   github_updated_at: 2026-10-03 09:00:00
 

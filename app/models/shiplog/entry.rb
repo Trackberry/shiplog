@@ -2,8 +2,8 @@ module Shiplog
   class Entry < ApplicationRecord
     belongs_to :subject, polymorphic: true
 
-    enum :kind, %w[roadmap feature change].index_by(&:itself)
-    enum :status, %w[draft approved discarded].index_by(&:itself), default: "draft"
+    enum :kind, %w[roadmap feature change].index_by(&:itself), validate: true
+    enum :status, %w[draft approved discarded].index_by(&:itself), default: "draft", validate: true
 
     def self.digest_for(subject)
       Digest::SHA256.hexdigest([ subject.title, subject.body ].join("\n"))

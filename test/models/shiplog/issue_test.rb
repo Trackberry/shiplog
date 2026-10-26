@@ -18,6 +18,16 @@ class Shiplog::IssueTest < ActiveSupport::TestCase
     assert_includes shiplog_issues(:bulk_upload).descendants, shiplog_issues(:bulk_upload_csv_validation)
   end
 
+  test "descendants is cycle-safe" do
+    a = shiplog_issues(:bulk_upload)
+    b = shiplog_issues(:bulk_upload_csv)
+    a.update!(parent_node_id: b.node_id)
+    result = a.descendants
+    assert_includes result, b
+    assert_not_includes result, a
+    assert_equal result.uniq, result
+  end
+
   test "linked_pull_requests goes through issue_links by node_id" do
     assert_includes shiplog_issues(:bulk_upload_csv).linked_pull_requests, shiplog_pull_requests(:csv_import)
   end
