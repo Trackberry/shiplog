@@ -4,8 +4,9 @@ module Shiplog
       DELIVERIES_SHOWN = 20
 
       def show
-        repositories = Repository.where(full_name: Shiplog.config.repositories).index_by(&:full_name)
-        @repositories = Shiplog.config.repositories.map { |full_name| [ full_name, repositories[full_name] ] }
+        names = Shiplog.config.repository_names
+        repositories = Repository.where(full_name: names).index_by(&:full_name)
+        @repositories = names.map { |full_name| [ full_name, repositories[full_name] ] }
         @deliveries = WebhookDelivery.order(received_at: :desc, id: :desc).limit(DELIVERIES_SHOWN)
         @webhook_secret_missing = Shiplog.config.webhook_secret.blank?
         @github_token_missing = Shiplog.config.resolved_github_token.blank?

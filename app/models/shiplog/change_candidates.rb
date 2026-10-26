@@ -4,6 +4,19 @@ module Shiplog
     # The Conventional Commits types; "Importers: ..." is a topic prefix, not a type.
     CONVENTIONAL_TYPES = %w[feat fix perf refactor chore docs test ci build style revert deps].freeze
 
+    # Dropped from the upgrade bypass: the label Dependabot adds. Any other excluded label still excludes.
+    UPGRADE_LABEL = "dependencies".freeze
+
+    # The merge time of the oldest merged pull request merged at or after `since` whose upgrade detection has not
+    # run yet, or nil. Such pull requests are held back from candidates, so a scan window must not move past it.
+    # Older ones are outside the window: they are never drafted, and must not drag it backwards. Nil when no gem
+    # is tracked, since detection would never run.
+    def self.oldest_pending(repository, since:)
+      return unless Shiplog.config.tracked_gems.any?
+
+      repository.pull_requests.awaiting_upgrade_check.where(merged_at: since..).reorder(:merged_at).pick(:merged_at)
+    end
+
     def initialize(repository:, since:, before:)
       @repository = repository
       @window = since...before
@@ -15,10 +28,32 @@ module Shiplog
 
     private
       def pull_requests
-        candidates = @repository.pull_requests.where(state: "merged", merged_at: @window).where.missing(:entries).to_a
-          .reject { |pull_request| excluded_label?(pull_request) || excluded_type?(pull_request) || Shiplog.config.excluded_author?(pull_request.author_login) }
+        candidates = merged_in_window.where.missing(:entries).to_a
+        upgrade_ids = ids_with_upgrades(candidates)
+        candidates = candidates.reject do |pull_request|
+          if upgrade_ids.include?(pull_request.id)
+            excluded_label?(pull_request, ignoring: UPGRADE_LABEL)
+          else
+            excluded_label?(pull_request) || excluded_type?(pull_request) || Shiplog.config.excluded_author?(pull_request.author_login)
+          end
+        end
         public_ids = pull_request_ids_in_public_tree(candidates)
         candidates.reject { |pull_request| public_ids.include?(pull_request.node_id) }
+      end
+
+      # Pull requests still awaiting upgrade detection are held back (neither candidates nor excluded): excluding
+      # them now would skip an upgrade for good once the window moves on.
+      def merged_in_window
+        scope = @repository.pull_requests.where(state: "merged", merged_at: @window)
+        Shiplog.config.tracked_gems.any? ? scope.where.not(id: @repository.pull_requests.awaiting_upgrade_check.reorder(nil).select(:id)) : scope
+      end
+
+      # A pull request that upgrades a tracked gem with customer-visible changes is how customers receive them,
+      # so a Dependabot author, a chore(deps) title or a dependencies label does not exclude it. Other excluded
+      # labels, such as an `internal` a human added, still do.
+      def ids_with_upgrades(pull_requests)
+        PullRequestUpgrade.where(pull_request_id: pull_requests.map(&:id)).where("jsonb_array_length(gem_changes) > 0")
+          .distinct.pluck(:pull_request_id).to_set
       end
 
       def commits
@@ -26,8 +61,8 @@ module Shiplog
           .select { |commit| eligible_commit?(commit) }
       end
 
-      def excluded_label?(pull_request)
-        pull_request.labels.intersect?(Shiplog.config.excluded_labels)
+      def excluded_label?(pull_request, ignoring: nil)
+        pull_request.labels.intersect?(Shiplog.config.excluded_labels - Array(ignoring))
       end
 
       # Untyped PR titles stay in; the rewriter decides whether customers would notice.

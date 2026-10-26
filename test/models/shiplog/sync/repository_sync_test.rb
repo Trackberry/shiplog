@@ -21,6 +21,103 @@ class Shiplog::Sync::RepositorySyncTest < ActiveSupport::TestCase
     @pulls = stub_graphql("pullRequests(first", github_fixture("pull_requests"), EMPTY_PULLS)
   end
 
+  def lock(version) = "GEM\n  remote: https://rubygems.pkg.github.com/Acme/\n  specs:\n    gadgets (#{version})\n\nPLATFORMS\n  ruby\n\nDEPENDENCIES\n  gadgets\n"
+
+  def stub_gadgets_upgrade
+    Shiplog.config.repositories = [ "Acme/widgets", { name: "Acme/gadgets", changelog: false, gem: "gadgets" } ]
+    { "base1" => "1.0.0", "merge1" => "1.1.0" }.each do |oid, version|
+      stub_request(:post, URL).with { |req| JSON.parse(req.body).dig("variables", "expression") == "#{oid}:Gemfile.lock" }
+        .to_return(body: { data: { repository: { object: { text: lock(version) } } } }.to_json)
+    end
+    stub_request(:get, "https://api.github.com/repos/Acme/gadgets/compare/v1.0.0...v1.1.0").with(query: { per_page: 100, page: 1 }).to_return(body: { commits: [ { node_id: "C1" } ] }.to_json)
+    stub_request(:post, URL).with { |req| JSON.parse(req.body).dig("variables", "ids") == [ "C1" ] }.to_return(body: { data: { nodes: [
+      { oid: "c1", associatedPullRequests: { nodes: [ { number: 3, title: "Faster gadgets", body: "b", url: "u", state: "MERGED",
+                                                      repository: { nameWithOwner: "Acme/gadgets" } } ] } }
+    ] } }.to_json)
+  end
+
+  def with_lockfile_files(body)
+    JSON.parse(body).tap do |page|
+      page.dig("data", "repository", "pullRequests", "nodes").first.merge!(
+        "baseRefOid" => "stale", "mergeCommit" => { "oid" => "merge1", "parents" => { "nodes" => [ { "oid" => "base1" } ] } }, "files" => { "nodes" => [ { "path" => "Gemfile.lock" } ] }
+      )
+    end.to_json
+  end
+
+  test "detects gem upgrades in the merged pull requests it imports" do
+    stub_gadgets_upgrade
+    stub_graphql("issues(first", github_fixture("issues_page_2"))
+    stub_graphql("pullRequests(first", with_lockfile_files(github_fixture("pull_requests")), EMPTY_PULLS)
+
+    sync.call
+
+    upgrade = @repository.pull_requests.find_by!(number: 12).upgrades.sole
+    assert_equal [ "gadgets", "v1.0.0", "v1.1.0" ], [ upgrade.gem_name, upgrade.from_ref, upgrade.to_ref ]
+    assert_equal [ 3 ], upgrade.gem_changes.map { |change| change["number"] }
+  end
+
+  def stub_failing_detection(error)
+    stub_gadgets_upgrade
+    stub_graphql("issues(first", github_fixture("issues_page_2"))
+    stub_graphql("pullRequests(first", with_lockfile_files(github_fixture("pull_requests")), EMPTY_PULLS)
+    stub_request(:post, URL).with { |req| JSON.parse(req.body).dig("variables", "expression") == "base1:Gemfile.lock" }.to_raise(error)
+  end
+
+  test "an unexpected detector error does not fail the sync: the cursor and synced_at are saved and the error is logged" do
+    stub_failing_detection(RuntimeError.new("boom"))
+    io = StringIO.new
+    original = Rails.logger
+    Rails.logger = ActiveSupport::Logger.new(io)
+
+    begin
+      sync.call
+    ensure
+      Rails.logger = original
+    end
+
+    @repository.reload
+    assert @repository.sync_cursor
+    assert @repository.synced_at
+    assert_nil @repository.last_error
+    assert_match(/boom/, io.string)
+  end
+
+  test "a transient detector error does not fail the sync: the pull request stays pending with an attempt counted" do
+    stub_failing_detection(Net::ReadTimeout)
+
+    assert_nothing_raised { sync.call }
+
+    @repository.reload
+    assert @repository.sync_cursor
+    assert @repository.synced_at
+    pending = @repository.pull_requests.awaiting_upgrade_check
+    assert_equal [ 1 ], pending.map(&:upgrade_check_attempts)
+  end
+
+  test "a rate-limited detector is re-raised only after the cursor is saved" do
+    stub_gadgets_upgrade
+    stub_graphql("issues(first", github_fixture("issues_page_2"))
+    stub_graphql("pullRequests(first", with_lockfile_files(github_fixture("pull_requests")), EMPTY_PULLS)
+    stub_request(:post, URL).with { |req| JSON.parse(req.body).dig("variables", "expression") == "base1:Gemfile.lock" }
+      .to_return(status: 429, headers: { "retry-after" => "30" })
+
+    assert_raises(Shiplog::Github::RateLimited) { sync.call }
+
+    assert @repository.reload.sync_cursor
+  end
+
+  test "does not detect upgrades in a changelog: false repository" do
+    stub_gadgets_upgrade
+    Shiplog.config.repositories = [ { name: "Acme/widgets", changelog: false }, { name: "Acme/gadgets", changelog: false, gem: "gadgets" } ]
+    stub_graphql("issues(first", github_fixture("issues_page_2"))
+    stub_graphql("pullRequests(first", with_lockfile_files(github_fixture("pull_requests")), EMPTY_PULLS)
+
+    sync.call
+
+    assert_not_requested(:post, URL) { |req| JSON.parse(req.body).dig("variables", "expression") }
+    assert_equal 0, Shiplog::PullRequestUpgrade.count
+  end
+
   test "pages through issues and imports every node" do
     stub_issues_and_prs
 

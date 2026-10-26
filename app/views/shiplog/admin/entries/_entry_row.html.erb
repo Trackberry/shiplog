@@ -14,6 +14,7 @@
     <%= link_to t("shiplog.admin.entries.edit"), edit_entry_path(entry, inbox_filter_params), class: "shiplog-button" %>
     <% if entry.draft? %>
       <%= button_to t("shiplog.admin.entries.approve"), entry_approval_path(entry, inbox_filter_params), class: "shiplog-button shiplog-button--primary", form: { data: { shiplog_inline: true } } %>
+      <%= button_to t("shiplog.admin.entries.discard"), entry_discard_path(entry, inbox_filter_params), class: "shiplog-button", form: { data: { shiplog_inline: true } } %>
     <% elsif entry.discarded? %>
       <%= button_to t("shiplog.admin.entries.restore"), entry_discard_path(entry, inbox_filter_params), method: :delete, class: "shiplog-button", form: { data: { shiplog_inline: true } } %>
     <% end %>

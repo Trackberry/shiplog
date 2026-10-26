@@ -27,6 +27,9 @@ module Shiplog
       PULL_REQUEST_WITH_ISSUES = <<~GRAPHQL.freeze
         fragment PullRequestWithIssues on PullRequest {
           ...PullRequestFields
+          baseRefOid
+          mergeCommit { oid parents(first: 1) { nodes { oid } } }
+          files(first: 100) { pageInfo { hasNextPage } nodes { path } }
           closingIssuesReferences(first: 20) {
             pageInfo { hasNextPage }
             nodes { id }
@@ -102,7 +105,35 @@ module Shiplog
         }
       GRAPHQL
 
-      ALL = { ISSUES:, PULL_REQUESTS:, ISSUE:, PULL_REQUEST:, COMMITS: }.freeze
+      # A file's text at a commit (`$expression` is "<oid>:<path>"); `object` is null when the file is absent.
+      BLOB_TEXT = <<~GRAPHQL.freeze
+        query($owner: String!, $name: String!, $expression: String!) {
+          repository(owner: $owner, name: $name) {
+            object(expression: $expression) {
+              ... on Blob { text isTruncated }
+            }
+          }
+        }
+      GRAPHQL
+
+      # The pull requests that introduced each commit (`$ids` are commit node ids, at most 100).
+      COMMIT_PULL_REQUESTS = <<~GRAPHQL.freeze
+        query($ids: [ID!]!) {
+          nodes(ids: $ids) {
+            ... on Commit {
+              oid
+              associatedPullRequests(first: 5) {
+                nodes {
+                  number title body url state
+                  repository { nameWithOwner }
+                }
+              }
+            }
+          }
+        }
+      GRAPHQL
+
+      ALL = { ISSUES:, PULL_REQUESTS:, ISSUE:, PULL_REQUEST:, COMMITS:, BLOB_TEXT:, COMMIT_PULL_REQUESTS: }.freeze
     end
   end
 end

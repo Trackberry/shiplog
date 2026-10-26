@@ -55,6 +55,117 @@ class Shiplog::ScanChangesJobTest < ActiveJob::TestCase
     assert_not repository.commits.find_by!(sha: "c" * 40).entries.exists?
   end
 
+  test "a bot's gem upgrade gets one change entry dated at its merge, and the gem repository drafts none of its own" do
+    Shiplog.config.repositories = [ "Acme/widgets", { name: "Acme/gadgets", changelog: false, gem: "gadgets" } ]
+    host = Shiplog::Repository.create!(full_name: "Acme/widgets", changes_scanned_at: Time.utc(2026, 10, 1))
+    gem_repo = Shiplog::Repository.create!(full_name: "Acme/gadgets", changes_scanned_at: Time.utc(2026, 10, 1))
+    bump = host.pull_requests.create!(node_id: "PR_bump", number: 7, title: "chore(deps): Bump gadgets from 1.0 to 1.1", state: "merged",
+      merged_at: Time.utc(2026, 10, 18, 9), author_login: "dependabot[bot]", labels: [ "dependencies" ], github_updated_at: Time.utc(2026, 10, 18))
+    Shiplog::PullRequestUpgrade.create!(pull_request: bump, gem_name: "gadgets", from_ref: "v1.0", to_ref: "v1.1", gem_repository: "Acme/gadgets",
+      gem_changes: [ { "number" => 3, "title" => "Faster gadgets", "body_excerpt" => "", "url" => "u" } ])
+    gem_repo.pull_requests.create!(node_id: "PR_gadgets_3", number: 3, title: "Faster gadgets", state: "merged", merged_at: Time.utc(2026, 10, 10),
+      author_login: "ed", labels: [], github_updated_at: Time.utc(2026, 10, 10))
+
+    Shiplog::ScanChangesJob.perform_now
+
+    entry = bump.entries.find_by!(kind: "change")
+    assert_equal Date.new(2026, 10, 18), entry.released_on
+    assert_equal 0, Shiplog::Entry.change.where(subject: gem_repo.pull_requests).count
+    assert_equal 1, Shiplog::Entry.change.where(subject_type: "Shiplog::PullRequest", subject_id: host.pull_requests.select(:id)).count
+  end
+
+  test "a bot's bump awaiting detection is held back and the window stays at it, then the next scan drafts it" do
+    Shiplog.config.repositories = [ "Acme/widgets", { name: "Acme/gadgets", changelog: false, gem: "gadgets" } ]
+    host = Shiplog::Repository.create!(full_name: "Acme/widgets", changes_scanned_at: Time.utc(2026, 10, 1))
+    merged_at = Time.utc(2026, 10, 18, 9)
+    bump = host.pull_requests.create!(node_id: "PR_bump", number: 7, title: "chore(deps): Bump gadgets from 1.0.0 to 1.1.0", state: "merged",
+      merged_at:, author_login: "dependabot[bot]", labels: [ "dependencies" ], github_updated_at: merged_at,
+      base_oid: "base1", merge_oid: "merge1", lockfile_changed: true)
+
+    with_detection_disabled { Shiplog::ScanChangesJob.perform_now }
+
+    assert_not bump.entries.exists?
+    assert_equal merged_at, host.reload.changes_scanned_at
+
+    lock = ->(version) { "GEM\n  remote: https://rubygems.org/\n  specs:\n    gadgets (#{version})\n\nPLATFORMS\n  ruby\n\nDEPENDENCIES\n  gadgets\n" }
+    { "base1" => "1.0.0", "merge1" => "1.1.0" }.each do |oid, version|
+      stub_request(:post, GRAPHQL).with { |req| JSON.parse(req.body).dig("variables", "expression") == "#{oid}:Gemfile.lock" }
+        .to_return(body: { data: { repository: { object: { text: lock.(version) } } } }.to_json)
+    end
+    stub_request(:get, %r{repos/Acme/gadgets/compare/v1.0.0...v1.1.0}).to_return(body: { commits: [ { node_id: "C1" } ] }.to_json)
+    stub_request(:post, GRAPHQL).with { |req| JSON.parse(req.body).dig("variables", "ids") == [ "C1" ] }.to_return(body: { data: { nodes: [
+      { oid: "c1", associatedPullRequests: { nodes: [ { number: 3, title: "Faster", body: "b", url: "u", state: "MERGED",
+                                                      repository: { nameWithOwner: "Acme/gadgets" } } ] } }
+    ] } }.to_json)
+
+    Shiplog::ScanChangesJob.perform_now
+
+    assert bump.reload.upgrades_checked_at
+    assert bump.entries.exists?(kind: "change")
+    assert_equal Time.utc(2026, 10, 26, 12), host.reload.changes_scanned_at
+  end
+
+  # The reviewer's scenario: a first sync imported years of history, whose lockfile PRs are all still pending.
+  def seed_old_history
+    Shiplog.config.repositories = [ "Acme/widgets", { name: "Acme/gadgets", changelog: false, gem: "gadgets" } ]
+    stub_marker("object(expression", { data: { repository: { object: nil } } }.to_json)
+    host = Shiplog::Repository.create!(full_name: "Acme/widgets", changes_scanned_at: Time.utc(2026, 10, 25))
+    60.times do |i|
+      host.pull_requests.create!(node_id: "PR_lock_#{i}", number: 100 + i, title: "chore: bump #{i}", state: "merged",
+        merged_at: Time.utc(2024, 1, 1) + i.days, author_login: "ed", labels: [], github_updated_at: Time.utc(2024, 1, 1),
+        lockfile_changed: true, base_oid: "a", merge_oid: "b")
+    end
+    old = host.pull_requests.create!(node_id: "PR_old", number: 5, title: "Add old thing", state: "merged",
+      merged_at: Time.utc(2025, 3, 1), author_login: "ed", labels: [], github_updated_at: Time.utc(2025, 3, 1))
+    [ host, old ]
+  end
+
+  test "pending lockfile PRs from before the window do not move it back, and nothing old is drafted" do
+    host, old = seed_old_history
+
+    with_detection_disabled { 2.times { Shiplog::ScanChangesJob.perform_now } }
+
+    assert_equal Time.utc(2026, 10, 26, 12), host.reload.changes_scanned_at
+    assert_not old.entries.exists?
+    assert_equal 0, Shiplog::Entry.change.where(subject_type: "Shiplog::PullRequest", subject_id: host.pull_requests.select(:id)).count
+  end
+
+  test "detection does not fetch pending PRs merged before the window, and marks them checked" do
+    host, old = seed_old_history
+
+    2.times { Shiplog::ScanChangesJob.perform_now }
+
+    assert_not_requested(:post, GRAPHQL) { |req| JSON.parse(req.body).dig("variables", "expression").present? }
+    assert_equal 0, host.pull_requests.awaiting_upgrade_check.count
+    assert_equal Time.utc(2026, 10, 26, 12), host.reload.changes_scanned_at
+    assert_not old.entries.exists?
+  end
+
+  test "the window never ends before its start" do
+    host = Shiplog::Repository.create!(full_name: "Acme/widgets", changes_scanned_at: Time.utc(2026, 10, 25))
+    job = Shiplog::ScanChangesJob.new
+    original = Shiplog::ChangeCandidates.method(:oldest_pending)
+    Shiplog::ChangeCandidates.define_singleton_method(:oldest_pending) { |*, **| Time.utc(2024, 1, 1) }
+    assert_equal Time.utc(2026, 10, 25), job.send(:window_end, host, Time.utc(2026, 10, 26, 12), Time.utc(2026, 10, 25))
+  ensure
+    Shiplog::ChangeCandidates.define_singleton_method(:oldest_pending, original)
+  end
+
+  test "a changelog: false repository is synced but never drafts changes" do
+    Shiplog.config.repositories = [ { name: "Acme/widgets", changelog: false } ]
+    repository = Shiplog::Repository.create!(full_name: "Acme/widgets", changes_scanned_at: Time.utc(2026, 10, 1))
+    repository.pull_requests.create!(node_id: "PR_x", number: 5, title: "Add thing", state: "merged", merged_at: Time.utc(2026, 10, 15, 9),
+      author_login: "ed", labels: [], github_updated_at: Time.utc(2026, 10, 15))
+
+    assert_no_difference -> { Shiplog::Entry.change.count } do
+      Shiplog::ScanChangesJob.perform_now
+    end
+
+    assert_not_requested(:post, GRAPHQL) { |req| commit_requests.call(req) }
+    assert_requested(:post, GRAPHQL) { |req| JSON.parse(req.body)["query"].include?("issues(first") }
+    assert_equal Time.utc(2026, 10, 26, 12), repository.reload.changes_scanned_at
+  end
+
   test "is idempotent" do
     Shiplog::Repository.create!(full_name: "Acme/widgets", changes_scanned_at: Time.utc(2026, 10, 1))
     Shiplog::ScanChangesJob.perform_now
@@ -64,7 +175,7 @@ class Shiplog::ScanChangesJobTest < ActiveJob::TestCase
     Rails.error.subscribe(@subscriber)
 
     travel_to Time.utc(2026, 10, 27, 12)
-    assert_no_difference -> { Shiplog::Entry.count } do
+    assert_no_difference -> { Shiplog::Entry.change.count } do
       Shiplog::ScanChangesJob.perform_now
     end
 
@@ -122,5 +233,15 @@ class Shiplog::ScanChangesJobTest < ActiveJob::TestCase
 
     assert_nil Shiplog::Repository.find_by!(full_name: "Acme/widgets").changes_scanned_at
     assert Shiplog::Repository.find_by!(full_name: "Acme/gadgets").changes_scanned_at
+  end
+
+  # Simulates detection having been unable to run in this scan (e.g. more pending than one call handles).
+  def with_detection_disabled
+    noop = Struct.new(:call).new(0)
+    original = Shiplog::Sync::UpgradeDetector.method(:new)
+    Shiplog::Sync::UpgradeDetector.define_singleton_method(:new) { |*, **| noop }
+    yield
+  ensure
+    Shiplog::Sync::UpgradeDetector.define_singleton_method(:new, original)
   end
 end

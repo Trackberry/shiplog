@@ -5,6 +5,8 @@ module Shiplog
   class PublicController < Shiplog.config.public_parent_controller.constantize
     helper Shiplog::FrontendHelper
     helper Shiplog::StylingHelper
+    helper Shiplog::SwitcherHelper
+    helper Shiplog::RoadmapHelper
     helper Shiplog::HostRoutesHelper
     layout -> { Shiplog.config.public_layout }
 
@@ -13,7 +15,7 @@ module Shiplog
     # What the rendered markup depends on besides the data: the locale, the gem version and the styling
     # config. Host parent controllers rendering per-user layout content should declare `etag { current_user&.id }`.
     def shiplog_etag_parts
-      [ I18n.locale, Shiplog::VERSION, Shiplog.config.classes.hash, Shiplog.config.stylesheet ]
+      [ I18n.locale, Shiplog::VERSION, Shiplog.config.render_digest ]
     end
   end
 end

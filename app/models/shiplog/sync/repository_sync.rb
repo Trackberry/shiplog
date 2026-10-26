@@ -17,6 +17,8 @@ module Shiplog
         sync_issues
         sync_pull_requests
         @repository.update!(sync_cursor: next_cursor, synced_at: Time.current, last_error: nil)
+        # After the cursor: a detector failure must not keep the cursor from moving.
+        UpgradeDetector.call_isolated(@repository, client: @client)
       rescue StandardError => error
         @repository.update!(last_error: error.message)
         raise

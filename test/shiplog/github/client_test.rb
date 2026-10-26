@@ -143,4 +143,46 @@ class Shiplog::Github::ClientTest < ActiveSupport::TestCase
       assert_equal Time.utc(2026, 10, 26, 12, 1), error.reset_at
     end
   end
+
+  test "get sends the bearer token to the REST API and returns the parsed body" do
+    stub = stub_request(:get, "https://api.github.com/repos/o/r/compare/a...b")
+      .with(headers: { "Authorization" => "Bearer tok", "Accept" => "application/vnd.github+json", "User-Agent" => "shiplog/#{Shiplog::VERSION}" })
+      .to_return(body: { commits: [ { sha: "1" } ] }.to_json)
+
+    assert_equal({ "commits" => [ { "sha" => "1" } ] }, client.get("/repos/o/r/compare/a...b"))
+    assert_requested stub
+  end
+
+  test "get raises NotFound on 404" do
+    stub_request(:get, "https://api.github.com/repos/o/r/compare/a...b").to_return(status: 404, body: "{}")
+
+    error = assert_raises(Shiplog::Github::NotFound) { client.get("/repos/o/r/compare/a...b") }
+    assert_kind_of Shiplog::Github::Error, error
+  end
+
+  test "get raises RateLimited, Transient and Error like query" do
+    url = "https://api.github.com/repos/o/r"
+    stub_request(:get, url).to_return(status: 403, headers: { "x-ratelimit-remaining" => "0", "x-ratelimit-reset" => "1790000000" })
+    assert_equal Time.at(1_790_000_000), assert_raises(Shiplog::Github::RateLimited) { client.get("/repos/o/r") }.reset_at
+
+    stub_request(:get, url).to_return({ status: 502 }, { body: { ok: true }.to_json })
+    assert_equal({ "ok" => true }, client.get("/repos/o/r"))
+
+    stub_request(:get, url).to_return(status: 503)
+    assert_raises(Shiplog::Github::Transient) { client.get("/repos/o/r") }
+
+    stub_request(:get, url).to_raise(Net::ReadTimeout)
+    assert_raises(Shiplog::Github::Transient) { client.get("/repos/o/r") }
+
+    stub_request(:get, url).to_return(status: 403, headers: { "x-ratelimit-remaining" => "10" })
+    assert_raises(Shiplog::Github::Error) { client.get("/repos/o/r") }
+
+    stub_request(:get, url).to_return(body: "<html>")
+    assert_raises(Shiplog::Github::Error) { client.get("/repos/o/r") }
+  end
+
+  test "get raises Error when no token is configured" do
+    assert_raises(Shiplog::Github::Error) { Shiplog::Github::Client.new(token: nil).get("/repos/o/r") }
+    assert_not_requested :get, "https://api.github.com/repos/o/r"
+  end
 end

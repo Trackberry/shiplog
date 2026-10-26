@@ -2,7 +2,7 @@ module Shiplog
   class SyncJob < ApplicationJob
     def perform
       client = Github::Client.new
-      repositories = Shiplog.config.repositories.map { |full_name| Repository.find_or_create_by!(full_name:) }
+      repositories = Shiplog.config.repository_names.map { |full_name| Repository.find_or_create_by!(full_name:) }
       repositories.each { |repository| sync(repository, client) }
       Drafter.call
     end

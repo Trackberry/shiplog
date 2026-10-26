@@ -4,6 +4,9 @@ module Shiplog
     PARSE_ERROR = "Could not parse rewriter output".freeze
     MAX_TITLE_CHARS = 120
     MAX_BODY_CHARS = 2_000
+    MAX_ROADMAP_BODY_CHARS = 220
+    # A period after a common abbreviation ("e.g.", "i.e.", "approx.", "etc.") does not end a sentence.
+    SENTENCE_END = /(?<!\be\.g)(?<!\bi\.e)(?<!\bapprox)(?<!\betc)(?<!\bvs)(?<!\bcf)[.!?](?=\s|\z)/i
 
     # Balanced, string-aware {...} candidates (recursion via \g<0>).
     JSON_OBJECT = /\{(?:[^{}"]++|"(?:\\.|[^"\\])*+"|\g<0>)*+\}/m
@@ -61,7 +64,23 @@ module Shiplog
         title = sanitize(title).squish.truncate(MAX_TITLE_CHARS, separator: " ", omission: "…")
         return if title.blank?
 
-        { title:, body: sanitize(body.to_s).strip.truncate(MAX_BODY_CHARS, separator: " ", omission: "…"), customer_facing: }
+        { title:, body: limit_body(sanitize(body.to_s).strip), customer_facing: }
+      end
+
+      def limit_body(body)
+        return body.truncate(MAX_BODY_CHARS, separator: " ", omission: "…") unless @entry.roadmap?
+
+        shorten_roadmap(body)
+      end
+
+      # Roadmap bodies are two short sentences: cut after the last sentence that fits, else at a word.
+      def shorten_roadmap(body)
+        return body if body.length <= MAX_ROADMAP_BODY_CHARS
+
+        last_end = body.enum_for(:scan, SENTENCE_END).map { Regexp.last_match.begin(0) }.select { |i| i < MAX_ROADMAP_BODY_CHARS }.last
+        return body[0..last_end] if last_end
+
+        body.truncate(MAX_ROADMAP_BODY_CHARS, separator: " ", omission: "…")
       end
 
       def sanitize(text)

@@ -50,6 +50,54 @@ class Shiplog::ChangeCandidatesTest < ActiveSupport::TestCase
     assert_equal [ fix, untyped ], candidates & [ ci, chore, fix, untyped ]
   end
 
+  def upgrade(pull_request, changes: [ { "number" => 38, "title" => "Fix annotations", "body_excerpt" => "x", "url" => "u" } ], gem_name: "market_data")
+    Shiplog::PullRequestUpgrade.create!(pull_request:, gem_name:, from_ref: "0.2.1", to_ref: "0.2.2", gem_repository: "Trackberry/market_data", gem_changes: changes)
+  end
+
+  test "a pull request with a tracked upgrade is a candidate despite bot author, chore type and dependencies label" do
+    bump = pull_request(80, title: "chore(deps): Bump market_data from 0.2.1 to 0.2.2", author_login: "dependabot[bot]", labels: [ "dependencies" ])
+    upgrade(bump)
+
+    assert_includes candidates, bump
+  end
+
+  test "an upgrade bypasses the dependencies label only: an internal label still excludes it" do
+    internal = pull_request(83, title: "chore(deps): Bump market_data", author_login: "dependabot[bot]", labels: [ "dependencies", "internal" ])
+    upgrade(internal)
+
+    assert_not_includes candidates, internal
+  end
+
+  test "a pull request awaiting its upgrade check is held back, neither a candidate nor excluded for good" do
+    Shiplog.config.repositories = [ "Trackberry/trackberry", { name: "Trackberry/market_data", changelog: false, gem: "market_data" } ]
+    bump = pull_request(84, title: "chore(deps): Bump market_data", author_login: "dependabot[bot]", labels: [ "dependencies" ],
+      lockfile_changed: true, upgrades_checked_at: nil)
+    plain = pull_request(85, lockfile_changed: true, upgrades_checked_at: nil)
+
+    assert_empty candidates & [ bump, plain ]
+
+    bump.update!(upgrades_checked_at: Time.utc(2026, 10, 11))
+    upgrade(bump)
+    plain.update!(upgrades_checked_at: Time.utc(2026, 10, 11))
+
+    assert_equal [ bump, plain ].to_set, (candidates & [ bump, plain ]).to_set
+  end
+
+  test "pending pull requests are not held when no gem is tracked, since detection would never run" do
+    Shiplog.config.repositories = [ "Trackberry/trackberry" ]
+    plain = pull_request(86, lockfile_changed: true, upgrades_checked_at: nil)
+
+    assert_includes candidates, plain
+  end
+
+  test "bots, chore types and excluded labels are still excluded without an upgrade" do
+    plain = pull_request(81, title: "chore(deps): Bump rails", author_login: "dependabot[bot]", labels: [ "dependencies" ])
+    empty = pull_request(82, title: "chore(deps): Bump seaports", author_login: "dependabot[bot]", labels: [ "dependencies" ])
+    upgrade(empty, changes: [])
+
+    assert_empty candidates & [ plain, empty ]
+  end
+
   test "keeps PR titles that only start with a topic, not a conventional type" do
     topic = pull_request(61, title: "Importers: merge keys across exporters")
     scoped = pull_request(62, title: "Callao: read manifests whole")
@@ -148,5 +196,14 @@ class Shiplog::ChangeCandidatesTest < ActiveSupport::TestCase
     entry.update!(changelog_kind: "feature")
 
     assert_not_includes candidates, pr
+  end
+
+  test "oldest_pending ignores pending pull requests merged before since" do
+    Shiplog.config.repositories = [ "Trackberry/trackberry", { name: "Trackberry/market_data", changelog: false, gem: "market_data" } ]
+    pull_request(90, merged_at: Time.utc(2024, 1, 1), lockfile_changed: true)
+    recent = pull_request(91, merged_at: Time.utc(2026, 10, 12), lockfile_changed: true)
+
+    assert_equal recent.merged_at, Shiplog::ChangeCandidates.oldest_pending(@repository, since: SINCE)
+    assert_nil Shiplog::ChangeCandidates.oldest_pending(@repository, since: Time.utc(2026, 10, 13))
   end
 end

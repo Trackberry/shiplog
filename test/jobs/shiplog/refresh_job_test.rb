@@ -118,6 +118,47 @@ class Shiplog::RefreshJobTest < ActiveJob::TestCase
     assert_equal "open", issue.reload.state
   end
 
+  test "refreshes repositories configured as Hashes" do
+    Shiplog.config.repositories = [ { name: "Acme/widgets", changelog: false } ]
+    stub = stub_request(:post, URL).to_return(body: github_fixture("issue_single"))
+
+    Shiplog::RefreshJob.perform_now("acme/widgets", "issue", 12)
+
+    assert_requested stub
+    assert_equal "Acme/widgets", Shiplog::Issue.find_by!(node_id: "I_kwDOSync001").repository.full_name
+  end
+
+  test "detects gem upgrades in a refreshed merged pull request" do
+    Shiplog.config.repositories = [ "Acme/widgets", { name: "Acme/gadgets", changelog: false, gem: "gadgets" } ]
+    node = JSON.parse(github_fixture("pull_request_single"))
+    node.dig("data", "repository", "pullRequest").merge!("baseRefOid" => "base1", "mergeCommit" => { "oid" => "merge1" },
+      "files" => { "nodes" => [ { "path" => "Gemfile.lock" } ] })
+    stub_request(:post, URL).with { |req| JSON.parse(req.body)["query"].include?("pullRequest(number") }.to_return(body: node.to_json)
+    lock = ->(version) { "GEM\n  remote: https://rubygems.org/\n  specs:\n    gadgets (#{version})\n\nPLATFORMS\n  ruby\n\nDEPENDENCIES\n  gadgets\n" }
+    { "base1" => "1.0.0", "merge1" => "1.1.0" }.each do |oid, version|
+      stub_request(:post, URL).with { |req| JSON.parse(req.body).dig("variables", "expression") == "#{oid}:Gemfile.lock" }
+        .to_return(body: { data: { repository: { object: { text: lock.(version) } } } }.to_json)
+    end
+    stub_request(:get, %r{repos/Acme/gadgets/compare/}).to_return(status: 404, body: "{}")
+
+    Shiplog::RefreshJob.perform_now("Acme/widgets", "pull_request", 12)
+
+    upgrade = Shiplog::PullRequest.find_by!(node_id: "PR_kwDOSync103").upgrades.sole
+    assert_equal [ "gadgets", [] ], [ upgrade.gem_name, upgrade.gem_changes ]
+  end
+
+  test "an unexpected detector error does not fail the refresh, and drafting still runs" do
+    Shiplog.config.repositories = [ "Acme/widgets", { name: "Acme/gadgets", changelog: false, gem: "gadgets" } ]
+    node = JSON.parse(github_fixture("pull_request_single"))
+    node.dig("data", "repository", "pullRequest").merge!("baseRefOid" => "base1", "mergeCommit" => { "oid" => "merge1" },
+      "files" => { "nodes" => [ { "path" => "Gemfile.lock" } ] })
+    stub_request(:post, URL).with { |req| JSON.parse(req.body)["query"].include?("pullRequest(number") }.to_return(body: node.to_json)
+    stub_request(:post, URL).with { |req| JSON.parse(req.body).dig("variables", "expression") }.to_raise(RuntimeError.new("boom"))
+
+    assert_nothing_raised { Shiplog::RefreshJob.perform_now("Acme/widgets", "pull_request", 12) }
+    assert Shiplog::PullRequest.exists?(node_id: "PR_kwDOSync103")
+  end
+
   test "ignores repositories that are not configured" do
     assert_no_difference -> { Shiplog::Repository.count } do
       Shiplog::RefreshJob.perform_now("Other/repo", "issue", 1)

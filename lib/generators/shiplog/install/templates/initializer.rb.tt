@@ -2,6 +2,21 @@ Shiplog.configure do |config|
   # GitHub repositories to sync ("owner/name"). Sub-issues may cross repositories of the same owner.
   config.repositories = %w[acme/app acme/app-ios]
 
+  # A repository can also be a Hash with options:
+  #   changelog: false  keep the repository on the roadmap, but never draft changelog entries from its PRs or commits
+  #   gem: "name"       the gem's name in your Gemfile.lock. When a merged PR upgrades it, the changelog gets one
+  #                     entry for the upgrade, built from the gem's changes. Needed because names differ
+  #                     (a "trackberry-produce" gem can live in acme/produce) and a public gem of the same name
+  #                     is not your repository.
+  # config.repositories = [
+  #   "acme/app",
+  #   { name: "acme/app-ios" },
+  #   { name: "acme/pricing", changelog: false, gem: "acme-pricing" }
+  # ]
+
+  # Lockfile read in merged pull requests to detect gem upgrades (change it for a monorepo).
+  # config.lockfile_path = "Gemfile.lock"
+
   # A String, or a callable evaluated on every GitHub request (e.g. to mint a GitHub App installation token).
   config.github_token = -> { Rails.application.credentials.dig(:github, :shiplog_token) }
 
@@ -83,4 +98,26 @@ Shiplog.configure do |config|
   # Public paths, read when routes are drawn.
   # config.roadmap_path = "roadmap"
   # config.changelog_path = "changelog"
+
+  # Pages added to the Roadmap / Changelog switcher. label and path are Strings, or callables evaluated in the
+  # view (route helpers, I18n). Render the same switcher on your own pages with `helper Shiplog::SwitcherHelper`
+  # and `<%%= shiplog_switcher %>`.
+  # config.extra_pages = [ { label: "News", path: -> { main_app.news_path } } ]
+
+  # Names shown on roadmap cards for the repository an item lives in (Strings or callables).
+  # config.repository_labels = { "acme/app-ios" => "iPhone & iPad" }
+
+  # How many recently shipped changelog entries the roadmap lists; 0 hides the section.
+  # config.roadmap_shipped_count = 4
+
+  # Where the roadmap's "Suggest a feature" link goes (String or callable); no link while nil. Add a footnote
+  # next to it with the shiplog.roadmap.footnote translation.
+  # config.feedback_path = -> { main_app.new_feedback_path }
+
+  # The public changelog's search box and ?q= filtering. Set to false to turn search off.
+  # config.changelog_search = true
+
+  # Callables above cannot be part of the public pages' ETag. Bump this when the output of a callable you
+  # configured changes (a new label, another path) so cached pages are refreshed.
+  # config.cache_version = nil
 end

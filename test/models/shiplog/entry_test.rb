@@ -128,4 +128,25 @@ class Shiplog::EntryTest < ActiveSupport::TestCase
     assert_not entry.update(changelog_kind: "feature")
     assert entry.errors.of_kind?(:changelog_kind, :taken)
   end
+
+  test "approved entries are indexed by status then released_on for the changelog and recently shipped queries" do
+    indexes = Shiplog::Entry.connection.indexes(:shiplog_entries).map(&:columns)
+
+    assert_includes indexes, %w[status released_on]
+  end
+
+  test "search_terms normalises: squished, capped at 100 characters and five words" do
+    assert_equal [ "a", "b" ], Shiplog::Entry.search_terms("  a \n b ")
+    assert_equal [], Shiplog::Entry.search_terms(nil)
+    assert_equal [], Shiplog::Entry.search_terms("   ")
+    assert_equal %w[1 2 3 4 5], Shiplog::Entry.search_terms("1 2 3 4 5 6 7")
+    assert_equal 100, Shiplog::Entry.search_terms("x" * 150).first.size
+  end
+
+  test "search matches title or body with ILIKE and returns everything for a blank query" do
+    assert_equal [ shiplog_entries(:dark_mode_feature) ], Shiplog::Entry.search("DARK").to_a
+    assert_equal [ shiplog_entries(:dark_mode_feature) ], Shiplog::Entry.search("theme").to_a
+    assert_equal Shiplog::Entry.count, Shiplog::Entry.search("  ").count
+    assert_empty Shiplog::Entry.search("%")
+  end
 end

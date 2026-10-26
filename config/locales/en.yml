@@ -19,6 +19,18 @@ en:
     roadmap:
       title: Roadmap
       lede: What we're working on and what comes next.
+      parts:
+        one: Includes %{count} part
+        other: Includes %{count} parts
+      shipped_heading: Recently shipped
+      shipped_date_format: "%-d %B"
+      full_changelog: See the full changelog
+      footnote: ""
+      suggest: Suggest a feature
+    switcher:
+      label: Product updates
+      roadmap: Roadmap
+      changelog: Changelog
     changelog:
       title: Changelog
       lede: New features and improvements, as they ship.
@@ -26,6 +38,14 @@ en:
         label: Pagination
         older: Older
         newer: Newer
+      search:
+        label: Search the changelog
+        submit: Search
+        summary:
+          one: "%{count} result for “%{query}”"
+          other: "%{count} results for “%{query}”"
+        clear: Clear search
+        empty: "No entries match “%{query}”."
     admin:
       title: Shiplog admin
       nav:

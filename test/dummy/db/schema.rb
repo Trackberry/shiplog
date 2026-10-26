@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_26_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_27_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -43,6 +43,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_000001) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["status"], name: "index_shiplog_entries_on_status"
+    t.index ["status", "released_on"], name: "index_shiplog_entries_on_status_and_released_on"
     t.index ["subject_type", "subject_id", "kind"], name: "index_shiplog_entries_on_subject_type_and_subject_id_and_kind", unique: true
   end
 
@@ -81,6 +82,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_000001) do
     t.index ["repository_id"], name: "index_shiplog_issues_on_repository_id"
   end
 
+  create_table "shiplog_pull_request_upgrades", force: :cascade do |t|
+    t.bigint "pull_request_id", null: false
+    t.string "gem_name", null: false
+    t.string "from_ref"
+    t.string "to_ref"
+    t.string "gem_repository"
+    t.jsonb "gem_changes", default: [], null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["pull_request_id", "gem_name"], name: "idx_on_pull_request_id_gem_name_9004c057ce", unique: true
+  end
+
   create_table "shiplog_pull_requests", force: :cascade do |t|
     t.bigint "repository_id", null: false
     t.string "node_id", null: false
@@ -95,6 +108,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_000001) do
     t.datetime "github_updated_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "base_oid"
+    t.string "merge_oid"
+    t.boolean "lockfile_changed", default: false, null: false
+    t.datetime "upgrades_checked_at"
+    t.integer "upgrade_check_attempts", default: 0, null: false
     t.index ["node_id"], name: "index_shiplog_pull_requests_on_node_id", unique: true
     t.index ["repository_id"], name: "index_shiplog_pull_requests_on_repository_id"
   end
@@ -125,5 +143,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_000001) do
 
   add_foreign_key "shiplog_commits", "shiplog_repositories", column: "repository_id"
   add_foreign_key "shiplog_issues", "shiplog_repositories", column: "repository_id"
+  add_foreign_key "shiplog_pull_request_upgrades", "shiplog_pull_requests", column: "pull_request_id"
   add_foreign_key "shiplog_pull_requests", "shiplog_repositories", column: "repository_id"
 end

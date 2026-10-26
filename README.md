@@ -82,7 +82,8 @@ All settings live in `config/initializers/shiplog.rb`:
 
 | Key | Default | Description |
 |---|---|---|
-| `repositories` | `[]` | GitHub repositories to sync, as `"owner/name"`. Sub-issues may cross repositories of the same owner. |
+| `repositories` | `[]` | GitHub repositories to sync, as `"owner/name"` or a Hash with options. Sub-issues may cross repositories of the same owner. See [Repositories](#repositories). |
+| `lockfile_path` | `"Gemfile.lock"` | Lockfile read in merged pull requests to detect [gem upgrades](#gem-upgrades). Change it for a monorepo. |
 | `github_token` | `nil` | A String, or a callable evaluated on every GitHub request. |
 | `webhook_secret` | `nil` | Secret of the GitHub webhook. While blank, the webhook endpoint answers 503. |
 | `public_label` | `"public"` | Only issues with this label reach the roadmap. |
@@ -107,6 +108,12 @@ All settings live in `config/initializers/shiplog.rb`:
 | `current_admin` | `->(controller) { controller.try(:current_user)&.try(:email) }` | Stored as the approver of an entry. |
 | `roadmap_path` | `"roadmap"` | Path of the public roadmap. |
 | `changelog_path` | `"changelog"` | Path of the public changelog. |
+| `extra_pages` | `[]` | Pages added to the switcher after Roadmap and Changelog: `[{ label:, path: }]`, each a String or a callable evaluated in the view. See [Product updates navigation](#product-updates-navigation). Anything else raises `ArgumentError`. |
+| `repository_labels` | `{}` | Tag shown on a roadmap card for the repository of its issue: `{ "owner/name" => "iPhone & iPad" }`. Values are Strings or callables evaluated in the view; repositories without one show no tag. |
+| `roadmap_shipped_count` | `4` | How many recently shipped changelog entries (features and changes) the roadmap lists below its columns. `0` hides the section. |
+| `cache_version` | `nil` | A String added to the public pages' ETag. Callables (`extra_pages`, `repository_labels`, `feedback_path`) cannot be fingerprinted, so bump it when the output of a callable you configured changes. |
+| `feedback_path` | `nil` | Target of the roadmap's "Suggest a feature" link, a String or a callable evaluated in the view. No link while `nil`. |
+| `changelog_search` | `true` | Search box on the public changelog and `?q=` filtering. `false` hides the form and ignores `q`. See [Changelog search](#changelog-search). |
 
 Example:
 
@@ -120,6 +127,50 @@ Shiplog.configure do |config|
   config.rewriter       = ->(prompt) { RubyLLM.chat.ask(prompt).content }
 end
 ```
+
+## Repositories
+
+Each entry of `config.repositories` is a String (`"owner/name"`) or a Hash:
+
+```ruby
+config.repositories = [
+  "acme/app",
+  "acme/app-ios",
+  { name: "acme/market_data", changelog: false, gem: "market_data" },
+  { name: "acme/produce", changelog: false, gem: "acme-produce" }
+]
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `name` | required | `"owner/name"`. |
+| `changelog` | `true` | `false` makes the repository roadmap-only: its issues still feed the roadmap, but its pull requests and commits never become changelog entries. |
+| `gem` | `nil` | The gem's name in your `Gemfile.lock`, for [gem upgrades](#gem-upgrades). |
+
+Unknown options and invalid values raise `ArgumentError` when you assign `repositories`, and so does a name that is not `owner/name` (letters, digits, `.`, `_` and `-`; a segment cannot be only dots). A repository with both `gem:` and `changelog: true` is accepted, but a warning is logged: its changes would be drafted twice, from its own pull requests and from the upgrade. Set `changelog: false`.
+
+`gem:` must be set explicitly because gem names and repository names differ (`acme-produce` lives in `acme/produce`), and a public gem can share a name with one of your repositories without being it: the `holidays` gem from RubyGems is not `acme/holidays`. Matching on names would attach someone else's changes to your changelog, so only gems listed with `gem:` are tracked.
+
+`config.lockfile_path` (default `"Gemfile.lock"`) is the lockfile Shiplog reads in the repositories where `changelog` is true.
+
+## Gem upgrades
+
+A change made in a gem you depend on should appear in the changelog once, when your customers get it: the day your app upgraded the gem. Shiplog does this with the repositories you listed with `gem:`.
+
+For each merged pull request in a repository with `changelog: true` that changes the lockfile:
+
+1. Shiplog reads the lockfile at the merge commit's first parent and at the merge commit itself, and compares the tracked gems with `Bundler::LockfileParser`.
+2. For a gem whose version changed it resolves the tag in the gem's repository (`v<version>` and `<version>`, trying the matching styles first and then the mixed ones). For a git source it uses the locked revision. Shiplog then compares the two refs.
+3. It lists the pull requests merged between the two refs (GitHub's compare API, then the pull requests associated with those commits, the newest 50) and stores them with the upgrade.
+4. The pull request gets one change draft, dated at its merge. The gem's changes (up to 20 titles with excerpts) go into the rewrite prompt, and the rewriter writes one customer-facing entry, or marks it not customer-facing.
+
+A Dependabot bump, a `chore(deps):` title or the `dependencies` label does not exclude a pull request that carries an upgrade with changes; without one it is skipped as usual. Other excluded labels (such as `internal`) still exclude it. If a tag cannot be found, or the gem's repository is not readable by the token, the upgrade is recorded without changes and a warning is logged; the rewriter then works from the pull request alone.
+
+The GitHub token needs read access to the gem repositories as well (**Contents** and **Pull requests**). Detection is capped per sync (50 pull requests), so a large repository's first sync finishes over several syncs.
+
+Only pull requests synced by 0.2.0 or later are inspected: merges imported earlier are not backfilled, and their gem changes are not turned into entries. Pull requests merged before the next scan's start (the last scan, or seven days ago for a repository never scanned) are marked checked without being fetched, since nothing that old would be drafted. A pull request whose inspection fails with a temporary GitHub error is retried on the next syncs and given up after three attempts; any other error gives it up at once, with a warning.
+
+**Rebase merges.** Shiplog reads the lockfile at the merge commit and at its first parent. For a rebase merge, GitHub creates no merge commit: the pull request's "merge commit" is the last rebased commit, so only that commit's lockfile change is seen. Dependabot's pull requests are a single commit, so they are unaffected; a rebased branch that bumps a gem in an earlier commit is missed.
 
 ## GitHub token
 
@@ -226,6 +277,57 @@ Approved changelog entries do not react to later GitHub changes (a reverted pull
 
 Drafts whose rewrite job was lost (no result and no error after an hour) are queued again by the next sync, and the admin marks them "Not rewritten yet" until then.
 
+## Product updates navigation
+
+The default page header shows a switcher under the lede: **Roadmap**, **Changelog**, then `config.extra_pages`. The current page carries `aria-current="page"`: of the pages whose path equals or contains the request path, the one with the longest path is current. Add your own pages, for example a news section:
+
+```ruby
+config.extra_pages = [
+  { label: "News", path: "/learn/news" },
+  # Callables are evaluated in the view, so route helpers and I18n work:
+  { label: -> { t("pages.docs") }, path: -> { main_app.docs_path } }
+]
+```
+
+To show the same switcher on your own pages, add the helper to the controller and call it in the view. It links the stylesheet (unless `config.stylesheet` is `false`) and finds the engine's route proxy in your routes whatever name you gave the mount (`as: :updates`), so it works in main-app views. It raises an error if `Shiplog::Engine` is not mounted:
+
+```ruby
+class NewsController < ApplicationController
+  helper Shiplog::SwitcherHelper
+end
+```
+
+```erb
+<%= shiplog_switcher %>
+```
+
+A `path` String must start with `/` (not `//`, `/\` or `/` followed by whitespace), `http://`, `https://` or `mailto:`, and contain no control characters; anything else, such as `"news"`, raises `ArgumentError` when you assign `extra_pages`. An absolute `http(s)` page is marked current only on its own host (`request.host`). A callable that returns another scheme renders the label as text, without a link, and logs a warning. `feedback_path` follows the same rule at render time: an unsafe value shows no link.
+
+Labels come from `shiplog.switcher.roadmap`, `.changelog` and `.label` (the `nav` label); every Shiplog key has an English default, so a locale without translations shows English. Style it with the `switcher` and `switcher_link` keys of [`config.classes`](#3-configclasses-tailwind-and-other-utility-frameworks); the current link also has `shiplog-switcher__link--current`. Hosts that override `shiplog/_page_header` keep their own header; render `shiplog_switcher` or the `shiplog/switcher` partial in it to get the links.
+
+### Roadmap details
+
+- **Status:** each column has a rule on top and a marker (`shiplog-column__marker--in-progress` / `--coming-soon` / `--later`).
+- **Card meta:** the label of the issue's repository (`config.repository_labels`) and "Includes N parts" when the issue has more than one sub-issue (`shiplog.roadmap.parts`). A card with neither has no meta element.
+- **Recently shipped:** the last `config.roadmap_shipped_count` approved feature and change entries (default 4), each linking to its month on the changelog, plus a "See the full changelog" link. The roadmap's ETag follows changelog approvals.
+- **Footnote:** set the `shiplog.roadmap.footnote` translation (empty by default, nothing renders while it is empty) and `config.feedback_path` for a "Suggest a feature" link (`shiplog.roadmap.suggest`).
+
+## Changelog search
+
+The public changelog has a search form above its months: `GET /changelog?q=csv` lists the approved features and changes whose title or body contain every word of the query (case-insensitive `ILIKE`, so PostgreSQL; `%`, `_` and `\` are matched literally). Only the first 5 words of the first 100 characters count. Results keep the changelog's order and month grouping and are paginated; the pagination links keep `q`. With a query the page shows "N results for “csv”" and a "Clear search" link, or a "no entries match" message. A blank `q` is the same as no `q`. The form is a plain GET form (`role="search"`, a `type="search"` input named `q` with an `aria-label`), so it needs no JavaScript.
+
+- Turn it off with `config.changelog_search = false`: no form, and `q` is ignored.
+- Override `shiplog/changelogs/_search.html.erb` (locals `query:` and `count:`, both `nil` without a query) to change the markup. Style it with the `search*` keys of [`config.classes`](#3-configclasses-tailwind-and-other-utility-frameworks).
+- Texts: `shiplog.changelog.search.label`, `.submit`, `.summary` (`one` / `other`, with `count` and `query`), `.clear` and `.empty` (with `query`); all have English defaults.
+- The ETag includes the normalised query.
+- The model scope is `Shiplog::Entry.search(query)`.
+
+**Keeping search pages out of search engines.** A page with a query sets `content_for :shiplog_robots, "noindex"`. Shiplog's own layout turns that into `<meta name="robots" content="noindex">`. A host layout (`config.public_layout`) controls its own `<head>`, so emit it there:
+
+```erb
+<%= tag.meta name: "robots", content: content_for(:shiplog_robots) if content_for?(:shiplog_robots) %>
+```
+
 ## Styling
 
 The public pages ship plain semantic HTML with stable [BEM](https://getbem.com) classes (`shiplog-card`, `shiplog-entry__title`, ...) and a small, framework-free stylesheet. Pick the level that fits your app; the same views work in all of them.
@@ -300,9 +402,12 @@ Without it, `shiplog` is first seen when `shiplog.css` loads, which can put it a
 | `page_header` | `shiplog-page__header` | Header with title and lede |
 | `page_title` | `shiplog-page__title` | `h1` |
 | `page_lede` | `shiplog-page__lede` | Intro paragraph |
+| `switcher` | `shiplog-switcher` | Switcher `nav` (Roadmap, Changelog, extra pages) |
+| `switcher_link` | `shiplog-switcher__link` (+ `--current`) | One switcher link |
 | `columns` | `shiplog-columns` | Roadmap column grid |
 | `column` | `shiplog-column` (+ `--in-progress` / `--coming-soon` / `--later`) | One roadmap column |
 | `column_header` | `shiplog-column__header` | Column heading block |
+| `column_marker` | `shiplog-column__marker` (+ `--in-progress` / `--coming-soon` / `--later`) | Status dot inside the column `h2`. The column's rule is its `border-top`, set by the column modifier (`shiplog-column--later`); with utility classes, target it with a variant such as `in-[.shiplog-column--later]:bg-gray-300`. |
 | `column_title` | `shiplog-column__title` | Column `h2` |
 | `column_count` | `shiplog-column__count` | Number of items |
 | `column_description` | `shiplog-column__description` | One-line description |
@@ -311,6 +416,16 @@ Without it, `shiplog` is first seen when `shiplog.css` loads, which can put it a
 | `card` | `shiplog-card` | Roadmap card |
 | `card_title` | `shiplog-card__title` | Card `h3` |
 | `card_body` | `shiplog-card__body` | Card text |
+| `card_meta` | `shiplog-card__meta` | Line under the card text (omitted when empty) |
+| `card_tag` | `shiplog-card__tag` | Repository label |
+| `shipped` | `shiplog-shipped` | "Recently shipped" section |
+| `shipped_title` | `shiplog-shipped__title` | Its `h2` |
+| `shipped_list` | `shiplog-shipped__list` | Its list |
+| `shipped_item` | `shiplog-shipped__item` | One entry |
+| `shipped_date` | `shiplog-shipped__date` | Release date of the entry |
+| `shipped_link` | `shiplog-shipped__link` (+ `--all` on the changelog link) | Links to the changelog |
+| `footnote` | `shiplog-footnote` | Footnote paragraph |
+| `footnote_link` | `shiplog-footnote__link` | "Suggest a feature" link |
 | `months` | `shiplog-months` | Changelog months wrapper |
 | `month` | `shiplog-month` | One month section |
 | `month_title` | `shiplog-month__title` | Month `h2` |
@@ -324,16 +439,23 @@ Without it, `shiplog` is first seen when `shiplog.css` loads, which can put it a
 | `pagination` | `shiplog-pagination` | Pagination `nav` |
 | `pagination_link` | `shiplog-pagination__link` (+ `--newer` / `--older`) | Newer/older links |
 | `empty` | `shiplog-empty` | "Nothing here yet" notice |
+| `search` | `shiplog-search` | Changelog search `form` |
+| `search_input` | `shiplog-search__input` | The `type="search"` input |
+| `search_button` | `shiplog-search__button` | Submit button |
+| `search_summary` | `shiplog-search__summary` | "N results for ..." line |
+| `search_clear` | `shiplog-search__clear` | "Clear search" link |
+| `search_empty` | `shiplog-search__empty` | "No entries match" notice |
 
-Values may be strings or arrays. The list is `Shiplog::Classes::KEYS`; assigning `config.classes` raises `ArgumentError` (listing the valid keys) for any other key, in every environment. String keys are accepted and normalised to symbols, and the hash is stored frozen. Texts come from I18n (`shiplog.roadmap.title`, `shiplog.roadmap.lede`, `shiplog.changelog.*`, `shiplog.categories.feature` / `change`, `shiplog.date_format` (default `%-d %B %Y`, used for entry dates), `shiplog.columns.<column>_description`), so override them in your locale files.
+Values may be strings or arrays. The list is `Shiplog::Classes::KEYS`; assigning `config.classes` raises `ArgumentError` (listing the valid keys) for any other key, in every environment. String keys are accepted and normalised to symbols, and the hash is stored frozen. Texts come from I18n (`shiplog.roadmap.title`, `shiplog.roadmap.lede`, `shiplog.roadmap.*` (`parts`, `shipped_heading`, `full_changelog`, `footnote`, `suggest`), `shiplog.switcher.*`, `shiplog.changelog.*`, `shiplog.categories.feature` / `change`, `shiplog.date_format` (default `%-d %B %Y`, used for entry dates), `shiplog.columns.<column>_description`), so override them in your locale files.
 
 ### 4. Override the partials
 
 Copy any view from the engine's `app/views/shiplog/` into your app with the same path and edit it. Each partial documents its locals in a comment on its first lines:
 
 - `shiplog/_page.html.erb`, `shiplog/_page_header.html.erb`, `shiplog/_pagination.html.erb`, `shiplog/_empty.html.erb`
-- `shiplog/roadmaps/_column.html.erb`, `shiplog/roadmaps/_card.html.erb`
-- `shiplog/changelogs/_month.html.erb`, `shiplog/changelogs/_entry.html.erb`
+- `shiplog/_switcher.html.erb`
+- `shiplog/roadmaps/_column.html.erb`, `shiplog/roadmaps/_card.html.erb`, `shiplog/roadmaps/_shipped.html.erb`
+- `shiplog/changelogs/_month.html.erb`, `shiplog/changelogs/_entry.html.erb`, `shiplog/changelogs/_search.html.erb`
 
 `shiplog/_page.html.erb` is what links the stylesheet (so it also works in layouts you don't control); keep that line if you copy it and still want the bundled CSS.
 

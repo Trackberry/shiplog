@@ -5,6 +5,9 @@ module Shiplog
     # Network failures and 5xx responses; safe to retry later.
     class Transient < Error; end
 
+    # HTTP 404: the resource does not exist, or the token cannot see it.
+    class NotFound < Error; end
+
     class RateLimited < Error
       attr_reader :reset_at
 
