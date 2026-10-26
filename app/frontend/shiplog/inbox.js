@@ -1,6 +1,9 @@
-const inbox = document.querySelector("[data-shiplog-inbox]")
+// Idempotent: runs now and again on turbo:load (inert without Turbo), binding each container once.
+const init = () => {
+  const inbox = document.querySelector("[data-shiplog-inbox]")
+  if (!inbox || inbox.dataset.shiplogBound) return
+  inbox.dataset.shiplogBound = "true"
 
-if (inbox) {
   // Host layouts may not render csrf_meta_tags, so the container carries the token as a fallback.
   const csrfToken = document.querySelector("meta[name=csrf-token]")?.content ?? inbox.dataset.csrfToken
   const status = inbox.querySelector("[data-shiplog-status]")
@@ -70,3 +73,6 @@ if (inbox) {
     }
   })
 }
+
+init()
+document.addEventListener("turbo:load", init)
