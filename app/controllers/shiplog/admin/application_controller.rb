@@ -1,13 +1,16 @@
 module Shiplog
   module Admin
-    class ApplicationController < ActionController::Base
+    # Parent controller of the admin. The parent class is resolved when this file loads, so
+    # `config.admin_parent_controller` must be set in an initializer (config/initializers/shiplog.rb).
+    class ApplicationController < Shiplog.config.admin_parent_controller.constantize
       protect_from_forgery with: :exception
 
       helper Shiplog::FrontendHelper
+      helper Shiplog::HostRoutesHelper
       helper Shiplog::ApplicationHelper
       helper Shiplog::Admin::EntriesHelper
       helper_method :current_admin_name
-      layout "shiplog/admin"
+      layout -> { Shiplog.config.admin_layout }
 
       before_action :authorize_admin
 

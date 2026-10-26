@@ -27,6 +27,19 @@ class Shiplog::FrontendsControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.headers["Cache-Control"], "immutable"
   end
 
+  test "the stylesheets live in the shiplog layer and only style Shiplog classes" do
+    dir = Rails.root.join("../../app/frontend/shiplog")
+    %w[shiplog admin].each do |name|
+      css = dir.join("#{name}.css").read.gsub(%r{/\*.*?\*/}m, "")
+      assert_match(/\A\s*@layer shiplog \{/, css, name)
+      selectors = css.scan(/^\s*([^\s@}][^{};\n]*?)\s*\{/).flatten.reject { |selector| selector.match?(/\A(\d+%|from|to)\z/) }
+      selectors.flat_map { |list| list.split(",") }.map(&:strip).each do |selector|
+        assert_match(/\A(\.shiplog-|body:has\(\.shiplog-)/, selector, "#{name}.css: #{selector}")
+        assert_match(/\A\.shiplog-admin/, selector, "admin.css must be scoped: #{selector}") if name == "admin"
+      end
+    end
+  end
+
   test "a version other than the current one is not found" do
     get "/shiplog/assets/0.0.0-stale/shiplog.css"
     assert_response :not_found

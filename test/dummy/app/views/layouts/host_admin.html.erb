@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Host admin</title>
+    <%= csrf_meta_tags %>
+  </head>
+  <body>
+    <header id="host-admin-header">
+      <a id="host-account" href="<%= account_path %>">Account</a>
+      <a id="host-admin-about" href="<%= about_path %>">About</a>
+    </header>
+    <main id="host-admin-main">
+      <%= yield %>
+    </main>
+  </body>
+</html>

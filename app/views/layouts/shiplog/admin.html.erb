@@ -6,14 +6,10 @@
     <title><%= content_for(:title).presence || t("shiplog.admin.title") %></title>
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
-    <%= shiplog_stylesheet_tag "admin" %>
     <%= render "shiplog/admin/custom_head" %>
   </head>
-  <body class="shiplog-admin">
-    <%= render "shiplog/admin/nav" %>
-    <main class="shiplog-admin__main">
-      <% if notice %><p class="shiplog-admin__flash shiplog-admin__flash--notice" role="status"><%= notice %></p><% end %>
-      <% if alert %><p class="shiplog-admin__flash shiplog-admin__flash--alert" role="alert"><%= alert %></p><% end %>
+  <body class="shiplog-admin-body">
+    <main>
       <%= yield %>
     </main>
   </body>

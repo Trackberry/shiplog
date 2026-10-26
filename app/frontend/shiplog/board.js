@@ -1,7 +1,8 @@
 const board = document.querySelector("[data-board-url]")
 
 if (board) {
-  const csrfToken = document.querySelector("meta[name=csrf-token]")?.content
+  // Host layouts may not render csrf_meta_tags, so the board element carries the token as a fallback.
+  const csrfToken = document.querySelector("meta[name=csrf-token]")?.content ?? board.dataset.csrfToken
   let dragged = null
   let origin = null
   let dropped = false
