@@ -64,7 +64,7 @@ class Shiplog::TranslateEntryJobTest < ActiveJob::TestCase
 
     assert_equal 3, @calls
     assert_equal 0, @entry.translations.count
-    assert_equal 3, log.string.scan("LLM down").size.clamp(0, 3)
+    assert_operator log.string.scan("LLM down").size, :>=, 3
     assert_match(/Giving up translating entry #{@entry.id} into es/, log.string)
   ensure
     Rails.logger = original

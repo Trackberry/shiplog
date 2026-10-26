@@ -48,8 +48,11 @@ class Shiplog::ChangelogSeenTest < ActionDispatch::IntegrationTest
     called = 0
     Shiplog.config.on_changelog_seen = ->(_controller) { called += 1 }
     get "/changelog/nope"
+    assert_response :not_found
     get "/changelog.atom"
+    assert_response :ok
     get "/changelog", params: { page: 99 }
+    assert_response :not_found
     assert_equal 0, called
   end
 

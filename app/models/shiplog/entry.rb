@@ -155,7 +155,7 @@ module Shiplog
       return slug if slug.present?
       return unless approved? && permalinked?
 
-      retrying_on_slug_conflict { self.class.where(id:, slug: nil).update_all(slug: generate_slug) }
+      retrying_on_slug_conflict { self.class.where(id:, slug: nil).update_all(slug: generate_slug, updated_at: Time.current) }
       reload.slug
     end
 
