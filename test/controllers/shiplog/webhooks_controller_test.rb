@@ -163,19 +163,45 @@ class Shiplog::WebhooksControllerTest < ActionDispatch::IntegrationTest
     assert_equal 1, Shiplog::WebhookDelivery.count
   end
 
-  test "bodies over 25 MB are refused even when Content-Length is absent or wrong" do
+  test "bodies over 25 MB are refused when Content-Length is absent, without raw_post" do
+    original_raw_post = ActionDispatch::Request.instance_method(:raw_post)
     request_class = ActionDispatch::Request
-    request_class.alias_method :original_raw_post, :raw_post
-    request_class.define_method(:raw_post) { "x" * (25.megabytes + 1) }
+    request_class.alias_method :original_content_length, :content_length
+    request_class.define_method(:content_length) { 0 } # as with chunked uploads
+    ActionDispatch::Request.define_method(:raw_post) { raise "raw_post must not be called" }
     begin
-      deliver "issues", { action: "opened", issue: { number: 7 }, repository: { full_name: "o/r" } }, id: "big2"
+      body = "x" * (25.megabytes + 5)
+      post PATH, params: body, headers: {
+        "CONTENT_TYPE" => "application/json",
+        "X-Hub-Signature-256" => "sha256=" + OpenSSL::HMAC.hexdigest("SHA256", SECRET, body),
+        "X-GitHub-Event" => "issues", "X-GitHub-Delivery" => "big3"
+      }
     ensure
-      request_class.alias_method :raw_post, :original_raw_post
-      request_class.remove_method :original_raw_post
+      ActionDispatch::Request.define_method(:raw_post, original_raw_post)
+      request_class.alias_method :content_length, :original_content_length
+      request_class.remove_method :original_content_length
     end
-
     assert_response :content_too_large
     assert_equal 1, Shiplog::WebhookDelivery.count
+  end
+
+  test "repository matching is case-insensitive and enqueues the configured spelling" do
+    deliver "issues", { action: "opened", issue: { number: 7 }, repository: { full_name: "O/R" } }
+
+    assert_response :accepted
+    assert_equal [ [ "o/r", "issue", 7 ] ], enqueued_refreshes
+  end
+
+  test "a missing delivery header is a 400" do
+    payload = { action: "opened", issue: { number: 7 }, repository: { full_name: "o/r" } }.to_json
+    post PATH, params: payload, headers: {
+      "CONTENT_TYPE" => "application/json", "X-GitHub-Event" => "issues",
+      "X-Hub-Signature-256" => "sha256=" + OpenSSL::HMAC.hexdigest("SHA256", SECRET, payload)
+    }
+
+    assert_response :bad_request
+    assert_equal 1, Shiplog::WebhookDelivery.count
+    assert_empty enqueued_refreshes
   end
 
   test "enqueue failure stores the error and returns 500" do

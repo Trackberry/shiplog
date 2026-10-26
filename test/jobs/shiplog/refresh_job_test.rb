@@ -27,6 +27,17 @@ class Shiplog::RefreshJobTest < ActiveJob::TestCase
     Shiplog::Drafter.define_singleton_method(:call, original)
   end
 
+  test "matches the configured repository case-insensitively" do
+    stub = stub_request(:post, URL).with { |req|
+      JSON.parse(req.body)["variables"].slice("owner", "name") == { "owner" => "Acme", "name" => "widgets" }
+    }.to_return(body: github_fixture("issue_single"))
+
+    Shiplog::RefreshJob.perform_now("acme/Widgets", "issue", 12)
+
+    assert_requested stub
+    assert_equal [ "Acme/widgets" ], Shiplog::Repository.where(full_name: %w[Acme/widgets acme/Widgets]).pluck(:full_name)
+  end
+
   test "fetches a single pull request" do
     stub_request(:post, URL).to_return(body: github_fixture("pull_request_single"))
 

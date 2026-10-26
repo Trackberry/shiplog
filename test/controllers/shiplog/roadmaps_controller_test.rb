@@ -60,4 +60,29 @@ class Shiplog::RoadmapsControllerTest < ActionDispatch::IntegrationTest
     get "/roadmap", headers: { "If-None-Match" => etag }
     assert_response :not_modified
   end
+
+  test "ETag changes after approving an entry" do
+    get "/roadmap"
+    etag = response.headers["ETag"]
+    shiplog_entries(:soon_item_roadmap).approve!(by: "ed@example.com")
+    get "/roadmap", headers: { "If-None-Match" => etag }
+    assert_response :ok
+    assert_not_equal etag, response.headers["ETag"]
+  end
+
+  test "ETag changes after pinning an issue to another column" do
+    get "/roadmap"
+    etag = response.headers["ETag"]
+    shiplog_issues(:later_item).update_columns(pinned_column: "in_progress")
+    get "/roadmap", headers: { "If-None-Match" => etag }
+    assert_response :ok
+    assert_not_equal etag, response.headers["ETag"]
+  end
+
+  test "ETag differs per locale" do
+    get "/roadmap"
+    english = response.headers["ETag"]
+    with_extra_locale(:fr) { get "/roadmap" }
+    assert_not_equal english, response.headers["ETag"]
+  end
 end

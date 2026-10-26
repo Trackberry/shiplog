@@ -25,4 +25,12 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
     assert Shiplog.config.excluded_author?("robot")
     refute Shiplog.config.excluded_author?("edouard")
   end
+
+  test "repository_configured? returns the configured spelling case-insensitively" do
+    config = Shiplog::Configuration.new
+    config.repositories = [ "Acme/Widgets" ]
+    assert_equal "Acme/Widgets", config.repository_configured?("acme/widgets")
+    assert_nil config.repository_configured?("acme/other")
+    assert_nil config.repository_configured?(nil)
+  end
 end

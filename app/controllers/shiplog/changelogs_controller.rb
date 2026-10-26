@@ -8,9 +8,11 @@ module Shiplog
       scope = Entry.approved.where(kind: %w[feature change]).where.not(released_on: nil)
         .order(released_on: :desc, approved_at: :desc, id: :desc)
       records = scope.offset((@page - 1) * PER_PAGE).limit(PER_PAGE + 1).to_a
+      return head(:not_found) if @page > 1 && records.empty?
+
       @older = records.size > PER_PAGE
       @months = records.first(PER_PAGE).group_by { |entry| entry.released_on.beginning_of_month }
-      fresh_when etag: [ @page, @older, @months.values.flatten.map { |entry| [ entry.id, entry.updated_at ] } ]
+      fresh_when etag: [ I18n.locale, @page, @older, @months.values.flatten.map { |entry| [ entry.id, entry.updated_at ] } ]
     end
 
     private

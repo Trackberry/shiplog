@@ -6,7 +6,8 @@ module Shiplog
     layout false
 
     before_action :disable_session
-    before_action :reject_oversized_body
+    before_action :read_body_within_limit
+    before_action :require_delivery_id
     before_action :require_secret
     before_action :verify_signature
 
@@ -25,11 +26,22 @@ module Shiplog
       request.session_options[:skip] = true
     end
 
-    def reject_oversized_body
+    # Reads the body once, never more than the cap plus one byte; the result is reused for signature and parsing.
+    def read_body_within_limit
       return head :content_too_large if request.content_length.to_i > MAX_BODY_BYTES
 
       # Content-Length may be absent (chunked) or wrong; check what was actually received.
-      head :content_too_large if request.raw_post.bytesize > MAX_BODY_BYTES
+      @body = request.body.read(MAX_BODY_BYTES + 1).to_s
+      request.body.rewind
+      head :content_too_large if @body.bytesize > MAX_BODY_BYTES
+    end
+
+    def require_delivery_id
+      head :bad_request if delivery_id.blank?
+    end
+
+    def delivery_id
+      request.headers["X-GitHub-Delivery"].to_s
     end
 
     def require_secret
@@ -39,14 +51,14 @@ module Shiplog
     def verify_signature
       signature = WebhookSignature.new(
         secret: Shiplog.config.webhook_secret.to_s,
-        body: request.raw_post,
+        body: @body,
         header: request.headers["X-Hub-Signature-256"]
       )
       head :unauthorized unless signature.valid?
     end
 
     def parse_payload
-      payload = JSON.parse(request.raw_post)
+      payload = JSON.parse(@body)
       payload if payload.is_a?(Hash)
     rescue JSON::ParserError
       nil
@@ -55,7 +67,7 @@ module Shiplog
     # Returns the delivery to process: a new one, or an earlier one that failed (error, never processed).
     def record_delivery(event, payload)
       WebhookDelivery.create!(
-        delivery_id: request.headers["X-GitHub-Delivery"].to_s,
+        delivery_id: delivery_id,
         event: event,
         action: payload["action"],
         repository_full_name: payload.dig("repository", "full_name"),
@@ -67,8 +79,10 @@ module Shiplog
 
     # Claims atomically (clearing the error) so concurrent redeliveries do not both reprocess.
     def retry_failed_delivery
-      failed = WebhookDelivery.where(delivery_id: request.headers["X-GitHub-Delivery"].to_s, processed_at: nil).where.not(error: nil)
+      failed = WebhookDelivery.where(delivery_id: delivery_id, processed_at: nil).where.not(error: nil)
       delivery = failed.first
+      # Known gap: if the process dies after this claim but before processed_at is set, the delivery stays stuck;
+      # the scheduled SyncJob repairs the data.
       delivery if delivery && failed.where(id: delivery.id).update_all(error: nil, updated_at: Time.current) == 1
     end
 
@@ -89,7 +103,8 @@ module Shiplog
         when "sub_issues" then sub_issue_targets(payload)
         else []
         end
-      targets.uniq.select { |repo, _, number| number && Shiplog.config.repositories.include?(repo) }
+      targets.filter_map { |repo, kind, number| [ Shiplog.config.repository_configured?(repo), kind, number ] if number }
+        .select(&:first).uniq
     end
 
     def sub_issue_targets(payload)

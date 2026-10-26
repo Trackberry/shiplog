@@ -26,6 +26,12 @@ module Shiplog
       github_token.respond_to?(:call) ? github_token.call : github_token
     end
 
+    # The configured spelling of a repository name (matched case-insensitively), or nil.
+    def repository_configured?(name)
+      return if name.blank?
+      repositories.find { |configured| configured.casecmp?(name.to_s) }
+    end
+
     def excluded_author?(login)
       excluded_authors.any? { |pattern| pattern === login }
     end

@@ -27,6 +27,11 @@ class Shiplog::FrontendsControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.headers["Cache-Control"], "immutable"
   end
 
+  test "a version other than the current one is not found" do
+    get "/shiplog/assets/0.0.0-stale/shiplog.css"
+    assert_response :not_found
+  end
+
   test "an unknown name is not found" do
     get "/shiplog/assets/#{VERSION}/nope.css"
     assert_response :not_found

@@ -19,5 +19,13 @@ require "webmock/minitest"
 class ActiveSupport::TestCase
   teardown { Shiplog.reset_config! }
 
+  def with_extra_locale(locale)
+    available = I18n.available_locales
+    I18n.available_locales = available + [ locale ]
+    I18n.with_locale(locale) { yield }
+  ensure
+    I18n.available_locales = available
+  end
+
   def github_fixture(name) = file_fixture("github/#{name}.json").read
 end

@@ -61,6 +61,29 @@ class Shiplog::ChangelogsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".shiplog-empty", text: "Nothing here yet"
   end
 
+  test "ETag changes after approving an entry" do
+    get "/changelog"
+    etag = response.headers["ETag"]
+    entry = shiplog_entries(:csv_change_draft)
+    entry.update!(released_on: Date.new(2026, 10, 11))
+    entry.approve!(by: "ed@example.com")
+    get "/changelog", headers: { "If-None-Match" => etag }
+    assert_response :ok
+    assert_not_equal etag, response.headers["ETag"]
+  end
+
+  test "ETag differs per locale" do
+    get "/changelog"
+    english = response.headers["ETag"]
+    with_extra_locale(:fr) { get "/changelog" }
+    assert_not_equal english, response.headers["ETag"]
+  end
+
+  test "a page beyond the last one with no entries is not found" do
+    get "/changelog?page=2"
+    assert_response :not_found
+  end
+
   test "paginates 30 per page with older and newer links" do
     create_entries(60)
     get "/changelog"
@@ -89,7 +112,7 @@ class Shiplog::ChangelogsControllerTest < ActionDispatch::IntegrationTest
     get "/changelog", params: { page: { a: 1 } }
     assert_response :ok
     get "/changelog", params: { page: "9" * 40 }
-    assert_response :ok
+    assert_response :not_found
   end
 
   test "respects the configured public layout" do
