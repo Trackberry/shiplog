@@ -116,7 +116,8 @@ All settings live in `config/initializers/shiplog.rb`:
 | `cache_version` | `nil` | A String added to the public pages' ETag. Callables (`extra_pages`, `repository_labels`, `feedback_path`) cannot be fingerprinted, so bump it when the output of a callable you configured changes. |
 | `feedback_path` | `nil` | Target of the roadmap's "Suggest a feature" link, a String or a callable evaluated in the view. No link while `nil`. |
 | `changelog_search` | `true` | Search box on the public changelog and `?q=` filtering. `false` hides the form and ignores `q`. See [Changelog search](#changelog-search). |
-| `structured_data` | `true` | schema.org JSON-LD on the public pages (`content_for :shiplog_structured_data`). `false` emits none. See [Structured data](#structured-data). Part of the ETag. |
+| `structured_data` | `true` | schema.org JSON-LD on the public pages (see [Head tags](#head-tags)). `false` emits none. See [Structured data](#structured-data). Part of the ETag. |
+| `og_image` | `nil` | The image shared with a permalink page that has no screenshot: `nil` or a callable `->(entry, locale) { url }` evaluated in the view (`instance_exec`, so `main_app` route helpers work). See [Head tags](#head-tags). Anything else raises `ArgumentError`. Callables are not part of the ETag: bump `cache_version` when its output changes. |
 | `on_changelog_seen` | `nil` | `->(controller) { ... }` called before each changelog index or permalink view renders (also for a 304 revisit), to stamp a visitor's "last seen" time. See [What's new](#whats-new-the-unseen-count). Anything but `nil` or a callable raises `ArgumentError`. |
 | `images` | `true` | [Screenshots](#screenshots) in entries. Effective only when Active Storage is loaded in the host; `false` turns fetching, upload and rendering off. `true` or `false`, anything else raises `ArgumentError`. |
 | `max_images_per_entry` | `4` | How many images are fetched from the GitHub body of a draft. A non-negative Integer; `0` fetches none (admin uploads are not capped). |
@@ -334,11 +335,7 @@ The public changelog has a search form above its months: `GET /changelog?q=csv` 
 - The ETag includes the normalised query.
 - The model scope is `Shiplog::Entry.search(query)`.
 
-**Keeping search pages out of search engines.** A page with a query sets `content_for :shiplog_robots, "noindex"`. Shiplog's own layout turns that into `<meta name="robots" content="noindex">`. A host layout (`config.public_layout`) controls its own `<head>`, so emit it there:
-
-```erb
-<%= tag.meta name: "robots", content: content_for(:shiplog_robots) if content_for?(:shiplog_robots) %>
-```
+**Keeping search pages out of search engines.** A page with a query is `noindex`: `shiplog_head_tags` renders `<meta name="robots" content="noindex">` (see [Head tags](#head-tags)). Hosts still on the older blocks read `content_for :shiplog_robots`.
 
 ## Product areas
 
@@ -393,39 +390,55 @@ Every approved feature and change has its own page at `GET /changelog/:slug` (un
 - **Entries approved before 0.3.0** get their slug from the 0.3.0 migration (oldest first, so the oldest keeps the plain slug on duplicate titles). `bin/rails shiplog:backfill_slugs` (idempotent, oldest first) does the same for entries that old code approved during a deploy window. The public pages never write, because a host may send GETs to a read replica: an approved entry without a slug is listed without a link, left out of the feed and has no page until it has a slug. An entry whose stored slug the route rejects is treated the same way.
 - **The page** shows the entry, a "← Back to the changelog" link to the entry's month anchor, and its newer and older neighbours (`rel="prev"` and `rel="next"`, as in the pagination). Drafts, discarded and roadmap entries and unknown slugs answer 404 with `X-Cascade: pass`: the engine is usually mounted at `/`, and its `/changelog/:slug` route would otherwise shadow a host route of yours below the changelog path (say `/changelog/archive`, declared after the mount). The router carries on with the routes after the mount, and your own 404 shows if none matches. Declare such host routes after `mount Shiplog::Engine`; before it they win anyway.
 - **Caching:** the ETag covers the entry and its neighbours' ids and `updated_at`.
-- **Head tags:** the page sets `content_for :title`, `content_for :shiplog_description` (the body, cut at 160 characters) and `content_for :shiplog_og` (Open Graph: `og:title`, `og:description`, `og:type` = `article`, `og:url`). Shiplog's own layout renders them. A host layout (`config.public_layout`) controls its own `<head>`, so render them there, as for `:shiplog_robots`:
-
-```erb
-<title><%= content_for(:title) %></title>
-<%= tag.meta name: "description", content: content_for(:shiplog_description) if content_for?(:shiplog_description) %>
-<%= content_for(:shiplog_og) %>
-<%= content_for(:shiplog_feed) %>
-<%= content_for(:shiplog_structured_data) %>
-```
-
+- **Head tags:** the page's description (the body, cut at 160 characters), canonical link and Open Graph tags (`og:title`, `og:description`, `og:type` = `article`, `og:url`, and the image) come from `shiplog_head_tags`; see [Head tags](#head-tags).
 - **Styling:** the `permalink` (the `article`), `permalink_back`, `permalink_nav` and `permalink_nav_link` keys of [`config.classes`](#3-configclasses-tailwind-and-other-utility-frameworks). Override `shiplog/changelogs/_entry_content.html.erb` (locals `entry:`, `heading:`, `linked:`) to change what an entry shows in both the list and the permalink page.
 - **Texts:** `shiplog.permalink.title`, `.back`, `.nav_label`, `.newer` and `.older` (with `title`); all have English defaults.
 
 ## Structured data
 
-The public pages describe themselves to search engines with schema.org JSON-LD: one `<script type="application/ld+json">` per page, set through `content_for :shiplog_structured_data`. Shiplog's own layout renders it. A host layout (`config.public_layout`) controls its own `<head>`, so render it there next to `:shiplog_og`:
+The public pages describe themselves to search engines with schema.org JSON-LD: one `<script type="application/ld+json">` per page, rendered by `shiplog_head_tags` (see [Head tags](#head-tags); leave it out with `except: :structured_data`). The older `content_for :shiplog_structured_data` block still holds the same tag.
 
-```erb
-<%= content_for(:shiplog_og) %>
-<%= content_for(:shiplog_structured_data) %>
-```
-
-- **Permalink page:** an `Article` with `headline` (the title, at most 110 characters), `description` (the meta description), `inLanguage` (`I18n.locale`, e.g. `en`, `es`), `datePublished` (the release date), `dateModified`, `url` and `mainEntityOfPage` (the permalink, honouring `config.canonical_url`), `image` (absolute URLs of the screenshots, left out without any), `articleSection` (the area's name, when it has one), `publisher` (an `Organization` named `config.product_name`, left out while it is `nil`) and `isPartOf` (the changelog's `CollectionPage`). Titles and bodies follow the request locale, translations included.
+- **Permalink page:** an `Article` with `headline` (the title, at most 110 characters), `description` (the meta description), `inLanguage` (`I18n.locale`, e.g. `en`, `es`), `datePublished` (the release date), `dateModified`, `url` and `mainEntityOfPage` (the permalink, honouring `config.canonical_url`), `image` (absolute URLs of the screenshots, else the `config.og_image` image, left out without any), `articleSection` (the area's name, when it has one), `publisher` (an `Organization` named `config.product_name`, left out while it is `nil`) and `isPartOf` (the changelog's `CollectionPage`). Titles and bodies follow the request locale, translations included.
 - **Changelog list:** a `CollectionPage` whose `mainEntity` is an `ItemList` of the entries on the current page (`position` counted on the page, `url`, `name`). Entries without a valid slug are skipped. Search results (they are `noindex`) and an empty list have none.
 - **Roadmap:** a `CollectionPage` with an `ItemList` of the cards (`position` and `name`; roadmap cards have no permalink, so no `url`).
 - **Safety:** the JSON is built from a Ruby Hash and `<`, `>` and `&` are written as `\u003c`, `\u003e` and `\u0026`, so a title containing `</script>` cannot close the tag.
 - **Off:** `config.structured_data = false` emits none. It is part of the ETag.
 
+## Head tags
+
+Shiplog's pages describe themselves in the `<head>`: description, canonical link, robots, Open Graph, Twitter card, the Atom feed link and JSON-LD. Shiplog's own layout renders them. If you set `config.public_layout` to a layout of your own, add one line to its `<head>`:
+
+```erb
+<head>
+  <title><%= content_for(:title) %></title>
+  <%= shiplog_head_tags %>
+</head>
+```
+
+The helper is available in the layouts of the public controllers. Elsewhere (a layout shared with your own pages) add `helper Shiplog::HeadHelper` to the controller that needs it: on any page that is not a Shiplog page it returns an empty string, so it is safe in a shared layout. `<title>` stays yours: it is `content_for(:title)`.
+
+- **What each page gets.** Permalink: `description`, `canonical` (the permalink), `og:title`, `og:description`, `og:type` = `article`, `og:url`, `og:image` and `og:image:alt` when there is an image, `twitter:card` (`summary_large_image` with an image, `summary` without) and `twitter:image`, the Atom link and the `Article` JSON-LD. Changelog list: `canonical` (the list's own URL, with its `area` and `page` but without any other query parameter), `og:title`, `og:type` = `website`, `og:url`, `twitter:card` = `summary`, the Atom link and the `CollectionPage`. Roadmap: the same without the Atom link. Each key is emitted once.
+- **Search pages** (`?q=`) are `noindex` and have **no canonical** (and no `og:url`, no JSON-LD). The alternative, a canonical pointing at the plain list, would tell search engines to index a page while `noindex` tells them not to; mixed signals are ignored or worse, so a search page just asks not to be indexed.
+- **`except:`** leaves groups out, for tags your layout already writes: `shiplog_head_tags(except: [:canonical, :twitter])`. Valid keys: `:description`, `:canonical`, `:robots`, `:open_graph` (the `og:*` tags), `:twitter` (the `twitter:*` tags), `:feed` and `:structured_data`. Any other key raises `ArgumentError`.
+- **Overridable partials.** Copy one into your app at the same path to change it (like the other [partials](#4-override-the-partials)):
+
+  | Partial | Renders |
+  |---|---|
+  | `shiplog/_head_tags.html.erb` | renders the four below |
+  | `shiplog/head/_meta.html.erb` | `description`, canonical link and `robots` |
+  | `shiplog/head/_open_graph.html.erb` | `og:*` and `twitter:*` |
+  | `shiplog/head/_feed.html.erb` | the Atom `<link rel="alternate">` |
+  | `shiplog/head/_structured_data.html.erb` | the JSON-LD `<script>` |
+
+  Every partial gets the same locals: `head` (a Hash with `:kind` (`:permalink`, `:changelog` or `:roadmap`), `:title`, `:entry` (permalink only), `:image`, `:canonical` and `:description`), `description`, `canonical`, `robots`, `open_graph` and `twitter` (Hashes of tag name to content), `feed_url`, `feed_title` and `json_ld`. What `except:` removed arrives as `nil` or `{}`, so a partial that renders its locals respects it.
+- **The share image.** The permalink page's image is the first screenshot (absolute URL), else what `config.og_image` returns, else none. `config.og_image` is `nil` or `->(entry, locale) { url }`, evaluated in the view (`instance_exec`, so `main_app.my_card_url(entry.slug)` works). A path (`"/cards/dark.png"`) is made absolute with `config.canonical_url` or the request's origin. A callable that raises, or returns anything but an http(s) URL or a path (`javascript:`, `//host`, `nil`), is logged once for the page (`[shiplog] config.og_image ...`) and the page renders without the image. The same image goes in `Article.image` of the JSON-LD. List pages and the roadmap get no image from Shiplog: your default applies, through your own tags (`except: [:open_graph, :twitter]`) or an override of `_open_graph`.
+- **The older `content_for` blocks** (`:shiplog_description`, `:shiplog_og`, `:shiplog_feed`, `:shiplog_robots`, `:shiplog_structured_data`) are still filled and still work, but are superseded: use `shiplog_head_tags`, or the blocks, not both. As a safety net a group is never emitted twice in a layout that renders both (reading a block marks its group as written, and the blocks read as empty once the helper has emitted them), but the blocks have neither the canonical link nor the Twitter tags. Upgrading: replace the `content_for` renders in your `<head>` with `shiplog_head_tags`, and pass `except:` for the tags your layout writes itself.
+
 ## Atom feed
 
 `GET /changelog.atom` serves the latest 50 approved features and changes (newest first) as an Atom feed. An entry has a stable id (a tag URI built from the permalink path, so a title edit does not change it), its permalink, `published` (the release date), `updated`, and its body as HTML. All URLs are absolute. The feed is cached with an ETag like the pages and answers 304 on a match; it does not call `on_changelog_seen`.
 
-The changelog and permalink pages advertise it with a `<link rel="alternate" type="application/atom+xml">` (`content_for :shiplog_feed`, rendered by Shiplog's layout; render it in a host layout too, see above) and the changelog shows a visible "Subscribe (Atom)" link (the `footnote_link` key). The feed has an `<author>` (the product name, or "Changelog"), which RFC 4287 requires when entries carry none. The feed is titled "Changelog", or "<product_name> changelog" when `config.product_name` is set, and follows the request locale. Texts: `shiplog.feed.title_with_product`, `.link_title` and `.subscribe`.
+The changelog and permalink pages advertise it with a `<link rel="alternate" type="application/atom+xml">` (rendered by `shiplog_head_tags`, see [Head tags](#head-tags); the older `content_for :shiplog_feed` block holds the same link) and the changelog shows a visible "Subscribe (Atom)" link (the `footnote_link` key). The feed has an `<author>` (the product name, or "Changelog"), which RFC 4287 requires when entries carry none. The feed is titled "Changelog", or "<product_name> changelog" when `config.product_name` is set, and follows the request locale. Texts: `shiplog.feed.title_with_product`, `.link_title` and `.subscribe`.
 
 ### Canonical URL
 
