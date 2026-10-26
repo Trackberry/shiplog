@@ -301,11 +301,20 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
     assert_nil config.canonical_url
   end
 
-  test "changelog_path must be one path segment of a-z, 0-9 and dashes" do
+  test "changelog_path strips surrounding slashes and takes segments of a-z, 0-9, dashes and underscores" do
+    config = Shiplog::Configuration.new
+    { "whats-new" => "whats-new", "/changelog" => "changelog", "changelog/" => "changelog", "//changelog//" => "changelog",
+      "whats_new" => "whats_new", "docs/whats-new" => "docs/whats-new", "/a/b_c/" => "a/b_c" }.each do |given, stored|
+      config.changelog_path = given
+      assert_equal stored, config.changelog_path, given.inspect
+    end
+  end
+
+  test "changelog_path raises on blank and unsafe values and keeps the previous one" do
     config = Shiplog::Configuration.new
     config.changelog_path = "whats-new"
-    assert_equal "whats-new", config.changelog_path
-    [ "", "  ", nil, "/changelog", "changelog/", "a/b", "Changelog", "change log", "changelog.atom", "..", :changelog ].each do |value|
+    [ "", "  ", "/", "//", nil, "change log", " changelog", "changelog.atom", "..", "../x", "a/../b", "a//b", "change?x=1", "change#top",
+      "Changelog", "chângelog", "a\\b", :changelog ].each do |value|
       assert_raises(ArgumentError, value.inspect) { config.changelog_path = value }
     end
     assert_equal "whats-new", config.changelog_path

@@ -16,10 +16,11 @@ module Shiplog
     # Path of the lockfile read in merged pull requests to detect gem upgrades (see config.repositories `gem:`).
     attr_accessor :lockfile_path
 
-    # The public changelog's path: one segment of a-z, 0-9 and dashes, without slashes (permalinks live below
-    # it, and the Atom feed is "<path>.atom"). Read when routes are drawn.
+    # The public changelog's path: segments of a-z, 0-9, dashes and underscores, joined by slashes ("changelog",
+    # "docs/whats_new"); surrounding slashes are stripped. Permalinks live below it and the Atom feed is
+    # "<path>.atom". Read when routes are drawn.
     attr_reader :changelog_path
-    CHANGELOG_PATH = /\A[a-z0-9-]+\z/
+    CHANGELOG_PATH = %r{\A[a-z0-9_-]+(?:/[a-z0-9_-]+)*\z}
 
     # The site's canonical origin, e.g. "https://trackberry.com" (nil by default). When set, the Atom feed's ids
     # and links, entry links, og:url and the other absolute URLs use it instead of the request's host, which
@@ -117,10 +118,11 @@ module Shiplog
     end
 
     def changelog_path=(value)
-      unless value.is_a?(String) && CHANGELOG_PATH.match?(value)
-        raise ArgumentError, "changelog_path must be a single path segment of a-z, 0-9 and dashes (like \"changelog\"), got #{value.inspect}"
+      path = value.gsub(%r{\A/+|/+\z}, "") if value.is_a?(String)
+      unless path && CHANGELOG_PATH.match?(path)
+        raise ArgumentError, "changelog_path must be a path of a-z, 0-9, dashes and underscores, with / between segments (like \"changelog\"), got #{value.inspect}"
       end
-      @changelog_path = value
+      @changelog_path = path
     end
 
     def canonical_url=(value)

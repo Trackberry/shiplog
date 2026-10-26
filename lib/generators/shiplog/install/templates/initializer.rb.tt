@@ -97,7 +97,7 @@ Shiplog.configure do |config|
 
   # Public paths, read when routes are drawn.
   # config.roadmap_path = "roadmap"
-  # config.changelog_path = "changelog"   # one segment of a-z, 0-9 and dashes
+  # config.changelog_path = "changelog"   # a-z, 0-9, - and _; "docs/news" nests; outer slashes are stripped
 
   # The site's canonical origin (scheme, host, optional port; no path). The Atom feed's ids and links, og:url
   # and the other absolute URLs use it instead of the request's host, which varies (apex vs www, a forged
