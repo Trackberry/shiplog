@@ -43,15 +43,20 @@ module Shiplog::Entry::Images
     images.attachments.find { |attachment| attachment.blob_id.to_s == blob_id.to_s } if Shiplog.active_storage?
   end
 
-  # Attaches files ({ io:, filename:, content_type: }, already validated) after the existing images and returns
-  # the attachments. The caller holds the row lock when it must not race.
+  # Attaches files ({ io:, filename:, content_type:, metadata: }, already validated) after the existing images and
+  # returns the attachments. The files are uploaded first, with no lock held (storage can be slow); only the
+  # attaching and the bookkeeping of image_order happen under the entry's row lock, so a racing request can't
+  # interleave. The block, when given, runs under the lock on the freshly loaded row: when it returns falsy
+  # nothing is attached and [] is returned. Nothing is attached, and every uploaded blob (file included) is
+  # purged, when anything fails or the block declines: all or nothing.
   def add_images(files)
-    blobs = files.map { |file| ActiveStorage::Blob.create_and_upload!(**file, identify: false) }
-    before = ordered_images.map(&:blob_id)
-    images.attach(blobs)
-    update!(image_order: before + blobs.map(&:id))
-    images_attachments.reset
-    ordered_images.last(blobs.size)
+    blobs = upload_blobs(files)
+    attached = with_lock { attach_blobs(blobs) if !block_given? || yield }
+    purge_blobs(blobs) unless attached
+    attached || []
+  rescue StandardError
+    purge_blobs(blobs) if blobs
+    raise
   end
 
   def remove_image(blob_id)
@@ -87,6 +92,35 @@ module Shiplog::Entry::Images
       alts = image_alts_by_blob.except(attachment.blob_id.to_s)
       alts[attachment.blob_id.to_s] = alt if alt.present?
       update!(image_alts: alts)
+    end
+  end
+
+  private
+
+  def upload_blobs(files)
+    blobs = []
+    files.each { |file| blobs << ActiveStorage::Blob.create_and_upload!(**file, identify: false) }
+    blobs
+  rescue StandardError
+    purge_blobs(blobs)
+    raise
+  end
+
+  # Under the row lock.
+  def attach_blobs(blobs)
+    before = ordered_images.map(&:blob_id)
+    images.attach(blobs)
+    update!(image_order: before + blobs.map(&:id))
+    images_attachments.reset
+    ordered_images.last(blobs.size)
+  end
+
+  # Deletes blobs and their stored files. A failure on one is logged and doesn't stop the others.
+  def purge_blobs(blobs)
+    blobs.each do |blob|
+      blob.purge
+    rescue StandardError => error
+      Rails.logger&.warn("[shiplog] Could not purge blob #{blob.id} of entry #{id}: #{error.class}: #{error.message}")
     end
   end
 end

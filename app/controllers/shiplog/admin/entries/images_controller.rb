@@ -17,7 +17,7 @@ module Shiplog
             return back(alert: t("shiplog.admin.entries.images.rejected", names:, default: "Not added, only PNG, JPEG, GIF and WebP images up to 5 MB are accepted: %{names}"))
           end
 
-          @entry.with_lock { @entry.add_images(files.map { |file| attachable(file) }) }
+          @entry.add_images(files.map { |file| attachable(file) }) # uploads first, locks only to attach
           back(notice: t("shiplog.admin.entries.images.added", count: files.size, default: { one: "Image added.", other: "%{count} images added." }))
         end
 

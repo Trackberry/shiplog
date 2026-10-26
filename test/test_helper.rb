@@ -80,6 +80,23 @@ class ActiveSupport::TestCase
     own ? singleton.send(:define_method, name, original) : singleton.send(:remove_method, name)
   end
 
+  # Runs the block with ActiveStorage::Blob.create_and_upload! recorded: each call appends :upload to `log` and
+  # the blobs created are yielded. `fail_at: 3` makes the third call raise (a storage outage).
+  def tracking_uploads(log = [], fail_at: nil)
+    original = ActiveStorage::Blob.method(:create_and_upload!)
+    blobs = []
+    uploader = lambda do |**kwargs|
+      log << :upload
+      raise IOError, "storage down" if fail_at == log.count(:upload)
+
+      original.call(**kwargs).tap { |blob| blobs << blob }
+    end
+    with_stub(ActiveStorage::Blob, :create_and_upload!, uploader) { yield blobs }
+  end
+
+  # Whether the blob's file is still in the storage service.
+  def blob_stored?(blob) = ActiveStorage::Blob.service.exist?(blob.key)
+
   # Runs the block as a host without Active Storage would see Shiplog.
   def without_active_storage
     original = Shiplog.method(:active_storage?)

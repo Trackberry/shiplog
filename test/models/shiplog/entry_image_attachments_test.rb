@@ -171,4 +171,91 @@ class Shiplog::EntryImageAttachmentsTest < ActiveJob::TestCase
     assert @entry.reload.remove_image(image.blob_id)
     assert_equal({}, @entry.image_alts)
   end
+
+  test "files are uploaded before the row lock is taken, and only attached under it" do
+    log = []
+    lock = @entry.method(:with_lock)
+    with_stub(@entry, :with_lock, ->(*args, &block) { log << :lock; lock.call(*args, &block) }) do
+      tracking_uploads(log) { @entry.add_images([ file(:png), file(:gif) ]) }
+    end
+
+    assert_equal [ :upload, :upload, :lock ], log
+    assert_equal 2, @entry.reload.ordered_images.size
+  end
+
+  test "a failure in the third of four uploads purges the first two blobs and attaches nothing" do
+    blobs = nil
+    assert_no_difference -> { ActiveStorage::Blob.count } do
+      error = assert_raises(IOError) do
+        tracking_uploads(fail_at: 3) do |uploaded|
+          blobs = uploaded
+          @entry.add_images([ file(:png), file(:gif), file(:jpg), file(:webp) ])
+        end
+      end
+      assert_equal "storage down", error.message
+    end
+
+    assert_equal 2, blobs.size
+    blobs.each { |blob| assert_not blob_stored?(blob) }
+    assert_equal 0, @entry.reload.images.count
+    assert_empty @entry.image_order
+  end
+
+  test "a failure while attaching purges every uploaded blob, files included" do
+    blobs = nil
+    assert_no_difference -> { ActiveStorage::Blob.count } do
+      with_stub(@entry, :update!, ->(*) { raise ActiveRecord::StatementInvalid, "deadlock" }) do
+        assert_raises(ActiveRecord::StatementInvalid) do
+          tracking_uploads do |uploaded|
+            blobs = uploaded
+            @entry.add_images([ file(:png), file(:gif) ])
+          end
+        end
+      end
+    end
+
+    assert_equal 2, blobs.size
+    blobs.each { |blob| assert_not blob_stored?(blob) }
+    assert_equal 0, @entry.reload.images.count
+  end
+
+  test "when the condition given for under the lock no longer holds, nothing is attached and the blobs are purged" do
+    blobs = nil
+    attached = tracking_uploads do |uploaded|
+      blobs = uploaded
+      @entry.add_images([ file(:png) ]) { false }
+    end
+
+    assert_equal [], attached
+    assert_not blob_stored?(blobs.first)
+    assert_equal 0, ActiveStorage::Blob.where(id: blobs.first.id).count
+    assert_equal 0, @entry.reload.images.count
+  end
+
+  test "the condition runs on the freshly locked row" do
+    title = nil
+    Shiplog::Entry.where(id: @entry.id).update_all(title: "Changed elsewhere")
+    tracking_uploads { @entry.add_images([ file(:gif) ]) { (title = @entry.title) && true } }
+    assert_equal "Changed elsewhere", title
+  end
+
+  test "a failing purge does not stop the others" do
+    blobs = nil
+    stored = nil
+    assert_raises(IOError) do
+      tracking_uploads(fail_at: 3) do |uploaded|
+        blobs = uploaded
+        original = ActiveStorage::Blob.instance_method(:purge)
+        first = true
+        ActiveStorage::Blob.send(:define_method, :purge) { first ? (first = false; raise("purge failed")) : original.bind_call(self) }
+        begin
+          @entry.add_images([ file(:png), file(:gif), file(:jpg) ])
+        ensure
+          ActiveStorage::Blob.send(:define_method, :purge, original)
+          stored = blobs.map { |blob| blob_stored?(blob) }
+        end
+      end
+    end
+    assert_equal [ true, false ], stored
+  end
 end

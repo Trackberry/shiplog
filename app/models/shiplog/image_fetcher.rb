@@ -41,13 +41,10 @@ module Shiplog
       Github::Client.new.query(Github::Queries::BODY_HTML, id: node_id).dig("node", "bodyHTML")
     end
 
-    # Under the entry's row lock, so two jobs cannot both attach; the state is checked again there.
+    # Uploaded before the entry's row lock is taken; under the lock, so two jobs cannot both attach, the state is
+    # checked again (still a draft, still without images), otherwise the uploaded blobs are purged.
     def attach(files)
-      @entry.with_lock do
-        next 0 unless @entry.draft? && !@entry.images.attached?
-
-        @entry.add_images(files).size
-      end
+      @entry.add_images(files) { @entry.draft? && !@entry.images.attached? }.size
     end
   end
 end

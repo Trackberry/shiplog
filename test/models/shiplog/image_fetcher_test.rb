@@ -259,4 +259,64 @@ class Shiplog::ImageFetcherTest < ActiveJob::TestCase
     without_active_storage { assert_equal 0, fetch }
     assert_not_requested :post, GRAPHQL
   end
+
+  test "the images are uploaded before the entry's row lock is taken" do
+    stub_body(img(SIGNED) + img("https://user-images.githubusercontent.com/2/b.gif"))
+    stub_image(SIGNED)
+    stub_image("https://user-images.githubusercontent.com/2/b.gif", image_bytes(:gif))
+    log = []
+    lock = @entry.method(:with_lock)
+
+    with_stub(@entry, :with_lock, ->(*args, &block) { log << :lock; lock.call(*args, &block) }) do
+      tracking_uploads(log) { assert_equal 2, fetch }
+    end
+
+    assert_equal [ :upload, :upload, :lock ], log
+  end
+
+  test "an entry approved while its images were downloading gets none, and the uploaded blobs are purged" do
+    stub_body(img(SIGNED))
+    stub_request(:get, SIGNED).to_return do
+      Shiplog::Entry.where(id: @entry.id).update_all(status: "approved", approved_at: Time.current, released_on: Date.current)
+      { status: 200, body: image_bytes(:png) }
+    end
+    blobs = nil
+
+    assert_no_difference -> { ActiveStorage::Blob.count } do
+      tracking_uploads do |uploaded|
+        blobs = uploaded
+        assert_equal 0, fetch
+      end
+    end
+
+    assert_equal 1, blobs.size
+    assert_not blob_stored?(blobs.first)
+    assert_equal 0, @entry.reload.images.count
+  end
+
+  test "images attached while the download ran win: the fetcher attaches nothing and purges its blobs" do
+    stub_body(img(SIGNED))
+    stub_request(:get, SIGNED).to_return do
+      Shiplog::Entry.find(@entry.id).add_images([ { io: StringIO.new(image_bytes(:gif)), filename: "mine.gif", content_type: "image/gif" } ])
+      { status: 200, body: image_bytes(:png) }
+    end
+
+    assert_equal 0, fetch
+    assert_equal [ "mine.gif" ], @entry.reload.images.map { |image| image.filename.to_s }
+    assert_equal 1, ActiveStorage::Blob.count
+  end
+
+  test "an upload failure on the second image purges the first and attaches nothing" do
+    stub_body(img(SIGNED) + img("https://user-images.githubusercontent.com/2/b.gif"))
+    stub_image(SIGNED)
+    stub_image("https://user-images.githubusercontent.com/2/b.gif", image_bytes(:gif))
+
+    assert_no_difference -> { ActiveStorage::Blob.count } do
+      tracking_uploads(fail_at: 2) do |blobs|
+        assert_equal 0, fetch
+        assert_not blob_stored?(blobs.first)
+      end
+    end
+    assert_not @entry.reload.images.attached?
+  end
 end

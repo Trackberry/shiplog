@@ -50,6 +50,31 @@ class Shiplog::Admin::ImagesControllerTest < ActionDispatch::IntegrationTest
     assert_equal images.map(&:blob_id), @entry.image_order
   end
 
+  test "a storage failure on the third of four uploads adds nothing and leaves no stored file" do
+    blobs = nil
+    assert_no_difference -> { ActiveStorage::Blob.count } do
+      tracking_uploads(fail_at: 3) do |uploaded|
+        blobs = uploaded
+        assert_raises(IOError) { post "#{@base}/images", params: { images: [ image_upload(:png), image_upload(:jpg), image_upload(:gif), image_upload(:webp) ] } }
+      end
+    end
+
+    assert_equal 2, blobs.size
+    blobs.each { |blob| assert_not blob_stored?(blob) }
+    assert_equal 0, @entry.reload.images.count
+    assert_empty @entry.image_order
+  end
+
+  test "the files are uploaded before the entry row is locked" do
+    log = []
+    locker = ->(*, payload) { log << :lock if payload[:sql].include?("FOR UPDATE") }
+    ActiveSupport::Notifications.subscribed(locker, "sql.active_record") do
+      tracking_uploads(log) { post "#{@base}/images", params: { images: [ image_upload(:png), image_upload(:gif) ] } }
+    end
+
+    assert_equal [ :upload, :upload, :lock ], log
+  end
+
   test "the type comes from the bytes, not from the name or the declared type" do
     post "#{@base}/images", params: { images: [ image_upload(:gif, bytes: image_bytes(:gif), mime: "text/plain", name: "shot.txt") ] }
 
