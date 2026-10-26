@@ -1,6 +1,6 @@
 <%# locals: () %>
 <%# Roadmap, Changelog and config.extra_pages; the current page gets aria-current. Needs Shiplog::SwitcherHelper, which the public controllers and a host's `helper Shiplog::SwitcherHelper` provide. %>
-<nav class="<%= shiplog_class(:switcher) %>" aria-label="<%= t("shiplog.switcher.label") %>">
+<nav class="<%= shiplog_class(:switcher) %>" aria-label="<%= shiplog_switcher_label %>">
   <% shiplog_switcher_pages.each do |page| %>
     <% if page[:path] %>
       <%= link_to page[:label], page[:path],

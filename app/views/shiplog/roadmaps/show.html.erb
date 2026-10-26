@@ -12,7 +12,7 @@
   <% if footnote || feedback_path %>
     <p class="<%= shiplog_class(:footnote) %>">
       <%= footnote %>
-      <% if feedback_path %><%= link_to t("shiplog.roadmap.suggest"), feedback_path, class: shiplog_class(:footnote_link) %><% end %>
+      <% if feedback_path %><%= link_to t("shiplog.roadmap.suggest", default: "Suggest a feature"), feedback_path, class: shiplog_class(:footnote_link) %><% end %>
     </p>
   <% end %>
 <% end %>

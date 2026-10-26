@@ -11,7 +11,7 @@
   <% if tag_label || parts > 1 %>
     <p class="<%= shiplog_class(:card_meta) %>">
       <% if tag_label %><span class="<%= shiplog_class(:card_tag) %>"><%= tag_label %></span><% end %>
-      <% if parts > 1 %><span><%= t("shiplog.roadmap.parts", count: parts) %></span><% end %>
+      <% if parts > 1 %><span><%= t("shiplog.roadmap.parts", count: parts, default: { one: "Includes %{count} part", other: "Includes %{count} parts" }) %></span><% end %>
     </p>
   <% end %>
 </li>

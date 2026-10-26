@@ -41,12 +41,15 @@ module Shiplog
       safe_join([ stylesheet, render("shiplog/switcher") ])
     end
 
+    # The nav's aria-label: a plain String (never html_safe markup, never a translation-missing span).
+    def shiplog_switcher_label = String.new(I18n.t("shiplog.switcher.label", default: "Product updates"))
+
     # [{ label:, path:, current: }] in display order. A path with an unsafe scheme is nil (rendered as text).
     # Only the page with the longest matching path is current.
     def shiplog_switcher_pages
       pages = [
-        { label: t("shiplog.switcher.roadmap"), path: shiplog_routes.roadmap_path },
-        { label: t("shiplog.switcher.changelog"), path: shiplog_routes.changelog_path },
+        { label: t("shiplog.switcher.roadmap", default: "Roadmap"), path: shiplog_routes.roadmap_path },
+        { label: t("shiplog.switcher.changelog", default: "Changelog"), path: shiplog_routes.changelog_path },
         *Shiplog.config.extra_pages.map { |page| { label: shiplog_resolve(page[:label]), path: shiplog_safe_url(shiplog_resolve(page[:path])) } }
       ]
       lengths = pages.map { |page| shiplog_match_length(page[:path]) }
