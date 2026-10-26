@@ -50,11 +50,7 @@
     <h2><%= t("shiplog.admin.entries.source") %></h2>
     <p>
       <strong><%= source_title(@entry.subject) %></strong><br>
-      <% if @entry.subject.url.present? %>
-        <%= link_to source_reference(@entry.subject), @entry.subject.url, rel: "noopener noreferrer", target: "_blank" %>
-      <% else %>
-        <%= source_reference(@entry.subject) %>
-      <% end %>
+      <%= shiplog_github_link(source_reference(@entry.subject), @entry.subject.url) %>
     </p>
     <pre class="shiplog-admin-source"><%= source_body(@entry.subject) %></pre>
   </aside>

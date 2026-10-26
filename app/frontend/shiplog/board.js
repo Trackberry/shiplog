@@ -3,50 +3,68 @@ const board = document.querySelector("[data-board-url]")
 if (board) {
   const csrfToken = document.querySelector("meta[name=csrf-token]")?.content
   let dragged = null
+  let origin = null
+  let dropped = false
 
-  const columnOf = (card) => card.closest("[data-column]")
+  // The whole column section (heading included) is a drop target; cards live in its [data-column] list.
+  const listFor = (target) => target.closest?.("section")?.querySelector("[data-column]") ?? null
 
-  const save = async (column) => {
-    const issueIds = [...column.querySelectorAll(".shiplog-card")].map((card) => Number(card.dataset.issueId))
+  const save = async (list, card) => {
+    const issueIds = [...list.querySelectorAll(".shiplog-card")].map((el) => Number(el.dataset.issueId))
     const response = await fetch(board.dataset.boardUrl, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-Token": csrfToken },
-      body: JSON.stringify({ column: column.dataset.column, issue_ids: issueIds })
+      body: JSON.stringify({ column: list.dataset.column, moved_id: Number(card.dataset.issueId), issue_ids: issueIds })
     })
     if (!response.ok) window.location.reload()
   }
 
-  const cardAfter = (column, y) => {
-    const cards = [...column.querySelectorAll(".shiplog-card:not(.shiplog-card--dragging)")]
+  const cardAfter = (list, y) => {
+    const cards = [...list.querySelectorAll(".shiplog-card:not(.shiplog-card--dragging)")]
     return cards.find((card) => {
       const box = card.getBoundingClientRect()
       return y < box.top + box.height / 2
     })
   }
 
+  const restore = () => {
+    const { parent, nextSibling } = origin
+    parent.insertBefore(dragged, nextSibling?.parentNode === parent ? nextSibling : null)
+  }
+
   board.addEventListener("dragstart", (event) => {
-    dragged = event.target.closest(".shiplog-card")
-    if (!dragged) return
+    const card = event.target.closest?.(".shiplog-card")
+    if (!card) return
+    dragged = card
+    origin = { parent: card.parentNode, nextSibling: card.nextSibling }
+    dropped = false
+    event.dataTransfer.setData("text/plain", card.dataset.issueId)
     event.dataTransfer.effectAllowed = "move"
-    dragged.classList.add("shiplog-card--dragging")
+    card.classList.add("shiplog-card--dragging")
   })
 
   board.addEventListener("dragend", () => {
-    dragged?.classList.remove("shiplog-card--dragging")
+    if (!dragged) return
+    dragged.classList.remove("shiplog-card--dragging")
+    if (!dropped) restore()
     dragged = null
+    origin = null
+    dropped = false
   })
 
   board.addEventListener("dragover", (event) => {
-    const column = event.target.closest("[data-column]")
-    if (!dragged || !column) return
+    const list = listFor(event.target)
+    if (!dragged || !list) return
     event.preventDefault()
-    column.insertBefore(dragged, cardAfter(column, event.clientY) ?? null)
+    event.dataTransfer.dropEffect = "move"
+    list.insertBefore(dragged, cardAfter(list, event.clientY) ?? null)
   })
 
   board.addEventListener("drop", (event) => {
-    const column = event.target.closest("[data-column]")
-    if (!dragged || !column) return
+    const list = listFor(event.target)
+    if (!dragged || !list) return
     event.preventDefault()
-    save(columnOf(dragged)).catch(() => window.location.reload())
+    dropped = true
+    save(list, dragged).catch(() => window.location.reload())
   })
 }

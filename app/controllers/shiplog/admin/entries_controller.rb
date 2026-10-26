@@ -16,6 +16,7 @@ module Shiplog
           .offset((@page - 1) * PER_PAGE).limit(PER_PAGE + 1).to_a
         @more = records.size > PER_PAGE
         @entries = records.first(PER_PAGE)
+        preload_repositories(@entries)
       end
 
       def edit
@@ -30,6 +31,13 @@ module Shiplog
       end
 
       private
+
+      # Every subject type (issue, pull request, commit) belongs to a repository; load them once per type.
+      def preload_repositories(entries)
+        entries.filter_map(&:subject).group_by(&:class).each_value do |subjects|
+          ActiveRecord::Associations::Preloader.new(records: subjects, associations: :repository).call
+        end
+      end
 
       def set_entry
         @entry = Entry.find(params[:id])

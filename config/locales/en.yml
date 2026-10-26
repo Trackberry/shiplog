@@ -31,6 +31,7 @@ en:
         approved: Entry approved.
         discarded: Entry discarded.
         restored: Entry restored to draft.
+        invalid_transition: That action is not available for this entry in its current state.
         rewrite_queued: Rewrite queued. Refresh in a moment.
         edit: Edit
         edit_title: "Edit %{kind}"

@@ -204,6 +204,20 @@ class Shiplog::WebhooksControllerTest < ActionDispatch::IntegrationTest
     assert_empty enqueued_refreshes
   end
 
+  test "an unsigned request without a delivery header is 401, not 400" do
+    post PATH, params: "{}", headers: { "CONTENT_TYPE" => "application/json", "X-GitHub-Event" => "issues" }
+
+    assert_response :unauthorized
+    assert_equal 1, Shiplog::WebhookDelivery.count
+  end
+
+  test "an unsigned request without a delivery header and no secret is 503" do
+    Shiplog.config.webhook_secret = nil
+    post PATH, params: "{}", headers: { "CONTENT_TYPE" => "application/json" }
+
+    assert_response :service_unavailable
+  end
+
   test "enqueue failure stores the error and returns 500" do
     failing = Shiplog::RefreshJob.singleton_class
     failing.alias_method :original_perform_later, :perform_later

@@ -8,11 +8,7 @@
   </td>
   <td><%= t("shiplog.admin.entries.kinds.#{entry.kind}") %></td>
   <td>
-    <% if entry.subject.url.present? %>
-      <%= link_to source_reference(entry.subject), entry.subject.url, rel: "noopener noreferrer", target: "_blank" %>
-    <% else %>
-      <%= source_reference(entry.subject) %>
-    <% end %>
+    <%= shiplog_github_link(source_reference(entry.subject), entry.subject.url) %>
   </td>
   <td class="shiplog-admin-table__actions">
     <%= link_to t("shiplog.admin.entries.edit"), edit_entry_path(entry), class: "shiplog-button" %>

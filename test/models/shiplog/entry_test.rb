@@ -27,6 +27,30 @@ class Shiplog::EntryTest < ActiveSupport::TestCase
     assert_nil entry.discard_reason
   end
 
+  test "approve! only works from draft" do
+    %i[dark_mode_feature typo_change_discarded].each do |name|
+      entry = shiplog_entries(name)
+      before = entry.attributes
+      assert_raises(Shiplog::Entry::InvalidTransition) { entry.approve!(by: "ed@example.com") }
+      assert_equal before, entry.reload.attributes
+    end
+  end
+
+  test "discard! only works from draft" do
+    %i[dark_mode_feature typo_change_discarded].each do |name|
+      entry = shiplog_entries(name)
+      before = entry.attributes
+      assert_raises(Shiplog::Entry::InvalidTransition) { entry.discard!(reason: "x") }
+      assert_equal before, entry.reload.attributes
+    end
+  end
+
+  test "restore! only works from discarded" do
+    %i[dark_mode_feature csv_change_draft].each do |name|
+      assert_raises(Shiplog::Entry::InvalidTransition) { shiplog_entries(name).restore! }
+    end
+  end
+
   test "source_changed? compares digest of subject title and body" do
     entry = shiplog_entries(:csv_change_draft)
     entry.update!(source_digest: Shiplog::Entry.digest_for(entry.subject))

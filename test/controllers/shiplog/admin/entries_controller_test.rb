@@ -48,6 +48,37 @@ class Shiplog::Admin::EntriesControllerTest < ActionDispatch::IntegrationTest
     shiplog_entries(:csv_change_draft).update!(title: "<script>alert(1)</script>")
     get "/admin/shiplog/"
     assert_not_includes response.body, "<script>alert(1)</script>"
+    assert_includes response.body, "&lt;script&gt;alert(1)&lt;/script&gt;"
+  end
+
+  test "index does not load repositories per row" do
+    repository = shiplog_repositories(:app)
+    add_rows = lambda do |count, offset|
+      count.times do |i|
+        n = 1000 + offset + i
+        pr = Shiplog::PullRequest.create!(repository:, node_id: "PR_q#{n}", number: n, title: "PR #{n}", url: "https://github.com/x/y/pull/#{n}")
+        issue = Shiplog::Issue.create!(repository:, node_id: "I_q#{n}", number: n, title: "Issue #{n}", url: "https://github.com/x/y/issues/#{n}")
+        commit = Shiplog::Commit.create!(repository:, sha: "abc#{n}" * 6, message: "msg #{n}")
+        [ pr, issue, commit ].each { |subject| Shiplog::Entry.create!(subject:, kind: "change", title: "T#{n}") }
+      end
+    end
+
+    add_rows.call(2, 0)
+    few = count_queries { get "/admin/shiplog/?kind=change" }
+    add_rows.call(4, 10)
+    many = count_queries { get "/admin/shiplog/?kind=change" }
+    assert_select "tr.shiplog-entry-row", minimum: 18
+    assert_equal few, many, "few=#{few} many=#{many}"
+  end
+
+  test "github links with a non-github url render as plain text" do
+    entry = shiplog_entries(:csv_change_draft)
+    entry.subject.update!(url: "javascript:alert(1)")
+    get "/admin/shiplog/"
+    assert_select "a[href^=javascript]", count: 0
+    get "/admin/shiplog/entries/#{entry.id}/edit"
+    assert_select "a[href^=javascript]", count: 0
+    assert_select "aside", text: /Trackberry\/trackberry#14/
   end
 
   test "edit shows the source next to the form" do

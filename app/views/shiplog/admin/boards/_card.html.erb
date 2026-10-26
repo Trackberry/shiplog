@@ -2,11 +2,7 @@
 <article class="shiplog-card" draggable="true" data-issue-id="<%= issue.id %>">
   <h3 class="shiplog-card__title"><%= item.entry&.title.presence || issue.title %></h3>
   <p class="shiplog-card__meta">
-    <% if issue.url.present? %>
-      <%= link_to "#{issue.repository.full_name}##{issue.number}", issue.url, rel: "noopener noreferrer", target: "_blank" %>
-    <% else %>
-      <%= "#{issue.repository.full_name}##{issue.number}" %>
-    <% end %>
+    <%= shiplog_github_link("#{issue.repository.full_name}##{issue.number}", issue.url) %>
     <% unless item.entry&.approved? %>
       <span class="shiplog-badge shiplog-badge--warning"><%= t("shiplog.admin.board.not_approved") %></span>
     <% end %>

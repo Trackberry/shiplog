@@ -7,9 +7,9 @@ module Shiplog
 
     before_action :disable_session
     before_action :read_body_within_limit
-    before_action :require_delivery_id
     before_action :require_secret
     before_action :verify_signature
+    before_action :require_delivery_id
 
     def create
       payload = parse_payload or return head(:bad_request)

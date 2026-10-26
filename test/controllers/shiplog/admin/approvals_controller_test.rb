@@ -11,4 +11,12 @@ class Shiplog::Admin::ApprovalsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "boss@example.com", entry.approved_by
     assert_equal Date.current, entry.released_on
   end
+
+  test "approving a non-draft entry redirects with an alert and changes nothing" do
+    entry = shiplog_entries(:typo_change_discarded)
+    post "/admin/shiplog/entries/#{entry.id}/approval"
+    assert_redirected_to "/admin/shiplog/entries/#{entry.id}/edit"
+    assert flash[:alert].present?
+    assert_equal "discarded", entry.reload.status
+  end
 end

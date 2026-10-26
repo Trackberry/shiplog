@@ -28,6 +28,30 @@ class Shiplog::Admin::BoardsControllerTest < ActionDispatch::IntegrationTest
     assert_not_includes response.body, "<img src=x>"
   end
 
+  test "cards do not link to non-GitHub urls" do
+    shiplog_issues(:export_report).update!(url: "javascript:alert(1)")
+    get "/admin/shiplog/board"
+    assert_select "a[href^=javascript]", count: 0
+    assert_select ".shiplog-card[data-issue-id=?]", shiplog_issues(:export_report).id.to_s, text: /Trackberry\/trackberry#5/
+  end
+
+  test "show does not issue more queries for more cards" do
+    repository = shiplog_repositories(:ios)
+    add_cards = lambda do |count, offset|
+      count.times do |i|
+        n = 2000 + offset + i
+        Shiplog::Issue.create!(repository:, node_id: "I_b#{n}", number: n, title: "Card #{n}", labels: [ "public" ],
+          url: "https://github.com/x/y/issues/#{n}", github_updated_at: Time.current)
+      end
+    end
+    add_cards.call(2, 0)
+    few = count_queries { get "/admin/shiplog/board" }
+    add_cards.call(4, 10)
+    many = count_queries { get "/admin/shiplog/board" }
+    assert_select ".shiplog-card", minimum: 6
+    assert_equal few, many, "few=#{few} many=#{many}"
+  end
+
   test "each card has a fallback move form and pinned cards an unpin button" do
     get "/admin/shiplog/board"
     id = shiplog_issues(:export_report).id
@@ -44,40 +68,85 @@ class Shiplog::Admin::BoardsControllerTest < ActionDispatch::IntegrationTest
     assert_select "script[type=module][src=?]", "/admin/shiplog/assets/#{Shiplog::VERSION}/board.js"
   end
 
-  test "json update pins and orders and returns 204" do
-    a = shiplog_issues(:export_report)
-    b = shiplog_issues(:later_item)
-    patch "/admin/shiplog/board", params: { column: "coming_soon", issue_ids: [ b.id, a.id ] }, as: :json
+  def patch_json(params)
+    patch "/admin/shiplog/board", params:, as: :json
+  end
+
+  test "json update pins only the moved card, orders the column and returns 204" do
+    moved = shiplog_issues(:export_report)
+    bystander = shiplog_issues(:later_item)
+    natural = Shiplog::Roadmap.new(published_only: false).items.to_h { |item| [ item.issue.id, item.column ] }
+    patch_json column: "coming_soon", moved_id: moved.id, issue_ids: [ bystander.id, moved.id ]
     assert_response :no_content
-    assert_equal [ "coming_soon", 0 ], [ b.reload.pinned_column, b.position ]
-    assert_equal [ "coming_soon", 1 ], [ a.reload.pinned_column, a.position ]
+    assert_equal [ "coming_soon", 1 ], [ moved.reload.pinned_column, moved.position ]
+    assert_nil bystander.reload.pinned_column
+    assert_equal 0, bystander.position
+    assert_equal natural[bystander.id], Shiplog::Roadmap.new(published_only: false).items.find { |item| item.issue.id == bystander.id }.column
   end
 
   test "json update with a bad column is 422" do
-    patch "/admin/shiplog/board", params: { column: "nope", issue_ids: [ shiplog_issues(:export_report).id ] }, as: :json
+    id = shiplog_issues(:export_report).id
+    patch_json column: "nope", moved_id: id, issue_ids: [ id ]
     assert_response :unprocessable_content
     assert_equal "application/json", response.media_type
   end
 
-  test "json update with unknown ids is 422" do
-    patch "/admin/shiplog/board", params: { column: "later", issue_ids: [ shiplog_issues(:refactor_db).id ] }, as: :json
+  test "json update with foreign ids is 422 and changes nothing" do
+    good = shiplog_issues(:export_report)
+    foreign = shiplog_issues(:refactor_db)
+    patch_json column: "later", moved_id: good.id, issue_ids: [ good.id, foreign.id ]
     assert_response :unprocessable_content
-    assert_nil shiplog_issues(:refactor_db).reload.pinned_column
+    assert_nil good.reload.pinned_column
+    assert_nil foreign.reload.pinned_column
+  end
+
+  test "json update whose moved_id is foreign is 422" do
+    foreign = shiplog_issues(:refactor_db)
+    patch_json column: "later", moved_id: foreign.id, issue_ids: [ foreign.id ]
+    assert_response :unprocessable_content
+  end
+
+  test "json update whose issue_ids omit moved_id is 422" do
+    moved = shiplog_issues(:export_report)
+    other = shiplog_issues(:later_item)
+    patch_json column: "later", moved_id: moved.id, issue_ids: [ other.id ]
+    assert_response :unprocessable_content
+    assert_nil moved.reload.pinned_column
+    assert_nil other.reload.position
+  end
+
+  test "json update with a garbage id is 422" do
+    patch_json column: "later", moved_id: "abc", issue_ids: [ "abc" ]
+    assert_response :unprocessable_content
   end
 
   test "json update without ids is 422" do
-    patch "/admin/shiplog/board", params: { column: "later" }, as: :json
+    patch_json column: "later", moved_id: shiplog_issues(:export_report).id
     assert_response :unprocessable_content
   end
 
-  test "form fallback appends to the end of the column" do
+  test "form fallback pins only the moved card at the end of the column" do
     mover = shiplog_issues(:export_report)
+    bystanders = Shiplog::Roadmap.new(published_only: false).columns["later"].map(&:issue).reject { |issue| issue.id == mover.id }
+    pinned_before = bystanders.to_h { |issue| [ issue.id, issue.pinned_column ] }
     patch "/admin/shiplog/board", params: { issue_id: mover.id, column: "later" }
     assert_redirected_to "/admin/shiplog/board"
-    mover.reload
-    assert_equal "later", mover.pinned_column
-    later_ids = Shiplog::Roadmap.new(published_only: false).columns["later"].map { |issue| issue.issue.id }
-    assert_equal mover.id, later_ids.last
+    assert_equal "later", mover.reload.pinned_column
+    assert_equal pinned_before, bystanders.to_h { |issue| [ issue.id, issue.reload.pinned_column ] }
+    later = Shiplog::Roadmap.new(published_only: false).columns["later"].map { |item| item.issue.id }
+    assert_equal mover.id, later.last
+  end
+
+  test "form fallback leaves other cards unpinned even when the column has positions" do
+    mover = shiplog_issues(:export_report)
+    other = shiplog_issues(:later_item)
+    other.update!(position: 7)
+    column = Shiplog::Roadmap.new(published_only: false).items.find { |item| item.issue.id == other.id }.column
+    patch "/admin/shiplog/board", params: { issue_id: mover.id, column: }
+    assert_equal column, mover.reload.pinned_column
+    assert_nil other.reload.pinned_column
+    ids = Shiplog::Roadmap.new(published_only: false).columns[column].map { |item| item.issue.id }
+    assert_equal mover.id, ids.last
   end
 
   test "form fallback with a bad column redirects with an alert" do
@@ -99,7 +168,7 @@ class Shiplog::Admin::BoardAuthorizationTest < ActionDispatch::IntegrationTest
     Shiplog.config.authorize_admin = ->(_controller) { false }
     get "/admin/shiplog/board"
     assert_response :forbidden
-    patch "/admin/shiplog/board", params: { column: "later", issue_ids: [ 1 ] }, as: :json
+    patch "/admin/shiplog/board", params: { column: "later", moved_id: 1, issue_ids: [ 1 ] }, as: :json
     assert_response :forbidden
   end
 end

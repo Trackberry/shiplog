@@ -27,5 +27,13 @@ class ActiveSupport::TestCase
     I18n.available_locales = available
   end
 
+  # Counts statements issued, including ones served by the query cache (which still indicate N+1 patterns).
+  def count_queries
+    count = 0
+    counter = ->(_name, _start, _finish, _id, payload) { count += 1 unless %w[SCHEMA TRANSACTION].include?(payload[:name]) }
+    ActiveSupport::Notifications.subscribed(counter, "sql.active_record") { yield }
+    count
+  end
+
   def github_fixture(name) = file_fixture("github/#{name}.json").read
 end
