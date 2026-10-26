@@ -1,0 +1,7 @@
+typo_fix:
+  repository: app
+  sha: 1111111111111111111111111111111111111111
+  message: "fix: correct typo in invoice email\n\nThe subject line misspelled the word invoice."
+  author_login: edouard
+  committed_at: 2026-10-08 08:00:00
+  url: https://github.com/Trackberry/trackberry/commit/1111111

@@ -1,0 +1,49 @@
+bulk_upload_roadmap:
+  kind: roadmap
+  status: approved
+  subject: bulk_upload (Shiplog::Issue)
+  title: Upload many shipments at once
+  body: Soon you will be able to import a spreadsheet.
+  approved_at: 2026-10-05 09:00:00
+  approved_by: ed@example.com
+
+later_item_roadmap:
+  kind: roadmap
+  status: approved
+  subject: later_item (Shiplog::Issue)
+  title: Later thing
+  body: Something for later.
+  approved_at: 2026-10-05 09:00:00
+  approved_by: ed@example.com
+
+soon_item_roadmap:
+  kind: roadmap
+  status: draft
+  subject: soon_item (Shiplog::Issue)
+  title: Soon thing
+  body: Draft text.
+
+dark_mode_feature:
+  kind: feature
+  status: approved
+  subject: dark_mode (Shiplog::Issue)
+  title: Dark mode
+  body: Switch to a dark theme.
+  released_on: 2026-10-09
+  approved_at: 2026-10-10 09:00:00
+  approved_by: ed@example.com
+
+csv_change_draft:
+  kind: change
+  status: draft
+  subject: validation_fix (Shiplog::PullRequest)
+  title: Better CSV validation
+  body: Files with unknown headers are now rejected.
+
+typo_change_discarded:
+  kind: change
+  status: discarded
+  subject: typo_fix (Shiplog::Commit)
+  title: Typo fix
+  body: Fixed a typo.
+  discard_reason: Not customer-facing (suggested by AI)
