@@ -207,6 +207,21 @@ class Shiplog::Admin::AreasControllerTest < ActionDispatch::IntegrationTest
     assert_equal @billing, entry.reload.area
   end
 
+  test "saving an entry whose chosen area was deleted meanwhile re-renders with an error" do
+    entry = shiplog_entries(:dark_mode_feature)
+    reports_id = @reports.id
+    vanish = ->(saved) { Shiplog::Area.where(id: reports_id).delete_all if saved.area_id == reports_id } # deleted after validation passed
+    Shiplog::Entry.before_save(vanish)
+
+    patch "#{ADMIN}/entries/#{entry.id}", params: { entry: { title: "New title", area_id: @reports.id } }
+
+    assert_response :unprocessable_content
+    assert_select ".shiplog-admin__errors, [role=alert]", text: /Area no longer exists/
+    assert_equal "Dark mode", entry.reload.title
+  ensure
+    Shiplog::Entry.skip_callback(:save, :before, vanish)
+  end
+
   test "the inbox shows the area as a badge, and nothing for entries without one" do
     get "#{ADMIN}/?status=approved"
     assert_select "tr.shiplog-entry-row .shiplog-badge--area", text: "Billing"

@@ -30,6 +30,10 @@ module Shiplog
         else
           render :edit, status: :unprocessable_content
         end
+      rescue ActiveRecord::InvalidForeignKey
+        # The selected area was deleted between the validation and the save.
+        @entry.errors.add(:area_id, t("shiplog.admin.entries.area_gone", default: "no longer exists"))
+        render :edit, status: :unprocessable_content
       rescue ActiveRecord::RecordNotUnique
         # Two concurrent kind switches can both pass the validation; the unique index has the last word.
         @entry.errors.add(:changelog_kind, :taken)
