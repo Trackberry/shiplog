@@ -22,6 +22,15 @@ class Shiplog::Generators::InstallGeneratorTest < Rails::Generators::TestCase
     end
   end
 
+  test "the initializer explains the hosted admin chrome" do
+    run_generator_without_rake
+
+    assert_file "config/initializers/shiplog.rb" do |content|
+      assert_match(/# config\.admin_chrome = :standalone/, content)
+      assert_includes content, ":hosted"
+    end
+  end
+
   test "the initializer explicitly opens the admin check and explains why" do
     run_generator_without_rake
 

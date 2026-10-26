@@ -2,7 +2,11 @@
  * Shiplog public pages. Everything lives in the `shiplog` cascade layer, so any unlayered CSS in
  * your app wins over it without needing higher specificity. Only BEM classes are styled.
  *
- * Variables (set them on :root, body or .shiplog-page; light and dark defaults are built in):
+ * Inside a host layout the page inherits the host's text colour and uses transparent surfaces and
+ * borders mixed from currentColor, so it suits light and dark hosts alike. Only the engine's own
+ * layout (`.shiplog-layout`), which paints the page background, follows prefers-color-scheme.
+ *
+ * Variables (set them on :root, body or .shiplog-page):
  *   --shiplog-fg      text colour            --shiplog-border  borders and dividers
  *   --shiplog-muted   secondary text         --shiplog-accent  links, feature marker, focus
  *   --shiplog-bg      page background        --shiplog-radius  corner radius of cards and pills
@@ -10,22 +14,34 @@
  *   --shiplog-space   base spacing unit (default 1rem)
  */
 @layer shiplog {
+  /* Host-safe defaults: inherit the text colour, derive surfaces and borders from it. */
   .shiplog-page,
   .shiplog-layout {
+    --sl-fg: var(--shiplog-fg, currentColor);
+    --sl-muted: var(--shiplog-muted, color-mix(in srgb, currentColor 65%, transparent));
+    --sl-bg: var(--shiplog-bg, transparent);
+    --sl-card: var(--shiplog-card, color-mix(in srgb, currentColor 5%, transparent));
+    --sl-border: var(--shiplog-border, color-mix(in srgb, currentColor 22%, transparent));
+    --sl-accent: var(--shiplog-accent, #2f81f7);
+    --sl-radius: var(--shiplog-radius, 0.5rem);
+    --sl-font: var(--shiplog-font, system-ui, -apple-system, "Segoe UI", sans-serif);
+    --sl-space: var(--shiplog-space, 1rem);
+  }
+
+  /* The engine's own layout owns the page background, so it picks its own light and dark palette. */
+  .shiplog-layout,
+  .shiplog-layout .shiplog-page {
     --sl-fg: var(--shiplog-fg, #1f2328);
     --sl-muted: var(--shiplog-muted, #59636e);
     --sl-bg: var(--shiplog-bg, #ffffff);
     --sl-card: var(--shiplog-card, #f6f8fa);
     --sl-border: var(--shiplog-border, #d1d9e0);
     --sl-accent: var(--shiplog-accent, #0969da);
-    --sl-radius: var(--shiplog-radius, 0.5rem);
-    --sl-font: var(--shiplog-font, system-ui, -apple-system, "Segoe UI", sans-serif);
-    --sl-space: var(--shiplog-space, 1rem);
   }
 
   @media (prefers-color-scheme: dark) {
-    .shiplog-page,
-    .shiplog-layout {
+    .shiplog-layout,
+    .shiplog-layout .shiplog-page {
       --sl-fg: var(--shiplog-fg, #e6edf3);
       --sl-muted: var(--shiplog-muted, #9198a1);
       --sl-bg: var(--shiplog-bg, #0d1117);
@@ -36,7 +52,7 @@
   }
 
   /* Only the engine's own layout paints the body; a host layout keeps its background. */
-  .shiplog-layout { background: var(--sl-bg); margin: 0; }
+  .shiplog-layout { background: var(--sl-bg); color: var(--sl-fg); margin: 0; }
 
   .shiplog-page {
     color: var(--sl-fg);

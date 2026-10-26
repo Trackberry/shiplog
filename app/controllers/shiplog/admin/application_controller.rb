@@ -9,7 +9,7 @@ module Shiplog
       helper Shiplog::HostRoutesHelper
       helper Shiplog::ApplicationHelper
       helper Shiplog::Admin::EntriesHelper
-      helper_method :current_admin_name
+      helper_method :current_admin_name, :shiplog_admin_hosted?
       layout -> { Shiplog.config.admin_layout }
 
       before_action :authorize_admin
@@ -22,6 +22,11 @@ module Shiplog
 
       def authorize_admin
         head :forbidden unless Shiplog.config.authorize_admin.call(self)
+      end
+
+      # True when the admin renders inside a host layout (config.admin_chrome = :hosted).
+      def shiplog_admin_hosted?
+        Shiplog.config.admin_chrome == :hosted
       end
 
       def current_admin_name

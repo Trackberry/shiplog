@@ -40,6 +40,33 @@ class Shiplog::FrontendsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "dark colours are only applied where Shiplog owns the page background" do
+    dir = Rails.root.join("../../app/frontend/shiplog")
+    { "shiplog" => ".shiplog-layout", "admin" => ".shiplog-admin--standalone" }.each do |name, owner|
+      css = dir.join("#{name}.css").read.gsub(%r{/\*.*?\*/}m, "")
+      dark = css[/@media \(prefers-color-scheme: dark\) \{(.*?)\n  \}/m, 1]
+      assert dark.present?, "#{name}.css has a dark block"
+      selectors = dark.scan(/^\s*([^\s}][^{};\n]*?)\s*\{/).flatten.flat_map { |list| list.split(",") }.map(&:strip)
+      assert selectors.any?, name
+      selectors.each { |selector| assert_includes selector, owner, "#{name}.css dark selector: #{selector}" }
+    end
+  end
+
+  test "the host-safe defaults inherit the text colour and mix surfaces from currentColor" do
+    dir = Rails.root.join("../../app/frontend/shiplog")
+    assert_match(/--sl-fg: var\(--shiplog-fg, currentColor\)/, dir.join("shiplog.css").read)
+    assert_match(/--sl-border: var\(--shiplog-border, color-mix\(in srgb, currentColor/, dir.join("shiplog.css").read)
+    assert_match(/--sa-fg: var\(--shiplog-admin-fg, currentColor\)/, dir.join("admin.css").read)
+  end
+
+  test "admin variables are read through var() so :root can override them" do
+    css = Rails.root.join("../../app/frontend/shiplog/admin.css").read
+    %w[fg muted bg surface border accent].each do |name|
+      assert_match(/--sa-#{name}: var\(--shiplog-admin-#{name}, /, css, name)
+    end
+    assert_no_match(/^\s*--shiplog-admin-[a-z]+:/, css)
+  end
+
   test "a version other than the current one is not found" do
     get "/shiplog/assets/0.0.0-stale/shiplog.css"
     assert_response :not_found

@@ -17,6 +17,8 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
     assert_equal "shiplog/admin", config.admin_layout
     assert_equal({}, config.classes)
     assert_equal true, config.stylesheet
+    assert_equal :standalone, config.admin_chrome
+    assert_equal true, config.admin_flash
     assert_not config.authorize_admin.call(Object.new)
   end
 
@@ -40,5 +42,20 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
     assert_equal "Acme/Widgets", config.repository_configured?("acme/widgets")
     assert_nil config.repository_configured?("acme/other")
     assert_nil config.repository_configured?(nil)
+  end
+
+  test "admin_chrome accepts :standalone and :hosted (as symbols or strings)" do
+    config = Shiplog::Configuration.new
+    config.admin_chrome = :hosted
+    assert_equal :hosted, config.admin_chrome
+    config.admin_chrome = "standalone"
+    assert_equal :standalone, config.admin_chrome
+  end
+
+  test "admin_chrome rejects other values and lists the valid ones" do
+    error = assert_raises(ArgumentError) { Shiplog::Configuration.new.admin_chrome = :fancy }
+    assert_includes error.message, ":standalone"
+    assert_includes error.message, ":hosted"
+    assert_raises(ArgumentError) { Shiplog::Configuration.new.admin_chrome = nil }
   end
 end

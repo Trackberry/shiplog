@@ -2,7 +2,7 @@ module Shiplog
   class RoadmapsController < PublicController
     def show
       @columns = Roadmap.new(published_only: true).columns
-      fresh_when etag: [ I18n.locale, etag_for(@columns) ]
+      fresh_when etag: [ *shiplog_etag_parts, etag_for(@columns) ]
     end
 
     private

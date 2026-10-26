@@ -4,8 +4,22 @@ module Shiplog
       :public_label, :soon_labels, :excluded_labels, :excluded_authors, :commit_types,
       :rewriter, :product_name, :audience, :tone, :prompt_builder,
       :public_parent_controller, :public_layout, :admin_parent_controller, :admin_layout,
-      :classes, :stylesheet, :authorize_admin, :current_admin,
+      :classes, :stylesheet, :admin_flash, :authorize_admin, :current_admin,
       :roadmap_path, :changelog_path
+
+    ADMIN_CHROMES = %i[standalone hosted].freeze
+
+    attr_reader :admin_chrome
+
+    # :standalone (default) wraps the admin in Shiplog's own page chrome; :hosted renders it inside the
+    # layout of config.admin_layout (compact sub-nav, no page chrome of its own).
+    def admin_chrome=(value)
+      chrome = value.to_s.to_sym if value.respond_to?(:to_sym)
+      unless ADMIN_CHROMES.include?(chrome)
+        raise ArgumentError, "Invalid admin_chrome #{value.inspect}. Valid values: #{ADMIN_CHROMES.map(&:inspect).join(", ")}"
+      end
+      @admin_chrome = chrome
+    end
 
     def initialize
       @repositories = []
@@ -21,6 +35,8 @@ module Shiplog
       @admin_layout = "shiplog/admin"
       @classes = {}
       @stylesheet = true
+      @admin_chrome = :standalone
+      @admin_flash = true
       @authorize_admin = ->(_controller) { false }
       @current_admin = ->(controller) { controller.try(:current_user)&.try(:email) }
       @roadmap_path = "roadmap"

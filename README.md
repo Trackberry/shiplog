@@ -98,7 +98,9 @@ All settings live in `config/initializers/shiplog.rb`:
 | `public_parent_controller` | `"ActionController::Base"` | Parent class of the public controllers. Read once when they load, so set it in the initializer. |
 | `public_layout` | `"shiplog/application"` | Layout of the public pages. |
 | `admin_parent_controller` | `"ActionController::Base"` | Parent class of the admin controllers. Read once when they load, so set it in the initializer. |
-| `admin_layout` | `"shiplog/admin"` | Layout of the admin pages. Any other value is treated as a host layout (compact sub-nav, no flash messages from Shiplog). |
+| `admin_layout` | `"shiplog/admin"` | Layout of the admin pages. |
+| `admin_chrome` | `:standalone` | `:standalone` wraps the admin in Shiplog's own page chrome (nav bar, flash, background). `:hosted` is for an `admin_layout` of your own: Shiplog renders only a compact sub-nav inside your content. Anything else raises `ArgumentError`. The layout name is never inspected. |
+| `admin_flash` | `true` | In `:hosted` mode, render Shiplog's flash messages inside the admin content. Set to `false` if your layout already shows the flash. Standalone always shows it. |
 | `stylesheet` | `true` | Include the bundled `shiplog.css` in the public pages. Set to `false` when you style them yourself. |
 | `classes` | `{}` | Extra classes per element, added to the stable `shiplog-*` classes. See [Styling](#styling). |
 | `authorize_admin` | `->(controller) { false }` | Admin check; return false for a 403. Denies everyone until set; the generated initializer opens it, relying on your route constraint. |
@@ -230,7 +232,7 @@ The public pages ship plain semantic HTML with stable [BEM](https://getbem.com) 
 
 ### 1. CSS variables
 
-The bundled stylesheet follows light and dark mode and is driven by variables you can set on `:root`, `body` or `.shiplog-page`:
+The bundled stylesheet is driven by variables you can set on `:root`, `body` or `.shiplog-page`. Inside your own layout it inherits your text colour and draws cards and borders as translucent mixes of that colour (`color-mix` against `currentColor`), so it works on light and dark hosts without any setting. Only Shiplog's own layout (`.shiplog-layout`), which paints the page background, switches to dark colours with `prefers-color-scheme`.
 
 | Variable | Meaning |
 |---|---|
@@ -282,6 +284,16 @@ With Tailwind v4, the class names live in a Ruby file, so tell Tailwind to scan 
 
 (The path is relative to the stylesheet: `app/assets/tailwind/` up three levels is the app root.) `bin/rails generate shiplog:install --tailwind` writes both for you, with neutral gray/indigo classes covering every key.
 
+If you keep the bundled stylesheet (`stylesheet: true`) next to Tailwind v4 utilities, declare the layer order before the import so utilities win over Shiplog's rules:
+
+```css
+@layer theme, base, shiplog, components, utilities;
+@import "tailwindcss";
+@source "../../../config/initializers/shiplog.rb";
+```
+
+Without it, `shiplog` is first seen when `shiplog.css` loads, which can put it after `utilities` in the cascade order (a layer's position is fixed by its first mention), and then `.shiplog-card { border-radius: ... }` would beat a `rounded-lg` utility. Declaring the order first pins `shiplog` below `components` and `utilities`.
+
 | Key | BEM class | Element |
 |---|---|---|
 | `page` | `shiplog-page` (+ `--roadmap` / `--changelog`) | Page wrapper |
@@ -325,12 +337,12 @@ Copy any view from the engine's `app/views/shiplog/` into your app with the same
 
 `shiplog/_page.html.erb` is what links the stylesheet (so it also works in layouts you don't control); keep that line if you copy it and still want the bundled CSS.
 
-The admin has its own stylesheet, scoped under `.shiplog-admin` and also in `@layer shiplog`. Its variables (`--shiplog-admin-fg`, `-muted`, `-bg`, `-surface`, `-border`, `-accent`) can be set on `.shiplog-admin`.
+The admin has its own stylesheet, scoped under `.shiplog-admin` and also in `@layer shiplog`. Its variables (`--shiplog-admin-fg`, `-muted`, `-bg`, `-surface`, `-border`, `-accent`) can be set on `:root` or `.shiplog-admin`. The admin follows the same rule: dark colours only in the standalone chrome, inherited colours when `admin_chrome` is `:hosted`.
 
 ## Rendering inside your layouts
 
 - **Public pages**: set `config.public_parent_controller` (default `ActionController::Base`; read once when the controller loads, so use the initializer) and `config.public_layout` (default `"shiplog/application"`). The public controllers run under the parent's `before_action`s, so pick one that lets visitors through.
-- **Admin**: set `config.admin_parent_controller` (same rule) and `config.admin_layout`. Each admin page links its own `admin.css` (and `board.js` on the board) and wraps itself in `<div class="shiplog-admin">`, so nothing depends on your layout's `<head>`. With a host layout Shiplog adds a small Drafts / Roadmap board / Sync sub-nav inside the content and leaves flash messages to your layout. The board reads the CSRF token from `meta[name=csrf-token]` and falls back to a `data-csrf-token` attribute, so your layout does not need `csrf_meta_tags` for drag and drop.
+- **Admin**: set `config.admin_parent_controller` (same rule), `config.admin_layout` and `config.admin_chrome = :hosted`. Each admin page links its own `admin.css` (and `board.js` on the board) and wraps itself in `<div class="shiplog-admin">`, so nothing depends on your layout's `<head>`. In `:hosted` mode Shiplog adds a small Drafts / Roadmap board / Sync sub-nav inside the content and shows its flash messages there too (set `config.admin_flash = false` if your layout renders the flash itself). The board reads the CSRF token from `meta[name=csrf-token]` and falls back to a `data-csrf-token` attribute, so your layout does not need `csrf_meta_tags` for drag and drop.
 - `config.authorize_admin` and the route constraint still apply.
 
 ### Host route helpers
@@ -352,6 +364,7 @@ Shiplog.configure do |config|
   config.public_layout            = "application"
   config.admin_parent_controller  = "Admin::BaseController"
   config.admin_layout             = "admin"
+  config.admin_chrome             = :hosted
   config.stylesheet               = false
   config.classes                  = { columns: "grid gap-6 md:grid-cols-3", card: "rounded-lg border p-3" } # see the generator for all keys
 end
@@ -362,7 +375,7 @@ The host layouts keep using their own helpers (`root_path`, `current_user`, ...)
 ## Hosting notes
 
 - Set `public_parent_controller` and `admin_parent_controller` in an initializer (`config/initializers/shiplog.rb`). They are read once, when the engine's controller classes load, so changing them later has no effect.
-- If your host layout shows per-user content, add `etag { current_user&.id }` to the parent controller so cached responses are not shared between users.
+- The public pages send an ETag covering the data, locale, gem version, `config.classes` and `config.stylesheet`. If your host layout shows per-user content, declare `etag { current_user&.id }` in the parent controller (`config.public_parent_controller`); Rails ETags are inherited, so cached responses are not shared between users.
 
 ## Running the tests
 

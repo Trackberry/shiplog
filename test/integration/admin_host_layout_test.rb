@@ -7,6 +7,7 @@ class AdminHostLayoutTest < ActionDispatch::IntegrationTest
 
   setup do
     Shiplog.config.admin_layout = "host_admin"
+    Shiplog.config.admin_chrome = :hosted
     @forgery_protection = ActionController::Base.allow_forgery_protection
     ActionController::Base.allow_forgery_protection = true
   end
@@ -55,10 +56,42 @@ class AdminHostLayoutTest < ActionDispatch::IntegrationTest
     assert_select "meta[name=csrf-token]", 1
   end
 
-  test "board.js reads the csrf token from the meta tag and falls back to the board element" do
-    source = Rails.root.join("../../app/frontend/shiplog/board.js").read
-    assert_includes source, "meta[name=csrf-token]"
-    assert_includes source, "board.dataset.csrfToken"
+  test "the board element carries the csrf token for board.js's fallback" do
+    get "#{ADMIN}/board"
+    token = css_select(".shiplog-board").first["data-csrf-token"]
+    assert token.present?
+  end
+
+  test "a host layout can link to the host root with main_app.root_path" do
+    get "#{ADMIN}/"
+    assert_select "#host-admin-home[href=?]", "/"
+  end
+
+  test "bare root_path inside the admin resolves to the engine root, not the host's" do
+    get "#{ADMIN}/"
+    assert_select "#host-admin-bare-root[href=?]", "#{ADMIN}/"
+  end
+
+  test "hosted chrome renders Shiplog's flash inside the content by default" do
+    entry = shiplog_entries(:csv_change_draft)
+    post "#{ADMIN}/entries/#{entry.id}/approval", params: { authenticity_token: approval_token(entry) }
+    follow_redirect!
+    assert_select "#host-admin-main .shiplog-admin .shiplog-admin__flash--notice[role=status]"
+  end
+
+  test "admin_flash = false leaves flash messages to the host layout" do
+    Shiplog.config.admin_flash = false
+    entry = shiplog_entries(:csv_change_draft)
+    post "#{ADMIN}/entries/#{entry.id}/approval", params: { authenticity_token: approval_token(entry) }
+    follow_redirect!
+    assert_select ".shiplog-admin__flash", 0
+  end
+
+  test "a hosted layout under the standalone chrome setting still gets the standalone wrapper" do
+    Shiplog.config.admin_chrome = :standalone
+    get "#{ADMIN}/"
+    assert_select ".shiplog-admin.shiplog-admin--standalone"
+    assert_select "nav.shiplog-admin-nav--sub", 0
   end
 
   test "forms keep working inside the host layout" do
@@ -87,4 +120,10 @@ class AdminHostLayoutTest < ActionDispatch::IntegrationTest
     get "#{ADMIN}/board"
     assert_response :forbidden
   end
+
+  private
+    def approval_token(entry)
+      get "#{ADMIN}/entries/#{entry.id}/edit"
+      css_select(".shiplog-admin form[action$='/approval'] input[name=authenticity_token]").first["value"]
+    end
 end

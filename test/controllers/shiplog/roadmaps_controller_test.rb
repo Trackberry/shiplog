@@ -130,6 +130,35 @@ class Shiplog::RoadmapsControllerTest < ActionDispatch::IntegrationTest
     assert_not_equal etag, response.headers["ETag"]
   end
 
+  test "ETag changes when config.classes changes" do
+    get "/roadmap"
+    etag = response.headers["ETag"]
+    Shiplog.config.classes = { card: "rounded" }
+    get "/roadmap"
+    assert_not_equal etag, response.headers["ETag"]
+  end
+
+  test "ETag changes when config.stylesheet changes" do
+    get "/roadmap"
+    etag = response.headers["ETag"]
+    Shiplog.config.stylesheet = false
+    get "/roadmap"
+    assert_not_equal etag, response.headers["ETag"]
+  end
+
+  test "ETag changes with the gem version" do
+    get "/roadmap"
+    etag = response.headers["ETag"]
+    original = Shiplog::VERSION
+    begin
+      silence_warnings { Shiplog.const_set(:VERSION, "9.9.9") }
+      get "/roadmap"
+      assert_not_equal etag, response.headers["ETag"]
+    ensure
+      silence_warnings { Shiplog.const_set(:VERSION, original) }
+    end
+  end
+
   test "ETag differs per locale" do
     get "/roadmap"
     english = response.headers["ETag"]

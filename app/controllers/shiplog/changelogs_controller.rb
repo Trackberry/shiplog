@@ -12,7 +12,7 @@ module Shiplog
 
       @older = records.size > PER_PAGE
       @months = records.first(PER_PAGE).group_by { |entry| entry.released_on.beginning_of_month }
-      fresh_when etag: [ I18n.locale, @page, @older, @months.values.flatten.map { |entry| [ entry.id, entry.updated_at ] } ]
+      fresh_when etag: [ *shiplog_etag_parts, @page, @older, @months.values.flatten.map { |entry| [ entry.id, entry.updated_at ] } ]
     end
 
     private

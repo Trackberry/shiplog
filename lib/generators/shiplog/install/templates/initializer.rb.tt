@@ -44,6 +44,14 @@ Shiplog.configure do |config|
   # config.admin_parent_controller = "ActionController::Base"
   # config.admin_layout = "shiplog/admin"
 
+  # :standalone (default) wraps the admin in Shiplog's own page chrome. Use :hosted when admin_layout is one of
+  # your layouts: Shiplog then renders only a compact sub-nav inside your content.
+  # config.admin_chrome = :standalone
+
+  # In :hosted mode, render Shiplog's flash messages inside the admin content. Set it to false when your
+  # layout already shows the flash.
+  # config.admin_flash = true
+
 <% if options[:tailwind] -%>
   # The bundled stylesheet is off: the pages are styled with the Tailwind classes below, added next to
   # the stable shiplog-* BEM classes. Tailwind finds them through the @source line in
