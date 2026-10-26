@@ -1,0 +1,8 @@
+en:
+  shiplog:
+    admin:
+      title: Shiplog admin
+      nav:
+        drafts: Drafts
+        board: Roadmap board
+        sync: Sync

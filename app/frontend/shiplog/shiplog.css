@@ -1,0 +1,68 @@
+.shiplog {
+  --shiplog-fg: #1f2328;
+  --shiplog-muted: #59636e;
+  --shiplog-bg: #ffffff;
+  --shiplog-card: #f6f8fa;
+  --shiplog-border: #d1d9e0;
+  --shiplog-accent: #0969da;
+  color: var(--shiplog-fg);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.5;
+  margin: 0 auto;
+  max-width: 72rem;
+  padding: 1.5rem 1rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .shiplog {
+    --shiplog-fg: #e6edf3;
+    --shiplog-muted: #9198a1;
+    --shiplog-bg: #0d1117;
+    --shiplog-card: #151b23;
+    --shiplog-border: #3d444d;
+    --shiplog-accent: #4493f8;
+  }
+}
+
+body:has(.shiplog) { background: #fff; }
+@media (prefers-color-scheme: dark) { body:has(.shiplog) { background: #0d1117; } }
+
+.shiplog-page-title { font-size: 1.75rem; margin: 0 0 1.5rem; }
+
+.shiplog-columns {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+}
+
+.shiplog-column__title,
+.shiplog-month__title {
+  border-bottom: 1px solid var(--shiplog-border);
+  font-size: 1.125rem;
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.5rem;
+}
+
+.shiplog-column__empty,
+.shiplog-empty { color: var(--shiplog-muted); }
+
+.shiplog-entries { display: grid; gap: 0.75rem; list-style: none; margin: 0; padding: 0; }
+
+.shiplog-entry {
+  background: var(--shiplog-card);
+  border: 1px solid var(--shiplog-border);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+}
+
+.shiplog-entry--feature { border-left: 4px solid var(--shiplog-accent); padding: 1rem 1.25rem; }
+.shiplog-entry--feature .shiplog-entry__title { font-size: 1.25rem; }
+
+.shiplog-entry__title { font-size: 1rem; margin: 0 0 0.25rem; }
+.shiplog-entry__body p { margin: 0.25rem 0; }
+
+.shiplog-month { margin-bottom: 2rem; }
+
+.shiplog-pagination { display: flex; gap: 1rem; justify-content: space-between; }
+.shiplog-pagination__older { margin-left: auto; }
+.shiplog-pagination a { color: var(--shiplog-accent); }

@@ -1,0 +1,42 @@
+:root {
+  --shiplog-admin-fg: #1f2328;
+  --shiplog-admin-muted: #59636e;
+  --shiplog-admin-bg: #f6f8fa;
+  --shiplog-admin-surface: #ffffff;
+  --shiplog-admin-border: #d1d9e0;
+  --shiplog-admin-accent: #0969da;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --shiplog-admin-fg: #e6edf3;
+    --shiplog-admin-muted: #9198a1;
+    --shiplog-admin-bg: #0d1117;
+    --shiplog-admin-surface: #151b23;
+    --shiplog-admin-border: #3d444d;
+    --shiplog-admin-accent: #4493f8;
+  }
+}
+
+.shiplog-admin {
+  background: var(--shiplog-admin-bg);
+  color: var(--shiplog-admin-fg);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.shiplog-admin a { color: var(--shiplog-admin-accent); }
+
+.shiplog-admin-nav {
+  background: var(--shiplog-admin-surface);
+  border-bottom: 1px solid var(--shiplog-admin-border);
+  padding: 0.75rem 1rem;
+}
+
+.shiplog-admin-nav__list { display: flex; gap: 1.25rem; list-style: none; margin: 0; padding: 0; }
+
+.shiplog-admin__main { margin: 0 auto; max-width: 80rem; padding: 1.5rem 1rem; }
+
+.shiplog-admin__flash { border: 1px solid var(--shiplog-admin-border); border-radius: 0.375rem; padding: 0.5rem 0.75rem; }
+.shiplog-admin__flash--alert { border-color: #cf222e; }
