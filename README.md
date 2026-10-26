@@ -146,7 +146,7 @@ config.repositories = [
 | `changelog` | `true` | `false` makes the repository roadmap-only: its issues still feed the roadmap, but its pull requests and commits never become changelog entries. |
 | `gem` | `nil` | The gem's name in your `Gemfile.lock`, for [gem upgrades](#gem-upgrades). |
 
-Unknown options and invalid values raise `ArgumentError` when you assign `repositories`, and so does a name that is not `owner/name` (letters, digits, `.`, `_` and `-`). A repository with both `gem:` and `changelog: true` is accepted, but a warning is logged: its changes would be drafted twice, from its own pull requests and from the upgrade. Set `changelog: false`.
+Unknown options and invalid values raise `ArgumentError` when you assign `repositories`, and so does a name that is not `owner/name` (letters, digits, `.`, `_` and `-`; a segment cannot be only dots). A repository with both `gem:` and `changelog: true` is accepted, but a warning is logged: its changes would be drafted twice, from its own pull requests and from the upgrade. Set `changelog: false`.
 
 `gem:` must be set explicitly because gem names and repository names differ (`acme-produce` lives in `acme/produce`), and a public gem can share a name with one of your repositories without being it: the `holidays` gem from RubyGems is not `acme/holidays`. Matching on names would attach someone else's changes to your changelog, so only gems listed with `gem:` are tracked.
 
@@ -159,15 +159,17 @@ A change made in a gem you depend on should appear in the changelog once, when y
 For each merged pull request in a repository with `changelog: true` that changes the lockfile:
 
 1. Shiplog reads the lockfile at the merge commit's first parent and at the merge commit itself, and compares the tracked gems with `Bundler::LockfileParser`.
-2. For a gem whose version changed it resolves the tag in the gem's repository (`v<version>`, then `<version>`). For a git source it uses the locked revision. Shiplog then compares the two refs.
-3. It lists the pull requests merged between the two refs (GitHub's compare API, then the pull requests associated with those commits, at most 50) and stores them with the upgrade.
+2. For a gem whose version changed it resolves the tag in the gem's repository (`v<version>` and `<version>`, trying the matching styles first and then the mixed ones). For a git source it uses the locked revision. Shiplog then compares the two refs.
+3. It lists the pull requests merged between the two refs (GitHub's compare API, then the pull requests associated with those commits, the newest 50) and stores them with the upgrade.
 4. The pull request gets one change draft, dated at its merge. The gem's changes (up to 20 titles with excerpts) go into the rewrite prompt, and the rewriter writes one customer-facing entry, or marks it not customer-facing.
 
 A Dependabot bump, a `chore(deps):` title or the `dependencies` label does not exclude a pull request that carries an upgrade with changes; without one it is skipped as usual. Other excluded labels (such as `internal`) still exclude it. If a tag cannot be found, or the gem's repository is not readable by the token, the upgrade is recorded without changes and a warning is logged; the rewriter then works from the pull request alone.
 
 The GitHub token needs read access to the gem repositories as well (**Contents** and **Pull requests**). Detection is capped per sync (50 pull requests), so a large repository's first sync finishes over several syncs.
 
-Only pull requests synced by 0.2.0 or later are inspected: merges imported earlier are not backfilled, and their gem changes are not turned into entries.
+Only pull requests synced by 0.2.0 or later are inspected: merges imported earlier are not backfilled, and their gem changes are not turned into entries. Pull requests merged before the next scan's start (the last scan, or seven days ago for a repository never scanned) are marked checked without being fetched, since nothing that old would be drafted. A pull request whose inspection fails with a temporary GitHub error is retried on the next syncs and given up after three attempts; any other error gives it up at once, with a warning.
+
+**Rebase merges.** Shiplog reads the lockfile at the merge commit and at its first parent. For a rebase merge, GitHub creates no merge commit: the pull request's "merge commit" is the last rebased commit, so only that commit's lockfile change is seen. Dependabot's pull requests are a single commit, so they are unaffected; a rebased branch that bumps a gem in an earlier commit is missed.
 
 ## GitHub token
 
@@ -286,7 +288,7 @@ config.extra_pages = [
 ]
 ```
 
-To show the same switcher on your own pages, add the helper to the controller and call it in the view. It links the stylesheet (unless `config.stylesheet` is `false`) and only uses the `shiplog` route proxy, so it works in main-app views:
+To show the same switcher on your own pages, add the helper to the controller and call it in the view. It links the stylesheet (unless `config.stylesheet` is `false`) and finds the engine's route proxy in your routes whatever name you gave the mount (`as: :updates`), so it works in main-app views. It raises an error if `Shiplog::Engine` is not mounted:
 
 ```ruby
 class NewsController < ApplicationController
@@ -298,9 +300,9 @@ end
 <%= shiplog_switcher %>
 ```
 
-A `path` String must start with `/` (not `//`), `http://`, `https://` or `mailto:`; anything else, such as `"news"`, raises `ArgumentError` when you assign `extra_pages`. A callable that returns another scheme renders the label as text, without a link, and logs a warning. `feedback_path` follows the same rule at render time: an unsafe value shows no link.
+A `path` String must start with `/` (not `//`, `/\` or `/` followed by whitespace), `http://`, `https://` or `mailto:`, and contain no control characters; anything else, such as `"news"`, raises `ArgumentError` when you assign `extra_pages`. An absolute `http(s)` page is marked current only on its own host (`request.host`). A callable that returns another scheme renders the label as text, without a link, and logs a warning. `feedback_path` follows the same rule at render time: an unsafe value shows no link.
 
-Labels come from `shiplog.switcher.roadmap`, `.changelog` and `.label` (the `nav` label). Style it with the `switcher` and `switcher_link` keys of [`config.classes`](#3-configclasses-tailwind-and-other-utility-frameworks); the current link also has `shiplog-switcher__link--current`. Hosts that override `shiplog/_page_header` keep their own header; render `shiplog_switcher` or the `shiplog/switcher` partial in it to get the links.
+Labels come from `shiplog.switcher.roadmap`, `.changelog` and `.label` (the `nav` label); every Shiplog key has an English default, so a locale without translations shows English. Style it with the `switcher` and `switcher_link` keys of [`config.classes`](#3-configclasses-tailwind-and-other-utility-frameworks); the current link also has `shiplog-switcher__link--current`. Hosts that override `shiplog/_page_header` keep their own header; render `shiplog_switcher` or the `shiplog/switcher` partial in it to get the links.
 
 ### Roadmap details
 

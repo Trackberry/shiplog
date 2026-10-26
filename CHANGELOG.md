@@ -8,6 +8,7 @@
 - Roadmap status by default: a rule and marker per column, a card tag with the issue's repository (`config.repository_labels`), "Includes N parts" on cards, a "Recently shipped" section (`config.roadmap_shipped_count`, default 4, `0` hides it) and an optional footnote with a "Suggest a feature" link (`shiplog.roadmap.footnote`, `config.feedback_path`).
 - New `config.classes` keys: `switcher`, `switcher_link`, `column_marker`, `card_meta`, `card_tag`, `shipped`, `shipped_title`, `shipped_list`, `shipped_item`, `shipped_date`, `shipped_link`, `footnote`, `footnote_link`.
 - Per-repository options in `config.repositories`: `{ name:, changelog: false, gem: }`. `changelog: false` keeps a repository on the roadmap only. `gem:` names the gem in your lockfile so that upgrading it produces a single changelog entry, written from the gem's own merged pull requests, instead of one entry per repository. `config.lockfile_path` changes the lockfile that is read.
+- A Dependabot author, a `chore(deps)` title or the `dependencies` label no longer excludes a pull request that carries gem changes; other excluded labels, such as `internal`, still do.
 - `config.cache_version`, to refresh cached public pages when the output of a configured callable changes.
 - A Discard button on draft rows of the admin inbox, next to Edit and Approve. It updates the list in place; give a reason from the entry's page.
 
@@ -16,18 +17,23 @@
 - Roadmap drafts are shorter (about two sentences) and lead with what the customer gets, instead of opening with "We're working on".
 - The roadmap's ETag also covers its recently shipped entries and each card's repository and sub-issues, so those changes reach cached pages.
 - The migration `create_shiplog_pull_request_upgrades` also adds an index on `shiplog_entries (status, released_on)`.
+- Gem upgrade detection: a failure on one pull request no longer blocks the others or keeps the scan window from advancing. Temporary GitHub errors are retried and given up after three attempts; other errors give up at once, with a warning. Pull requests merged before the next scan's start are marked checked without being fetched.
+- Only the last commit's lockfile change is seen for a rebase merge; Dependabot's single-commit pull requests are unaffected.
 
 ### Fixed
 
+- The scan window could move back to the oldest pending lockfile pull request after a first sync of a long history, drafting every old pull request and commit in that span. It now never ends before its start.
+- Hosts that mount the engine with another name (`as: :updates`) no longer get a `NameError` from the switcher.
 - The public pages' ETag used a per-process `Hash#hash`, so workers of a multi-process host answered with different ETags for the same page. It is now a stable digest.
 
 ### Upgrade notes
 
-- Copy and run the new migration: `bin/rails shiplog:install:migrations`, then `bin/rails db:migrate`.
+- Copy and run the new migration: `bin/rails shiplog:install:migrations`, then `bin/rails db:migrate`. Run it before the job workers start on the new code, because the importer writes the new columns.
+- New I18n keys, all with English defaults, so a locale without translations shows English: `shiplog.switcher.label`, `.roadmap`, `.changelog`; `shiplog.roadmap.parts` (with `count`), `.shipped_heading`, `.shipped_date_format`, `.full_changelog`, `.suggest`.
 - The default `shiplog/_page_header` now renders the switcher. Hosts that override `_page_header` keep theirs; render `shiplog_switcher` (or the `shiplog/switcher` partial) in it to get the links.
 - If your app overrides `roadmaps/show`, `_column` or `_card` only to add column status, card tags or recently shipped, delete them and use the new defaults and `config.classes` keys.
 - Style the new elements with the new class keys above if you use `config.classes` with `config.stylesheet = false`.
-- A relative String path such as `"news"` in `extra_pages` now raises `ArgumentError`; use `"/news"`, an `http(s)://` URL or `mailto:`. A `feedback_path` that is not one of these renders no link.
+- `extra_pages` paths must be absolute (`/…`), `http(s)://` or `mailto:`. A `feedback_path` that is not one of these renders no link.
 - Repository names are validated: anything other than `owner/name` raises `ArgumentError` when `config.repositories` is assigned.
 - For gem upgrades the GitHub token needs read access to **Contents** and **Pull requests** on the gem repositories. Only pull requests synced by 0.2.0 or later are inspected; earlier merges are not backfilled.
 
