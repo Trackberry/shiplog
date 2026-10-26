@@ -8,6 +8,7 @@ module Shiplog
       def index
         @areas = Area.ordered.to_a
         @counts = Area.entry_counts
+        @detection = Setting.read(DetectAreasJob::SETTING)
       end
 
       def update

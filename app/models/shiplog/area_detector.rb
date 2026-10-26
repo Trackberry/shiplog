@@ -38,11 +38,12 @@ module Shiplog
       </titles>
     PROMPT
 
+    # Returns the number of entries it assigned, or nil when another run holds the lock.
     def call(recheck: false)
       ApplicationRecord.with_connection do |connection|
         unless connection.select_value("SELECT pg_try_advisory_lock(#{LOCK_KEY})")
           Rails.logger.info("[shiplog] Detect areas: another run is in progress, skipping")
-          return
+          return nil
         end
 
         begin
@@ -68,6 +69,7 @@ module Shiplog
         proposed = Area.count - areas_before
         classify_entries if Area.any?
         Rails.logger.info("[shiplog] Detect areas: proposed #{proposed} area(s), assigned #{@assigned} of #{@considered} entries")
+        @assigned
       end
 
       def propose_areas

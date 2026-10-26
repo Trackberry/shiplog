@@ -42,6 +42,14 @@ class Shiplog030 < ActiveRecord::Migration[8.1]
     # When detection last asked the AI about the entry (placed or not): unplaced entries are not asked again
     # until an admin asks for a re-check.
     add_column :shiplog_entries, :area_detected_at, :datetime
+    # A small key-value store for state that belongs to no record, e.g. the result of the last area detection
+    # (shown on the admin's Areas page).
+    create_table :shiplog_settings do |t|
+      t.string :key, null: false
+      t.jsonb :value, null: false, default: {}
+      t.timestamps
+    end
+    add_index :shiplog_settings, :key, unique: true
   end
 
   # Gives every approved feature and change with a release date, and no slug, one: the title as [a-z0-9-] only

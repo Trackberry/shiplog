@@ -144,6 +144,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_27_000002) do
     t.index ["full_name"], name: "index_shiplog_repositories_on_full_name", unique: true
   end
 
+  create_table "shiplog_settings", force: :cascade do |t|
+    t.string "key", null: false
+    t.jsonb "value", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["key"], name: "index_shiplog_settings_on_key", unique: true
+  end
+
   create_table "shiplog_webhook_deliveries", force: :cascade do |t|
     t.string "delivery_id", null: false
     t.string "event"

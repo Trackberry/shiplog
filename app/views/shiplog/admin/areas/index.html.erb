@@ -10,6 +10,15 @@
     <% end %>
   </div>
 
+  <% if @detection %>
+    <% time = (Time.zone.parse(@detection["at"].to_s) || Time.current).utc.strftime("%Y-%m-%d %H:%M UTC") %>
+    <% if @detection["error"] %>
+      <p class="shiplog-admin__muted shiplog-area-detection shiplog-area-detection--error" role="alert"><%= t("shiplog.admin.areas.last_error", time:, error: @detection["error"], default: "Last detection failed (%{time}): %{error}") %></p>
+    <% else %>
+      <p class="shiplog-admin__muted shiplog-area-detection"><%= t("shiplog.admin.areas.last_detection", time:, count: @detection["assigned"].to_i, default: "Last detection: %{time}, assigned %{count}") %></p>
+    <% end %>
+  <% end %>
+
   <% if @areas.empty? %>
     <p class="shiplog-admin__empty"><%= t("shiplog.admin.areas.empty", default: "No areas yet. Detect areas to propose some from your entries.") %></p>
   <% else %>

@@ -42,6 +42,7 @@ class Shiplog::Admin::AreasControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "the detect button enqueues the job and flashes" do
+    Shiplog.config.rewriter = ->(_prompt) { "{}" }
     assert_enqueued_with(job: Shiplog::DetectAreasJob) do
       post "#{ADMIN}/areas/detection"
     end
@@ -60,8 +61,35 @@ class Shiplog::Admin::AreasControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "detect enqueues with recheck only when asked" do
+    Shiplog.config.rewriter = ->(_prompt) { "{}" }
     assert_enqueued_with(job: Shiplog::DetectAreasJob, args: [ { recheck: false } ]) { post "#{ADMIN}/areas/detection" }
     assert_enqueued_with(job: Shiplog::DetectAreasJob, args: [ { recheck: true } ]) { post "#{ADMIN}/areas/detection", params: { recheck: "1" } }
+  end
+
+  test "detect without a rewriter enqueues nothing and says so" do
+    Shiplog.config.rewriter = nil
+
+    assert_no_enqueued_jobs { post "#{ADMIN}/areas/detection" }
+    assert_redirected_to "#{ADMIN}/areas"
+    follow_redirect!
+    assert_select ".shiplog-admin__flash--alert", text: /config\.rewriter/
+  end
+
+  test "the page shows the last detection and its result" do
+    get "#{ADMIN}/areas"
+    assert_select ".shiplog-area-detection", 0
+
+    Shiplog::Setting.write("area_detection", at: Time.utc(2026, 10, 26, 9, 30).iso8601, assigned: 12)
+    get "#{ADMIN}/areas"
+    assert_select ".shiplog-area-detection", text: "Last detection: 2026-10-26 09:30 UTC, assigned 12"
+  end
+
+  test "the page shows the last detection error, escaped" do
+    Shiplog::Setting.write("area_detection", at: Time.utc(2026, 10, 26, 9, 30).iso8601, error: "RuntimeError: <b>boom</b>")
+    get "#{ADMIN}/areas"
+
+    assert_select ".shiplog-area-detection--error", text: "Last detection failed (2026-10-26 09:30 UTC): RuntimeError: <b>boom</b>"
+    assert_not_includes response.body, "<b>boom</b>"
   end
 
   test "rename updates the name and the slug" do
@@ -220,6 +248,7 @@ class Shiplog::Admin::AreasControllerTest < ActionDispatch::IntegrationTest
       get "#{ADMIN}/entries/#{shiplog_entries(:dark_mode_feature).id}/edit"
       assert_no_match(new_keys, response.body)
       assert_select "option[value='']", text: "None"
+      Shiplog.config.rewriter = ->(_prompt) { "{}" }
       post "#{ADMIN}/areas/detection"
       follow_redirect!
       assert_select ".shiplog-admin__flash--notice", text: "Detection queued. Refresh in a moment."
