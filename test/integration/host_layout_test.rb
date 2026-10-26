@@ -72,6 +72,12 @@ class HostRoutesHelperTest < ActionView::TestCase
     mappings.delete("HostAvatar")
   end
 
+  test "an object whose to_model has no model_name falls through to Rails' own error" do
+    odd = Class.new { def to_model = Object.new }.new
+    error = assert_raises(NoMethodError) { polymorphic_path(odd) }
+    assert_no_match(/shiplog_host_mapping/, error.backtrace.first.to_s)
+  end
+
   test "records without any mapping are left to the engine" do
     assert_raises(NoMethodError) { polymorphic_path(Object.new) }
   end

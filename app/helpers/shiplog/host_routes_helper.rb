@@ -47,7 +47,11 @@ module Shiplog
         record.is_a?(Symbol) || record.is_a?(Class) || record.is_a?(ActionController::Parameters)
       return false unless respond_to?(:main_app, true)
 
-      name = record.respond_to?(:to_model) ? record.to_model.model_name.name : record.class.name
+      model = record.respond_to?(:to_model) ? record.to_model : record
+      # Odd objects (to_model returning something without a model_name) are left to Rails' own error.
+      return false if record.respond_to?(:to_model) && !model.respond_to?(:model_name)
+
+      name = record.respond_to?(:to_model) ? model.model_name.name : record.class.name
       !_routes.polymorphic_mappings.key?(name) && main_app._routes.polymorphic_mappings.key?(name)
     end
 
