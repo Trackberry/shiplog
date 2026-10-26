@@ -55,15 +55,16 @@ module Shiplog
       safe_join(tags.compact_blank.map { |property, content| tag.meta(property:, content:) }, "\n")
     end
 
-    # The absolute URL of the image to show when the page is shared, or nil: the entry's first screenshot, else
+    # The absolute URL of the image to show when the page is shared, or nil: the entry's first screenshot with a URL, else
     # what config.og_image returns for it. Computed once per entry per render, so a failing callable is logged
     # once for a page.
     def shiplog_entry_og_image(entry)
       @shiplog_og_images ||= {}.compare_by_identity
       return @shiplog_og_images[entry] if @shiplog_og_images.key?(entry)
 
-      image = shiplog_images(entry).first
-      @shiplog_og_images[entry] = (shiplog_image_url(image) if image) || shiplog_configured_og_image(entry)
+      # Same rule as the JSON-LD Article image: screenshots whose URL can't be built are skipped.
+      screenshot = shiplog_images(entry).lazy.filter_map { |image| shiplog_image_url(image) }.first
+      @shiplog_og_images[entry] = screenshot || shiplog_configured_og_image(entry)
     end
 
     # What config.og_image gives for an entry (called in the view with the entry and the locale), as an absolute

@@ -13,6 +13,10 @@ module Shiplog
     helper Shiplog::HeadHelper
     layout -> { Shiplog.config.public_layout }
 
+    # Marks the controllers of the public pages, for shiplog_head_tags: checking this instead of the class keeps
+    # host pages from autoloading Shiplog::PublicController (and the host's parent controller).
+    def shiplog_public_page? = true
+
     private
 
     # Calls config.on_changelog_seen for a visit to the changelog index or a permalink page. It runs before

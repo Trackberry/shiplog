@@ -4,6 +4,7 @@ require "shiplog/configuration"
 require "shiplog/github/errors"
 require "shiplog/github/queries"
 require "shiplog/github/client"
+require "shiplog/head_tags_helper"
 require "shiplog/engine"
 require "shiplog/admin/engine"
 

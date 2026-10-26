@@ -9,7 +9,7 @@ module Shiplog
   #   shiplog/head/_open_graph       og:* and twitter:*
   #   shiplog/head/_feed             the Atom alternate link
   #   shiplog/head/_structured_data  the JSON-LD script
-  # Each receives the locals `head` (a Hash: :kind, :title, :url, :entry, :image, :canonical), `description`,
+  # Each receives the locals `head` (a Hash: :kind, :title, :entry, :canonical, :image, :description), `description`,
   # `canonical`, `robots`, `open_graph` and `twitter` (Hashes of tag name => content), `feed_url`, `feed_title`
   # and `json_ld`. Whatever `except:` removed arrives as nil or an empty Hash.
   module HeadHelper

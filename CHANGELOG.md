@@ -1,18 +1,40 @@
 # Changelog
 
+## 0.3.2 (2026-10-26)
+
+0.3.1 hosts should upgrade.
+
+### Fixed
+
+- Boot failure in 0.3.1: when a host initializer or gem loaded `ActionView::Base` early (for example `ActionView::Base.field_error_proc = ...` in `config/initializers`), the engine's `action_view` hook ran before the autoloaders existed and raised `NameError: uninitialized constant Shiplog::HeadTagsHelper`. `Shiplog::HeadTagsHelper` now lives in `lib/shiplog/head_tags_helper.rb` and is required explicitly, so it is neither autoloaded nor reloaded (it is included into a class that never reloads).
+- `shiplog_head_tags` raised `NoMethodError` in a view that lacks Shiplog's helpers, such as a ViewComponent or Phlex component rendered on a Shiplog page. It returns an empty string there: call it in the layout.
+- `shiplog_head_tags` no longer autoloads `Shiplog::PublicController` (and the host's parent controller) when a host page or mailer renders a layout that calls it. Shiplog's public controllers answer a `shiplog_public_page?` marker instead.
+- `og:image` and `Article.image` agree: `og:image` is the first screenshot whose URL can be built (it skipped to the callable when the first one had none), `Article.image` all of them, otherwise the `config.og_image` image.
+- The `EXCEPT_KEYS` constant is no longer visible in the host's views (it moved to `Shiplog::HeadTags`).
+
+### Changed
+
+- The legacy `content_for :shiplog_og` block includes the `config.og_image` fallback image when it is set (it did so in 0.3.1; the 0.3.1 notes said it was exactly as in 0.3.0).
+
+### Upgrading
+
+- Bump `config.cache_version` when you change your layout's head or override a `shiplog/head/*` partial: ETags don't cover layouts.
+- `config.og_image` output is not part of the ETag (only its presence is): bump `cache_version` when it changes.
+- With `except: :canonical`, `og:url` still carries Shiplog's canonical (which honours `config.canonical_url`). A host writing its own canonical should make it agree, and should not emit one on search pages, where Shiplog sets `noindex` (`content_for(:shiplog_robots)` is `"noindex"` there).
+
 ## 0.3.1 (2026-10-26)
 
 ### Added
 
-- schema.org structured data (JSON-LD) on the public pages, through the new `content_for :shiplog_structured_data` (one `<script type="application/ld+json">` per page). A permalink page is an `Article` (`headline`, `description`, `inLanguage`, `datePublished`, `dateModified`, `url`, `mainEntityOfPage`, and when available `image`, `articleSection` and `publisher`, plus `isPartOf` the changelog); the changelog list is a `CollectionPage` with an `ItemList` of the entries on the page (left out for search results and an empty list); the roadmap is a `CollectionPage` with an `ItemList` of its cards. Titles and descriptions follow the request locale and `config.canonical_url`. The JSON is built from a Hash with `<`, `>` and `&` escaped as `\u003c`, `\u003e` and `\u0026`, so a `</script>` in a title cannot break out of the tag.
-- `shiplog_head_tags(except: [])` (`Shiplog::HeadTagsHelper`, with the data side in `Shiplog::HeadHelper`): one call in a host layout's `<head>` renders the description, canonical link, robots, Open Graph, Twitter card, Atom link and JSON-LD of the public pages, through the overridable partials `shiplog/_head_tags` and `shiplog/head/_meta`, `_open_graph`, `_feed` and `_structured_data`. `except:` takes `:description`, `:canonical`, `:robots`, `:open_graph`, `:twitter`, `:feed` and `:structured_data`; other keys raise `ArgumentError`. It returns an empty string outside Shiplog pages. It is available in every view of the host (a Rails `action_view` load hook includes `Shiplog::HeadTagsHelper`, which holds only this method). Shiplog's own layout uses it.
+- schema.org structured data (JSON-LD) on the public pages, rendered by `shiplog_head_tags` (the legacy route is `content_for :shiplog_structured_data`; one `<script type="application/ld+json">` per page). A permalink page is an `Article` (`headline`, `description`, `inLanguage`, `datePublished`, `dateModified`, `url`, `mainEntityOfPage`, and when available `image`, `articleSection` and `publisher`, plus `isPartOf` the changelog); the changelog list is a `CollectionPage` with an `ItemList` of the entries on the page (left out for search results and an empty list); the roadmap is a `CollectionPage` with an `ItemList` of its cards. Titles and descriptions follow the request locale and `config.canonical_url`. The JSON is built from a Hash with `<`, `>` and `&` escaped as `\u003c`, `\u003e` and `\u0026`, so a `</script>` in a title cannot break out of the tag.
+- `shiplog_head_tags(except: [])` (`Shiplog::HeadTagsHelper`, with the data side in `Shiplog::HeadHelper`): one call in a host layout's `<head>` renders the description, canonical link, robots, Open Graph, Twitter card, Atom link and JSON-LD of the public pages, through the overridable partials `shiplog/_head_tags` and `shiplog/head/_meta`, `_open_graph`, `_feed` and `_structured_data`. `except:` takes `:description`, `:canonical`, `:robots`, `:open_graph`, `:twitter`, `:feed` and `:structured_data`; other keys raise `ArgumentError`. It returns an empty string outside Shiplog pages. It is available in every view of the host (a Rails `action_view` load hook includes `Shiplog::HeadTagsHelper`, which holds only this method). **0.3.1 can fail to boot, see 0.3.2.** Shiplog's own layout uses it.
 - A canonical link (new): a list page's own URL (its `area` and `page`, no other query parameters), a permalink's URL, honouring `config.canonical_url`. Search pages are `noindex` and have no canonical, so the two signals do not disagree. Twitter card tags (`twitter:card`, and `twitter:image`) are new too.
-- `config.og_image` (`nil` or `->(entry, locale) { url }`, evaluated in the view): the share image of a permalink page without a screenshot, as `og:image` (with `og:image:alt`), `twitter:image`, `twitter:card` = `summary_large_image` and `Article.image`. Paths are made absolute; an error or a non-http(s) value is logged and ignored. Part of `render_digest`.
+- `config.og_image` (`nil` or `->(entry, locale) { url }`, evaluated in the view): the share image of a permalink page without a screenshot, as `og:image` (with `og:image:alt`), `twitter:image`, `twitter:card` = `summary_large_image` and `Article.image`. Paths are made absolute; an error or a non-http(s) value is logged and ignored. Only its presence is part of `render_digest`, not its output: bump `config.cache_version` when the output changes.
 - `config.structured_data` (default `true`; `false` turns the JSON-LD off). Part of `render_digest`, so changing it refreshes cached pages.
 
 ### Upgrading
 
-- Custom `config.public_layout`: replace the `content_for(:shiplog_description)`, `:shiplog_og`, `:shiplog_feed`, `:shiplog_robots` and `:shiplog_structured_data` renders in the `<head>` with `<%= shiplog_head_tags %>`, and pass `except:` for the tags your layout writes itself (for example `except: [:open_graph, :twitter]` if it has its own share card). The `content_for` blocks are still filled as in 0.3.0 and still work, but are superseded: use `shiplog_head_tags` or the blocks, not both, because `shiplog_head_tags` does not read the blocks and rendering both duplicates the tags. Hosts that keep the blocks need no change.
+- Custom `config.public_layout`: replace the `content_for(:shiplog_description)`, `:shiplog_og`, `:shiplog_feed`, `:shiplog_robots` and `:shiplog_structured_data` renders in the `<head>` with `<%= shiplog_head_tags %>`, and pass `except:` for the tags your layout writes itself (for example `except: [:open_graph, :twitter]` if it has its own share card). The `content_for` blocks still work (`:shiplog_og` now also carries the `config.og_image` fallback image), but are superseded: use `shiplog_head_tags` or the blocks, not both, because `shiplog_head_tags` does not read the blocks and rendering both duplicates the tags. Hosts that keep the blocks need no change.
 - Hosts with a custom `config.public_layout` that stay on the blocks should render `<%= content_for(:shiplog_structured_data) %>` in the `<head>`, next to `content_for(:shiplog_og)`. Without it the pages work as before, with no structured data. Shiplog's own layout already does.
 
 ## 0.3.0 (2026-10-26)

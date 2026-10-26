@@ -1,0 +1,9 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= content_for(:title) %></title>
+    <%= tag.meta name: "probe-robots", content: content_for(:shiplog_robots) if content_for?(:shiplog_robots) %>
+    <%= shiplog_head_tags(except: :canonical) %>
+  </head>
+  <body><%= yield %></body>
+</html>
