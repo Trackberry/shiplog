@@ -35,6 +35,51 @@ class Shiplog::ChangelogsControllerTest < ActionDispatch::IntegrationTest
     assert_not_includes response.body, "Upload many shipments at once"
   end
 
+  test "entries show the category pill, the date, the title and the body" do
+    get "/changelog"
+    assert_select "li.shiplog-entry" do
+      assert_select ".shiplog-entry__category", text: "New"
+      assert_select "time.shiplog-entry__date[datetime=?]", shiplog_entries(:dark_mode_feature).released_on.iso8601
+      assert_select "h3.shiplog-entry__title", text: "Dark mode"
+      assert_select ".shiplog-entry__body"
+    end
+    assert_select "time.shiplog-entry__date", text: I18n.l(shiplog_entries(:dark_mode_feature).released_on, format: :long)
+  end
+
+  test "change entries are labelled Improved" do
+    shiplog_entries(:csv_change_draft).update!(status: "approved", released_on: Date.new(2026, 10, 1))
+    get "/changelog"
+    assert_select "li.shiplog-entry--change .shiplog-entry__category", text: "Improved"
+  end
+
+  test "months are labelled sections" do
+    get "/changelog"
+    assert_select "section.shiplog-month[aria-labelledby=shiplog-month-2026-10] h2#shiplog-month-2026-10.shiplog-month__title"
+  end
+
+  test "configured classes are added, feature classes only on feature entries" do
+    shiplog_entries(:csv_change_draft).update!(status: "approved", released_on: Date.new(2026, 10, 1))
+    Shiplog.config.classes = { entry: "rounded", entry_feature: "border-l-4", entry_category: "pill", pagination_link: "link" }
+    get "/changelog"
+    assert_select "li.shiplog-entry.shiplog-entry--feature.rounded.border-l-4", 1
+    assert_select "li.shiplog-entry--change.rounded", 1
+    assert_select "li.shiplog-entry--change.border-l-4", 0
+    assert_select ".shiplog-entry__category.pill", 2
+  end
+
+  test "has a page header and the stylesheet inside the page" do
+    get "/changelog"
+    assert_select "header.shiplog-page__header h1.shiplog-page__title", text: "Changelog"
+    assert_select "main .shiplog-page.shiplog-page--changelog"
+    assert_select "body link[rel=stylesheet][href*='shiplog.css']", 1
+  end
+
+  test "stylesheet false leaves out the bundled stylesheet" do
+    Shiplog.config.stylesheet = false
+    get "/changelog"
+    assert_select "link[rel=stylesheet]", 0
+  end
+
   test "feature entries are marked" do
     shiplog_entries(:csv_change_draft).update!(status: "approved", released_on: Date.new(2026, 10, 1))
     get "/changelog"
@@ -58,7 +103,7 @@ class Shiplog::ChangelogsControllerTest < ActionDispatch::IntegrationTest
   test "empty state" do
     Shiplog::Entry.update_all(status: "draft")
     get "/changelog"
-    assert_select ".shiplog-empty", text: "Nothing here yet"
+    assert_select "p.shiplog-empty", text: "Nothing here yet"
   end
 
   test "ETag changes after approving an entry" do
@@ -88,17 +133,24 @@ class Shiplog::ChangelogsControllerTest < ActionDispatch::IntegrationTest
     create_entries(60)
     get "/changelog"
     assert_select ".shiplog-entry", 30
-    assert_select "a.shiplog-pagination__older[href=?]", "/changelog?page=2"
-    assert_select "a.shiplog-pagination__newer", 0
+    assert_select "a.shiplog-pagination__link--older[href=?]", "/changelog?page=2"
+    assert_select "a.shiplog-pagination__link--newer", 0
 
     get "/changelog", params: { page: 2 }
     assert_select ".shiplog-entry", 30
-    assert_select "a.shiplog-pagination__newer[href=?]", "/changelog"
-    assert_select "a.shiplog-pagination__older[href=?]", "/changelog?page=3"
+    assert_select "a.shiplog-pagination__link--newer[href=?]", "/changelog"
+    assert_select "a.shiplog-pagination__link--older[href=?]", "/changelog?page=3"
 
     get "/changelog", params: { page: 3 }
     assert_select ".shiplog-entry", 1
-    assert_select "a.shiplog-pagination__older", 0
+    assert_select "a.shiplog-pagination__link--older", 0
+  end
+
+  test "pagination uses the configured classes" do
+    create_entries(31)
+    Shiplog.config.classes = { pagination: "flex", pagination_link: "text-indigo-600" }
+    get "/changelog"
+    assert_select "nav.shiplog-pagination.flex[aria-label] a.shiplog-pagination__link.shiplog-pagination__link--older.text-indigo-600[rel=next]"
   end
 
   test "page param is clamped and non-numeric means page one" do

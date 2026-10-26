@@ -3,7 +3,8 @@ module Shiplog
     attr_accessor :repositories, :github_token, :webhook_secret,
       :public_label, :soon_labels, :excluded_labels, :excluded_authors, :commit_types,
       :rewriter, :product_name, :audience, :tone, :prompt_builder,
-      :public_parent_controller, :public_layout, :authorize_admin, :current_admin,
+      :public_parent_controller, :public_layout, :admin_parent_controller, :admin_layout,
+      :classes, :stylesheet, :authorize_admin, :current_admin,
       :roadmap_path, :changelog_path
 
     def initialize
@@ -16,6 +17,10 @@ module Shiplog
       @tone = "Friendly, concise, no jargon. Address the customer as 'you'."
       @public_parent_controller = "ActionController::Base"
       @public_layout = "shiplog/application"
+      @admin_parent_controller = "ActionController::Base"
+      @admin_layout = "shiplog/admin"
+      @classes = {}
+      @stylesheet = true
       @authorize_admin = ->(_controller) { false }
       @current_admin = ->(controller) { controller.try(:current_user)&.try(:email) }
       @roadmap_path = "roadmap"

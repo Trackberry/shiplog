@@ -6,9 +6,8 @@
     <title><%= content_for(:title) %></title>
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
-    <%= shiplog_stylesheet_tag "shiplog" %>
   </head>
-  <body>
+  <body class="shiplog-layout">
     <main>
       <%= yield %>
     </main>

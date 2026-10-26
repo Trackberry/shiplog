@@ -4,6 +4,7 @@ module Shiplog
   # (config/initializers/shiplog.rb), not later at runtime.
   class PublicController < Shiplog.config.public_parent_controller.constantize
     helper Shiplog::FrontendHelper
+    helper Shiplog::StylingHelper
     layout -> { Shiplog.config.public_layout }
   end
 end

@@ -1,0 +1,6 @@
+<%# locals: (name:) %>
+<%# rendered with `render layout:`; wraps a public page and emits the bundled stylesheet (unless config.stylesheet is false) %>
+<%= shiplog_stylesheet_tag "shiplog" if Shiplog.config.stylesheet %>
+<div class="<%= shiplog_class(:page, name) %>">
+  <%= yield %>
+</div>

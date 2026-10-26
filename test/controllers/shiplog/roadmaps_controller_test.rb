@@ -12,8 +12,8 @@ class Shiplog::RoadmapsControllerTest < ActionDispatch::IntegrationTest
 
   test "shows approved entry titles and bodies" do
     get "/roadmap"
-    assert_select ".shiplog-entry__title", text: "Upload many shipments at once"
-    assert_select ".shiplog-entry__title", text: "Later thing"
+    assert_select "li.shiplog-card .shiplog-card__title", text: "Upload many shipments at once"
+    assert_select "li.shiplog-card .shiplog-card__title", text: "Later thing"
     assert_includes response.body, "Soon you will be able to import a spreadsheet."
   end
 
@@ -29,7 +29,8 @@ class Shiplog::RoadmapsControllerTest < ActionDispatch::IntegrationTest
   test "empty columns say there is nothing yet" do
     Shiplog::Entry.roadmap.update_all(status: "draft")
     get "/roadmap"
-    assert_select ".shiplog-column__empty", text: "Nothing here yet", count: 3
+    assert_select "p.shiplog-column__empty", text: "Nothing here yet", count: 3
+    assert_select ".shiplog-column__count", text: "0", count: 3
   end
 
   test "escapes HTML in bodies" do
@@ -37,13 +38,63 @@ class Shiplog::RoadmapsControllerTest < ActionDispatch::IntegrationTest
     get "/roadmap"
     assert_not_includes response.body, "<script>alert(1)</script>"
     assert_includes response.body, "&lt;script&gt;alert(1)&lt;/script&gt;"
-    assert_select ".shiplog-entry__body p", minimum: 2
+    assert_select ".shiplog-card__body p", minimum: 2
   end
 
   test "uses the default stylesheet layout" do
     get "/roadmap"
-    assert_select "link[rel=stylesheet][href=?]", "/shiplog/assets/#{Shiplog::VERSION}/shiplog.css"
-    assert_select "main .shiplog-roadmap.shiplog"
+    assert_select "link[rel=stylesheet][href=?]", "/shiplog/assets/#{Shiplog::VERSION}/shiplog.css", count: 1
+    assert_select "main .shiplog-page.shiplog-page--roadmap"
+  end
+
+  test "the stylesheet link is emitted by the page, inside the body" do
+    get "/roadmap"
+    assert_select "head link[rel=stylesheet]", 0
+    assert_select "body link[rel=stylesheet][href*='shiplog.css']", 1
+  end
+
+  test "the stylesheet link is also emitted inside a host layout" do
+    Shiplog.config.public_layout = "custom"
+    get "/roadmap"
+    assert_select "link[rel=stylesheet][href*='shiplog.css']", 1
+  end
+
+  test "stylesheet false leaves out the bundled stylesheet" do
+    Shiplog.config.stylesheet = false
+    get "/roadmap"
+    assert_select "link[rel=stylesheet]", 0
+    assert_select ".shiplog-page"
+  end
+
+  test "page header has a title and a lede" do
+    get "/roadmap"
+    assert_select "header.shiplog-page__header h1.shiplog-page__title", text: "Roadmap"
+    assert_select "header.shiplog-page__header p.shiplog-page__lede", text: /working on/
+  end
+
+  test "column headers show a count and a description" do
+    get "/roadmap"
+    assert_select "section.shiplog-column--in-progress header.shiplog-column__header" do
+      assert_select ".shiplog-column__title", text: "In progress"
+      assert_select ".shiplog-column__count", text: "1"
+      assert_select ".shiplog-column__description", text: "What we're building now"
+    end
+    assert_select "section.shiplog-column--coming-soon .shiplog-column__description", text: "Planned next"
+    assert_select "section.shiplog-column--later .shiplog-column__description", text: "On our radar"
+  end
+
+  test "columns are sections labelled by their title and hold ordered cards" do
+    get "/roadmap"
+    assert_select "section.shiplog-column[aria-labelledby=shiplog-column-later] h2#shiplog-column-later"
+    assert_select "section.shiplog-column--later ol.shiplog-cards li.shiplog-card", 1
+  end
+
+  test "configured classes are added next to the BEM classes" do
+    Shiplog.config.classes = { columns: "grid gap-6 md:grid-cols-3", card: "rounded-lg border", page_title: "text-3xl" }
+    get "/roadmap"
+    assert_select "div.shiplog-columns.grid.gap-6.md\\:grid-cols-3"
+    assert_select "li.shiplog-card.rounded-lg.border"
+    assert_select "h1.shiplog-page__title.text-3xl"
   end
 
   test "respects the configured public layout" do

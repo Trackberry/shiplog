@@ -1,18 +1,9 @@
 <% content_for :title, t("shiplog.roadmap.title") %>
-<div class="shiplog shiplog-roadmap">
-  <h1 class="shiplog-page-title"><%= t("shiplog.roadmap.title") %></h1>
-  <div class="shiplog-columns">
+<%= render layout: "shiplog/page", locals: { name: "roadmap" } do %>
+  <%= render "shiplog/page_header", title: t("shiplog.roadmap.title"), lede: t("shiplog.roadmap.lede") %>
+  <div class="<%= shiplog_class(:columns) %>">
     <% @columns.each do |column, items| %>
-      <section class="shiplog-column shiplog-column--<%= column.dasherize %>" aria-labelledby="shiplog-column-<%= column.dasherize %>">
-        <h2 class="shiplog-column__title" id="shiplog-column-<%= column.dasherize %>"><%= t("shiplog.columns.#{column}") %></h2>
-        <% if items.empty? %>
-          <p class="shiplog-column__empty"><%= t("shiplog.empty") %></p>
-        <% else %>
-          <ol class="shiplog-entries">
-            <%= render partial: "shiplog/entry", collection: items.map(&:entry), as: :entry %>
-          </ol>
-        <% end %>
-      </section>
+      <%= render "shiplog/roadmaps/column", column:, entries: items.map(&:entry) %>
     <% end %>
   </div>
-</div>
+<% end %>

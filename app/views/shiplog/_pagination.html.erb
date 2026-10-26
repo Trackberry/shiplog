@@ -1,0 +1,12 @@
+<%# locals: (newer_path: nil, older_path: nil) %>
+<%# previous/next page links; renders nothing when both are nil %>
+<% if newer_path || older_path %>
+  <nav class="<%= shiplog_class(:pagination) %>" aria-label="<%= t("shiplog.changelog.pagination.label") %>">
+    <% if newer_path %>
+      <%= link_to t("shiplog.changelog.pagination.newer"), newer_path, class: shiplog_class(:pagination_link, :newer), rel: "prev" %>
+    <% end %>
+    <% if older_path %>
+      <%= link_to t("shiplog.changelog.pagination.older"), older_path, class: shiplog_class(:pagination_link, :older), rel: "next" %>
+    <% end %>
+  </nav>
+<% end %>

@@ -13,6 +13,10 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
     assert_equal "roadmap", config.roadmap_path
     assert_equal "changelog", config.changelog_path
     assert_equal "ActionController::Base", config.public_parent_controller
+    assert_equal "ActionController::Base", config.admin_parent_controller
+    assert_equal "shiplog/admin", config.admin_layout
+    assert_equal({}, config.classes)
+    assert_equal true, config.stylesheet
     assert_not config.authorize_admin.call(Object.new)
   end
 

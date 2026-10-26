@@ -4,11 +4,19 @@ en:
       in_progress: In progress
       coming_soon: Coming soon
       later: Later
+      in_progress_description: What we're building now
+      coming_soon_description: Planned next
+      later_description: On our radar
+    categories:
+      feature: New
+      change: Improved
     empty: Nothing here yet
     roadmap:
       title: Roadmap
+      lede: What we're working on and what comes next.
     changelog:
       title: Changelog
+      lede: New features and improvements, as they ship.
       pagination:
         label: Pagination
         older: Older

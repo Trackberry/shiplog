@@ -1,4 +1,5 @@
 require "shiplog/version"
+require "shiplog/classes"
 require "shiplog/configuration"
 require "shiplog/github/errors"
 require "shiplog/github/queries"

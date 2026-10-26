@@ -1,68 +1,168 @@
-.shiplog {
-  --shiplog-fg: #1f2328;
-  --shiplog-muted: #59636e;
-  --shiplog-bg: #ffffff;
-  --shiplog-card: #f6f8fa;
-  --shiplog-border: #d1d9e0;
-  --shiplog-accent: #0969da;
-  color: var(--shiplog-fg);
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  line-height: 1.5;
-  margin: 0 auto;
-  max-width: 72rem;
-  padding: 1.5rem 1rem;
-}
+/*
+ * Shiplog public pages. Everything lives in the `shiplog` cascade layer, so any unlayered CSS in
+ * your app wins over it without needing higher specificity. Only BEM classes are styled.
+ *
+ * Variables (set them on :root, body or .shiplog-page; light and dark defaults are built in):
+ *   --shiplog-fg      text colour            --shiplog-border  borders and dividers
+ *   --shiplog-muted   secondary text         --shiplog-accent  links, feature marker, focus
+ *   --shiplog-bg      page background        --shiplog-radius  corner radius of cards and pills
+ *   --shiplog-card    card background        --shiplog-font    font family
+ *   --shiplog-space   base spacing unit (default 1rem)
+ */
+@layer shiplog {
+  .shiplog-page,
+  .shiplog-layout {
+    --sl-fg: var(--shiplog-fg, #1f2328);
+    --sl-muted: var(--shiplog-muted, #59636e);
+    --sl-bg: var(--shiplog-bg, #ffffff);
+    --sl-card: var(--shiplog-card, #f6f8fa);
+    --sl-border: var(--shiplog-border, #d1d9e0);
+    --sl-accent: var(--shiplog-accent, #0969da);
+    --sl-radius: var(--shiplog-radius, 0.5rem);
+    --sl-font: var(--shiplog-font, system-ui, -apple-system, "Segoe UI", sans-serif);
+    --sl-space: var(--shiplog-space, 1rem);
+  }
 
-@media (prefers-color-scheme: dark) {
-  .shiplog {
-    --shiplog-fg: #e6edf3;
-    --shiplog-muted: #9198a1;
-    --shiplog-bg: #0d1117;
-    --shiplog-card: #151b23;
-    --shiplog-border: #3d444d;
-    --shiplog-accent: #4493f8;
+  @media (prefers-color-scheme: dark) {
+    .shiplog-page,
+    .shiplog-layout {
+      --sl-fg: var(--shiplog-fg, #e6edf3);
+      --sl-muted: var(--shiplog-muted, #9198a1);
+      --sl-bg: var(--shiplog-bg, #0d1117);
+      --sl-card: var(--shiplog-card, #151b23);
+      --sl-border: var(--shiplog-border, #3d444d);
+      --sl-accent: var(--shiplog-accent, #4493f8);
+    }
+  }
+
+  /* Only the engine's own layout paints the body; a host layout keeps its background. */
+  .shiplog-layout { background: var(--sl-bg); margin: 0; }
+
+  .shiplog-page {
+    color: var(--sl-fg);
+    font-family: var(--sl-font);
+    line-height: 1.5;
+    margin: 0 auto;
+    max-width: 72rem;
+    padding: calc(var(--sl-space) * 1.5) var(--sl-space);
+  }
+
+  .shiplog-page__header { margin-bottom: calc(var(--sl-space) * 2); }
+  .shiplog-page__title { font-size: 1.875rem; line-height: 1.2; margin: 0; }
+  .shiplog-page__lede { color: var(--sl-muted); margin: 0.5rem 0 0; }
+
+  .shiplog-empty,
+  .shiplog-column__empty { color: var(--sl-muted); margin: 0; }
+
+  /* Roadmap */
+  .shiplog-columns {
+    display: grid;
+    gap: calc(var(--sl-space) * 1.5);
+    grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
+  }
+
+  .shiplog-column {
+    --sl-dot: var(--sl-muted);
+    min-width: 0;
+  }
+  .shiplog-column--in-progress { --sl-dot: #1a7f37; }
+  .shiplog-column--coming-soon { --sl-dot: var(--sl-accent); }
+  .shiplog-column--later { --sl-dot: var(--sl-muted); }
+
+  .shiplog-column__header {
+    align-items: baseline;
+    border-bottom: 1px solid var(--sl-border);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 0.5rem;
+    margin-bottom: var(--sl-space);
+    padding-bottom: 0.75rem;
+  }
+  .shiplog-column__title { align-items: center; display: flex; font-size: 1.125rem; gap: 0.5rem; margin: 0; }
+  .shiplog-column__title::before {
+    background: var(--sl-dot);
+    border-radius: 50%;
+    content: "";
+    height: 0.625rem;
+    width: 0.625rem;
+  }
+  .shiplog-column__count {
+    background: var(--sl-card);
+    border: 1px solid var(--sl-border);
+    border-radius: 1rem;
+    color: var(--sl-muted);
+    font-size: 0.75rem;
+    padding: 0 0.5rem;
+  }
+  .shiplog-column__description { color: var(--sl-muted); flex-basis: 100%; font-size: 0.875rem; margin: 0.25rem 0 0; }
+
+  .shiplog-cards,
+  .shiplog-entries { display: grid; gap: 0.75rem; list-style: none; margin: 0; padding: 0; }
+
+  .shiplog-card,
+  .shiplog-entry {
+    background: var(--sl-card);
+    border: 1px solid var(--sl-border);
+    border-radius: var(--sl-radius);
+    padding: 0.75rem var(--sl-space);
+  }
+
+  .shiplog-card { transition: border-color 0.15s, box-shadow 0.15s; }
+  .shiplog-card:hover { border-color: var(--sl-accent); box-shadow: 0 1px 6px rgb(0 0 0 / 0.1); }
+  @media (prefers-reduced-motion: reduce) { .shiplog-card { transition: none; } }
+
+  .shiplog-card__title { font-size: 1rem; margin: 0 0 0.25rem; }
+  .shiplog-card__body p,
+  .shiplog-entry__body p { margin: 0.25rem 0; }
+  .shiplog-card__body { color: var(--sl-muted); font-size: 0.9375rem; }
+
+  /* Changelog: months hang off a vertical line */
+  .shiplog-months { display: grid; gap: calc(var(--sl-space) * 2); }
+
+  .shiplog-month {
+    border-left: 2px solid var(--sl-border);
+    margin-left: 0.375rem;
+    padding-left: calc(var(--sl-space) * 1.5);
+    position: relative;
+  }
+  .shiplog-month__title { font-size: 1.125rem; margin: 0 0 0.75rem; }
+  .shiplog-month__title::before {
+    background: var(--sl-accent);
+    border-radius: 50%;
+    content: "";
+    height: 0.75rem;
+    left: calc(-1px - 0.375rem);
+    position: absolute;
+    top: 0.45rem;
+    width: 0.75rem;
+  }
+
+  .shiplog-entry { align-items: center; display: flex; flex-wrap: wrap; gap: 0.25rem 0.625rem; }
+  .shiplog-entry__title,
+  .shiplog-entry__body { flex-basis: 100%; }
+  .shiplog-entry__title { font-size: 1rem; margin: 0.25rem 0 0; }
+  .shiplog-entry__body { color: var(--sl-muted); }
+  .shiplog-entry__date { color: var(--sl-muted); font-size: 0.8125rem; }
+
+  .shiplog-entry__category {
+    border: 1px solid var(--sl-border);
+    border-radius: 1rem;
+    color: var(--sl-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0 0.5rem;
+  }
+  .shiplog-entry--feature { border-left: 4px solid var(--sl-accent); padding: var(--sl-space) calc(var(--sl-space) * 1.25); }
+  .shiplog-entry--feature .shiplog-entry__title { font-size: 1.25rem; }
+  .shiplog-entry--feature .shiplog-entry__category { background: var(--sl-accent); border-color: var(--sl-accent); color: #fff; }
+
+  .shiplog-pagination { display: flex; flex-wrap: wrap; gap: var(--sl-space); justify-content: space-between; margin-top: calc(var(--sl-space) * 2); }
+  .shiplog-pagination__link { color: var(--sl-accent); }
+  .shiplog-pagination__link--older { margin-left: auto; }
+
+  @media (max-width: 40rem) {
+    .shiplog-page { padding: var(--sl-space) 0.75rem; }
+    .shiplog-page__title { font-size: 1.5rem; }
+    .shiplog-month { padding-left: var(--sl-space); }
   }
 }
-
-body:has(.shiplog) { background: #fff; }
-@media (prefers-color-scheme: dark) { body:has(.shiplog) { background: #0d1117; } }
-
-.shiplog-page-title { font-size: 1.75rem; margin: 0 0 1.5rem; }
-
-.shiplog-columns {
-  display: grid;
-  gap: 1.5rem;
-  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-}
-
-.shiplog-column__title,
-.shiplog-month__title {
-  border-bottom: 1px solid var(--shiplog-border);
-  font-size: 1.125rem;
-  margin: 0 0 0.75rem;
-  padding-bottom: 0.5rem;
-}
-
-.shiplog-column__empty,
-.shiplog-empty { color: var(--shiplog-muted); }
-
-.shiplog-entries { display: grid; gap: 0.75rem; list-style: none; margin: 0; padding: 0; }
-
-.shiplog-entry {
-  background: var(--shiplog-card);
-  border: 1px solid var(--shiplog-border);
-  border-radius: 0.5rem;
-  padding: 0.75rem 1rem;
-}
-
-.shiplog-entry--feature { border-left: 4px solid var(--shiplog-accent); padding: 1rem 1.25rem; }
-.shiplog-entry--feature .shiplog-entry__title { font-size: 1.25rem; }
-
-.shiplog-entry__title { font-size: 1rem; margin: 0 0 0.25rem; }
-.shiplog-entry__body p { margin: 0.25rem 0; }
-
-.shiplog-month { margin-bottom: 2rem; }
-
-.shiplog-pagination { display: flex; gap: 1rem; justify-content: space-between; }
-.shiplog-pagination__older { margin-left: auto; }
-.shiplog-pagination a { color: var(--shiplog-accent); }

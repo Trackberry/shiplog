@@ -1,0 +1,19 @@
+<%# locals: (column:, entries:) %>
+<%# one roadmap column (in_progress, coming_soon or later) and its approved entries %>
+<% dom_id = "shiplog-column-#{column.dasherize}" %>
+<section class="<%= shiplog_class(:column, column) %>" aria-labelledby="<%= dom_id %>">
+  <header class="<%= shiplog_class(:column_header) %>">
+    <h2 class="<%= shiplog_class(:column_title) %>" id="<%= dom_id %>"><%= t("shiplog.columns.#{column}") %></h2>
+    <span class="<%= shiplog_class(:column_count) %>"><%= entries.size %></span>
+    <p class="<%= shiplog_class(:column_description) %>"><%= t("shiplog.columns.#{column}_description") %></p>
+  </header>
+  <% if entries.empty? %>
+    <p class="<%= shiplog_class(:column_empty) %>"><%= t("shiplog.empty") %></p>
+  <% else %>
+    <ol class="<%= shiplog_class(:cards) %>">
+      <% entries.each do |entry| %>
+        <%= render "shiplog/roadmaps/card", entry: %>
+      <% end %>
+    </ol>
+  <% end %>
+</section>

@@ -39,6 +39,18 @@ Shiplog.configure do |config|
   # config.public_parent_controller = "ActionController::Base"
   # config.public_layout = "shiplog/application"
 
+  # Parent class and layout of the admin controllers. Set the parent here (read once, when they load) and
+  # point the layout at your admin layout to render the admin inside your app's chrome.
+  # config.admin_parent_controller = "ActionController::Base"
+  # config.admin_layout = "shiplog/admin"
+
+  # Include the bundled stylesheet (CSS variables and @layer shiplog) in the public pages.
+  # config.stylesheet = true
+
+  # Extra classes per element, added to the stable shiplog-* BEM classes (e.g. Tailwind utilities).
+  # Keys: <%= Shiplog::Classes::KEYS.join(", ") %>
+  # config.classes = {}
+
   # Checked by the admin controllers; return false for a 403. It defaults to denying everyone.
   # The line below opens it because the route constraint around the admin mount does the authentication.
   # If the mount is not wrapped in such a constraint, replace it with a real check (e.g. controller.current_user&.admin?).
