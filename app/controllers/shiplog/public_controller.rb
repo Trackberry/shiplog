@@ -5,6 +5,7 @@ module Shiplog
   class PublicController < Shiplog.config.public_parent_controller.constantize
     helper Shiplog::FrontendHelper
     helper Shiplog::StylingHelper
+    helper Shiplog::HostRoutesHelper
     layout -> { Shiplog.config.public_layout }
   end
 end

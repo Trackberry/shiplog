@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Host</title>
+    <%= csrf_meta_tags %>
+  </head>
+  <body>
+    <nav id="host-nav">
+      <a id="host-home" href="<%= root_path %>">Home</a>
+      <a id="host-about" href="<%= about_path %>">About</a>
+      <a id="host-about-url" href="<%= about_url %>">About (absolute)</a>
+      <a id="engine-roadmap" href="<%= roadmap_path %>">Roadmap</a>
+    </nav>
+    <%= yield %>
+  </body>
+</html>
