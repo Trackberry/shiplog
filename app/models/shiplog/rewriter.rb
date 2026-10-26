@@ -97,12 +97,14 @@ module Shiplog
         @entry.save!
       end
 
-      # A name the reply gave: an existing area, or a new one while below config.max_areas; an unusable name clears
-      # the area. No area in the reply keeps the entry's area, and one an admin chose is never changed.
+      # A name the reply gave: an existing area, or a new one while below config.max_areas. A name that resolves to
+      # nothing (cap reached, invalid) keeps the entry's current area: only an explicit valid name changes it. No
+      # area in the reply keeps it too, and one an admin chose is never changed.
       def assign_area(name)
         return if name.nil? || @entry.area_set_by_admin?
 
-        @entry.area = Area.resolve_or_create(name)
+        area = Area.resolve_or_create(name)
+        @entry.area = area if area
       end
 
       def fail_with(message)

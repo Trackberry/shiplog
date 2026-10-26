@@ -78,13 +78,24 @@ class Shiplog::RewriterAreaTest < ActiveSupport::TestCase
     end
   end
 
-  test "an unresolvable name sets the area to nil on a rewrite that had one" do
+  test "an unresolvable name keeps the area the entry had" do
     Shiplog.config.max_areas = 1
     billing = Shiplog::Area.create!(name: "Billing")
     entry = draft
     entry.update!(area: billing)
 
-    assert_nil rewrite(entry, reply("Reports")).area
+    assert_equal billing, rewrite(entry, reply("Reports")).area, "the cap is reached"
+    assert_equal billing, rewrite(entry.reload, reply("<b>x</b>")).area, "an invalid name"
+    assert_equal billing, entry.reload.area
+  end
+
+  test "an explicit valid name changes the area" do
+    billing = Shiplog::Area.create!(name: "Billing")
+    reports = Shiplog::Area.create!(name: "Reports")
+    entry = draft
+    entry.update!(area: billing)
+
+    assert_equal reports, rewrite(entry, reply("reports")).area
   end
 
   test "unparseable replies leave the area alone and create nothing" do
