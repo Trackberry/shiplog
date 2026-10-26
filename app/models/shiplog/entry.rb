@@ -40,10 +40,13 @@ module Shiplog
         english = "#{table_name}.title ILIKE :pattern OR #{table_name}.body ILIKE :pattern"
         next scope.where(english, pattern:) unless locale
 
-        translated = EntryTranslation.where("#{EntryTranslation.table_name}.entry_id = #{table_name}.id")
-          .where(locale:).where("#{EntryTranslation.table_name}.source_digest = #{TRANSLATION_DIGEST_SQL}")
-          .where("#{EntryTranslation.table_name}.title ILIKE :pattern OR #{EntryTranslation.table_name}.body ILIKE :pattern", pattern:)
-        scope.where("#{english} OR EXISTS (#{translated.select(1).to_sql})", pattern:)
+        # One fragment, so the user's value is bound exactly once: the named binds are substituted in a single
+        # pass and the quoted text is never scanned again. Everything else in it is a constant.
+        translations = EntryTranslation.table_name
+        translated = "EXISTS (SELECT 1 FROM #{translations} WHERE #{translations}.entry_id = #{table_name}.id " \
+          "AND #{translations}.locale = :locale AND #{translations}.source_digest = #{TRANSLATION_DIGEST_SQL} " \
+          "AND (#{translations}.title ILIKE :pattern OR #{translations}.body ILIKE :pattern))"
+        scope.where("#{english} OR #{translated}", pattern:, locale:)
       end
     end
 
@@ -97,7 +100,7 @@ module Shiplog
       translations = EntryTranslation.table_name
       current = EntryTranslation.where(locale: locale.to_s).where("#{translations}.entry_id = #{table_name}.id")
         .where("#{translations}.source_digest = #{TRANSLATION_DIGEST_SQL}")
-      approved.where("NOT EXISTS (#{current.select(1).to_sql})")
+      approved.where(current.arel.exists.not)
     end
 
     # Enqueues a TranslateEntryJob for every approved entry and configured locale that has no current translation,

@@ -226,6 +226,54 @@ class Shiplog::TranslationsTest < ActionDispatch::IntegrationTest
     end
   end
 
+  HOSTILE_TERMS = [ "a:b", "x:pattern", "x:locale", "x:pattern') OR 1=1 --", "'", "\\", "%", "_" ].freeze
+
+  def probe!(term)
+    @probes = @probes.to_i + 1
+    commit = Shiplog::Commit.create!(repository: shiplog_repositories(:app), sha: SecureRandom.hex(20), message: "Probe", committed_at: Time.current,
+      url: "https://github.com/x/y/commit/#{@probes}")
+    entry = Shiplog::Entry.create!(kind: "change", status: "approved", subject: commit, title: "Probe #{term}", body: "Plain",
+      released_on: Date.new(2026, 9, 1), approved_at: Time.current, slug: "probe-#{SecureRandom.hex(3)}")
+    translate!(entry, "Sonda #{term}", "Texto")
+    entry
+  end
+
+  test "hostile search terms answer 200 and find the right entries, under Spanish and English" do
+    HOSTILE_TERMS.each do |term|
+      probe!(term)
+      [ [ "es", "Sonda #{term}" ], [ "en", "Probe #{term}" ] ].each do |locale, title|
+        I18n.with_locale(locale) do
+          get "/changelog", params: { q: term }
+          assert_response :ok, "#{term.inspect} under #{locale}"
+          assert_includes titles, title, "#{term.inspect} under #{locale}"
+          assert_not_includes titles, "Dark mode"
+          assert_not_includes titles, "Modo oscuro"
+        end
+      end
+    end
+  end
+
+  test "a hostile term that matches nothing returns nothing, and the injected condition does not run" do
+    in_spanish do
+      get "/changelog", params: { q: "x:pattern') OR 1=1 --" }
+      assert_response :ok
+      assert_empty titles
+      get "/changelog", params: { q: "foo:bar" }
+      assert_response :ok
+      assert_empty titles
+    end
+  end
+
+  test "the search SQL holds the escaped user text once per condition, never quoted again" do
+    term = "zq'x:pattern"
+    quoted = Shiplog::Entry.connection.quote("%#{term}%")
+    [ "es", nil ].each do |locale|
+      sql = Shiplog::Entry.search(term, locale:).to_sql
+      assert_equal sql.scan("ILIKE").size, sql.scan(quoted).size, sql
+      assert_not_includes sql.gsub(quoted, ""), "zq", sql # no second, re-quoted copy of the text
+    end
+  end
+
   # --- caching ---
 
   test "the ETag changes when a translation changes, on every page" do
