@@ -5,6 +5,7 @@ Rails.application.routes.draw do
   get "account", to: "home#account", as: :account
 
   get "news", to: "pages#news", as: :news
+  get "news/archive", to: "pages#news"
   get "avatars/:id", to: "home#show", as: :host_avatar_image
   resolve("HostAvatar") { |avatar| route_for(:host_avatar_image, avatar.id) }
 

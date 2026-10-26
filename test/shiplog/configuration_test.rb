@@ -171,4 +171,48 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
     assert_includes error.message, "config/initializers"
     assert_raises(ArgumentError) { Shiplog::Configuration.new.admin_parent_controller = "Admin::BaseController" }
   end
+
+  def digest_config(**overrides)
+    Shiplog::Configuration.new.tap do |config|
+      config.classes = { card: "rounded", entry: %w[p-4 bg-white] }
+      config.extra_pages = [ { label: "News", path: -> { "/news" } }, { label: -> { "Docs" }, path: "/docs" } ]
+      config.repository_labels = { "Acme/ios" => "iPhone", "Acme/web" => -> { "Web" } }
+      config.feedback_path = "/feedback"
+      overrides.each { |key, value| config.public_send("#{key}=", value) }
+    end
+  end
+
+  test "render_digest is equal for equal configurations built separately, lambdas included" do
+    assert_equal digest_config.render_digest, digest_config.render_digest
+    assert_match(/\A\h{64}\z/, digest_config.render_digest)
+  end
+
+  test "render_digest follows the values that change the markup" do
+    base = digest_config.render_digest
+    [ { classes: { card: "other" } }, { stylesheet: false }, { roadmap_shipped_count: 2 }, { feedback_path: "/other" },
+      { repository_labels: { "Acme/ios" => "iOS" } }, { extra_pages: [ { label: "News", path: "/n" } ] },
+      { cache_version: "2" } ].each do |change|
+      assert_not_equal base, digest_config(**change).render_digest, "expected #{change.inspect} to change the digest"
+    end
+  end
+
+  test "cache_version defaults to nil" do
+    assert_nil Shiplog::Configuration.new.cache_version
+  end
+
+  test "the ETag digest never relies on the per-process Object#hash" do
+    %w[lib/shiplog/configuration.rb app/controllers/shiplog/public_controller.rb app/controllers/shiplog/roadmaps_controller.rb].each do |file|
+      assert_no_match(/\.hash\b/, File.read(Shiplog::Engine.root.join(file)), "#{file} uses #hash")
+    end
+  end
+
+  test "extra_pages accepts relative, http(s) and mailto String paths only" do
+    config = Shiplog::Configuration.new
+    [ "/news", "https://example.com/news", "http://example.com", "mailto:hi@example.com" ].each do |path|
+      config.extra_pages = [ { label: "X", path: } ]
+    end
+    [ "javascript:alert(1)", "data:text/html,x", "news", "//evil.example", "ftp://x" ].each do |path|
+      assert_raises(ArgumentError, path) { config.extra_pages = [ { label: "X", path: } ] }
+    end
+  end
 end

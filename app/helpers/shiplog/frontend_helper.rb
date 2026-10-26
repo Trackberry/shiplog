@@ -1,6 +1,7 @@
 module Shiplog
   module FrontendHelper
     def shiplog_stylesheet_tag(name)
+      @_shiplog_stylesheet_emitted = true if name == "shiplog" # shiplog_switcher then skips its own link
       tag.link rel: "stylesheet", href: shiplog_asset_path("#{name}.css"), nonce: content_security_policy_nonce
     end
 

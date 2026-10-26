@@ -113,4 +113,8 @@ Shiplog.configure do |config|
   # Where the roadmap's "Suggest a feature" link goes (String or callable); no link while nil. Add a footnote
   # next to it with the shiplog.roadmap.footnote translation.
   # config.feedback_path = -> { main_app.new_feedback_path }
+
+  # Callables above cannot be part of the public pages' ETag. Bump this when the output of a callable you
+  # configured changes (a new label, another path) so cached pages are refreshed.
+  # config.cache_version = nil
 end

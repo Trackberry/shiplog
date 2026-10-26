@@ -1,5 +1,5 @@
 <%# locals: (entry:) %>
-<%# one roadmap item: its public title and body, then what places it: the repository's label (config.repository_labels) and how many parts a grouped item has. No label and fewer than two parts renders no meta. %>
+<%# one roadmap item: its public title and body, then what places it: the repository's label (config.repository_labels) and how many parts a grouped item has. No label and fewer than two parts renders no meta. Needs Shiplog::RoadmapHelper, which every public controller includes. %>
 <%
   issue = entry.subject
   tag_label = shiplog_repository_label(issue.repository)

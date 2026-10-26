@@ -75,4 +75,40 @@ class Shiplog::SwitcherTest < ActionDispatch::IntegrationTest
   ensure
     I18n.backend.reload!
   end
+
+  test "only the longest matching path is current" do
+    Shiplog.config.extra_pages = [ { label: "News", path: "/news" }, { label: "Archive", path: "/news/archive" } ]
+    get "/news/archive"
+    assert_select "nav.shiplog-switcher [aria-current=page]", 1
+    assert_select "nav.shiplog-switcher a[href=?][aria-current=page]", "/news/archive"
+    get "/news"
+    assert_select "nav.shiplog-switcher a[href=?][aria-current=page]", "/news"
+  end
+
+  test "an extra page given as an absolute URL is current by its path" do
+    Shiplog.config.extra_pages = [ { label: "News", path: -> { "http://www.example.com#{main_app.news_path}" } } ]
+    get "/news"
+    assert_select "nav.shiplog-switcher a[href=?][aria-current=page]", "http://www.example.com/news"
+  end
+
+  test "a callable path with an unsafe scheme renders as plain text and logs once" do
+    Shiplog.config.extra_pages = [ { label: "Bad", path: -> { "javascript:alert(1)" } } ]
+    io = StringIO.new
+    original = Rails.logger
+    Rails.logger = ActiveSupport::Logger.new(io)
+    Shiplog::SwitcherHelper.reset_warnings!
+    2.times { get "/roadmap" }
+    assert_select "nav.shiplog-switcher a", 2
+    assert_select "nav.shiplog-switcher a[href^=javascript]", 0
+    assert_select "nav.shiplog-switcher", text: /Bad/
+    assert_equal 1, io.string.scan("javascript:").size
+  ensure
+    Rails.logger = original
+  end
+
+  test "shiplog_switcher emits the stylesheet once per page" do
+    get "/news", params: { twice: 1 }
+    assert_select "nav.shiplog-switcher", 2
+    assert_select "link[rel=stylesheet][href*='shiplog.css']", 1
+  end
 end

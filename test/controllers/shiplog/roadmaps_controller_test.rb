@@ -346,4 +346,57 @@ class Shiplog::RoadmapsControllerTest < ActionDispatch::IntegrationTest
       committed_at: Time.current, url: "https://github.com/x/y/commit/1")
     Shiplog::Entry.create!(kind:, status:, subject: commit, title:, body: "Body", released_on:, approved_at: Time.current)
   end
+
+  test "ETag changes when a sub-issue is added to a card" do
+    get "/roadmap"
+    etag = response.headers["ETag"]
+    add_child(shiplog_issues(:bulk_upload), number: 91)
+    get "/roadmap", headers: { "If-None-Match" => etag }
+    assert_response :ok
+    assert_not_equal etag, response.headers["ETag"]
+  end
+
+  test "ETag changes when the issue behind a card is edited" do
+    get "/roadmap"
+    etag = response.headers["ETag"]
+    travel(1.minute) { shiplog_issues(:bulk_upload).touch }
+    get "/roadmap"
+    assert_not_equal etag, response.headers["ETag"]
+  end
+
+  test "ETag is the same for equal responses and does not use the changelog query" do
+    get "/roadmap"
+    etag = response.headers["ETag"]
+    get "/roadmap", headers: { "If-None-Match" => etag }
+    assert_response :not_modified
+  end
+
+  test "ETag changes when a non-newest shipped entry is destroyed" do
+    approved_entry(title: "Newest", released_on: "2026-10-20", kind: "feature")
+    older = approved_entry(title: "Older", released_on: "2026-09-01", kind: "change")
+    get "/roadmap"
+    etag = response.headers["ETag"]
+    older.destroy!
+    get "/roadmap"
+    assert_not_equal etag, response.headers["ETag"]
+  end
+
+  test "the changelog does not query the approved entries' maximum for its ETag" do
+    get "/changelog"
+    queries = []
+    subscriber = ->(*, payload) { queries << payload[:sql] }
+    ActiveSupport::Notifications.subscribed(subscriber, "sql.active_record") { get "/changelog" }
+    assert queries.none? { |sql| sql.include?("MAX(") }, queries.inspect
+  end
+
+  test "an unsafe feedback_path renders no link" do
+    Shiplog.config.feedback_path = -> { "javascript:alert(1)" }
+    get "/roadmap"
+    assert_select "a[href^=javascript]", 0
+    assert_select ".shiplog-footnote__link", 0
+  end
+
+  test "the roadmap helper is available to every public controller" do
+    assert Shiplog::ChangelogsController._helpers.method_defined?(:shiplog_repository_label)
+  end
 end

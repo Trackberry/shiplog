@@ -111,6 +111,7 @@ All settings live in `config/initializers/shiplog.rb`:
 | `extra_pages` | `[]` | Pages added to the switcher after Roadmap and Changelog: `[{ label:, path: }]`, each a String or a callable evaluated in the view. See [Product updates navigation](#product-updates-navigation). Anything else raises `ArgumentError`. |
 | `repository_labels` | `{}` | Tag shown on a roadmap card for the repository of its issue: `{ "owner/name" => "iPhone & iPad" }`. Values are Strings or callables evaluated in the view; repositories without one show no tag. |
 | `roadmap_shipped_count` | `4` | How many recently shipped changelog entries (features and changes) the roadmap lists below its columns. `0` hides the section. |
+| `cache_version` | `nil` | A String added to the public pages' ETag. Callables (`extra_pages`, `repository_labels`, `feedback_path`) cannot be fingerprinted, so bump it when the output of a callable you configured changes. |
 | `feedback_path` | `nil` | Target of the roadmap's "Suggest a feature" link, a String or a callable evaluated in the view. No link while `nil`. |
 
 Example:

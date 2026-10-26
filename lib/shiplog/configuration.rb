@@ -18,9 +18,31 @@ module Shiplog
 
     # Product updates navigation and roadmap options.
     attr_accessor :feedback_path
+    # Bump it when the output of a callable you configured changes (extra_pages, repository_labels, feedback_path):
+    # callables cannot be part of the ETag, so this is how cached public pages learn about it.
+    attr_accessor :cache_version
     attr_reader :extra_pages, :repository_labels, :roadmap_shipped_count
 
     EXTRA_PAGE_KEYS = %i[label path].freeze
+
+    SAFE_URL = %r{\A(?:/(?!/)|https?://|mailto:)}i
+
+    # Whether a link target is safe to render: a path, an http(s) URL or a mailto: address.
+    def self.safe_url?(value) = value.is_a?(String) && SAFE_URL.match?(value.strip)
+
+    # A digest of everything configured that changes the public markup, stable across processes and servers
+    # (no Object#hash). Callables are represented by a marker; see cache_version.
+    def render_digest
+      stable = ->(value) { value.respond_to?(:call) ? "callable" : value }
+      data = [
+        classes.sort_by { |key, _| key.to_s }.map { |key, value| [ key.to_s, Array(value).map(&:to_s) ] },
+        stylesheet, roadmap_shipped_count, cache_version,
+        extra_pages.map { |page| [ stable.(page[:label]), stable.(page[:path]) ] },
+        repository_labels.sort_by { |name, _| name.to_s }.map { |name, label| [ name, stable.(label) ] },
+        stable.(feedback_path)
+      ]
+      Digest::SHA256.hexdigest(JSON.generate(data))
+    end
 
     # Pages added to the switcher after Roadmap and Changelog: [{ label:, path: }]. Each is a String, or a callable
     # evaluated in the view (instance_exec), e.g. `path: -> { main_app.news_path }`.
@@ -35,6 +57,9 @@ module Shiplog
         page.each do |key, item|
           valid = item.respond_to?(:call) || (item.is_a?(String) && item.present?)
           raise ArgumentError, "Extra page #{key} must be a non-empty String or a callable, got #{item.inspect}" unless valid
+          if key == :path && item.is_a?(String) && !self.class.safe_url?(item)
+            raise ArgumentError, "Extra page path must be relative (/...), http(s):// or mailto:, got #{item.inspect}"
+          end
         end
         { label: page[:label], path: page[:path] }.freeze
       end

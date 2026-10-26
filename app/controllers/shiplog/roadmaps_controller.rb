@@ -1,12 +1,10 @@
 module Shiplog
   class RoadmapsController < PublicController
-    helper Shiplog::RoadmapHelper
-
     def show
       @columns = Roadmap.new(published_only: true).columns
       preload_cards(@columns)
       @shipped = recently_shipped
-      fresh_when etag: [ *shiplog_etag_parts, etag_for(@columns) ]
+      fresh_when etag: [ *shiplog_etag_parts, etag_for(@columns), shipped_etag(@shipped) ]
     end
 
     private
@@ -26,7 +24,14 @@ module Shiplog
     end
 
     def etag_for(columns)
-      columns.transform_values { |items| items.map { |item| [ item.entry.id, item.entry.updated_at ] } }
+      columns.transform_values do |items|
+        items.map do |item|
+          issue = item.entry.subject
+          [ item.entry.id, item.entry.updated_at, issue.updated_at, issue.children.size, issue.repository.full_name ]
+        end
+      end
     end
+
+    def shipped_etag(entries) = entries.map { |entry| [ entry.id, entry.updated_at ] }
   end
 end
