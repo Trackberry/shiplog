@@ -1,7 +1,8 @@
 module Shiplog
   # The Roadmap / Changelog / extra pages switcher. The default page header renders it, and a host adds
   # `helper Shiplog::SwitcherHelper` to render it on its own pages (e.g. a news page): `<%= shiplog_switcher %>`.
-  # It only uses the `shiplog` engine route proxy, so it works in main-app views too.
+  # It uses the engine's own route helpers, or the proxy of the host's mount (whatever its `as:`), so it works in
+  # main-app views too.
   module SwitcherHelper
     include Shiplog::StylingHelper
     include Shiplog::CallableHelper
@@ -11,13 +12,31 @@ module Shiplog
 
     def self.reset_warnings! = WARNED.clear
 
+    NotMounted = Class.new(StandardError)
+
+    # The name the host gave the engine's mount in its routes (`mount Shiplog::Engine => "/", as: :updates`; the
+    # default is "shiplog"), which is the name of its route proxy in host views. Found by looking for the route
+    # of config/routes.rb whose Rack app is the engine (the Constraints wrapper's `app`; Rails::Engine is what
+    # `mount` stores) and remembered while that route exists.
+    def self.mount_name
+      cached = @mount_name
+      return cached if cached && Rails.application.routes.named_routes.key?(cached)
+
+      route = Rails.application.routes.routes.find { |candidate| candidate.app.try(:app) == Shiplog::Engine }
+      raise NotMounted, "Shiplog::Engine is not mounted in the host's routes: add `mount Shiplog::Engine => \"/\"` to config/routes.rb" unless route&.name
+
+      @mount_name = route.name
+    end
+
+    def self.reset_mount_name! = (@mount_name = nil)
+
     # The switcher for host pages: the bundled stylesheet (once per page, and not when the engine page already
     # linked it; unless config.stylesheet is false) and the nav.
     def shiplog_switcher
       stylesheet = if Shiplog.config.stylesheet && !@_shiplog_stylesheet_emitted
         @_shiplog_stylesheet_emitted = true
         tag.link(rel: "stylesheet", nonce: content_security_policy_nonce,
-          href: shiplog.frontend_path(version: Shiplog::VERSION, name: "shiplog.css"))
+          href: shiplog_routes.frontend_path(version: Shiplog::VERSION, name: "shiplog.css"))
       end
       safe_join([ stylesheet, render("shiplog/switcher") ])
     end
@@ -26,8 +45,8 @@ module Shiplog
     # Only the page with the longest matching path is current.
     def shiplog_switcher_pages
       pages = [
-        { label: t("shiplog.switcher.roadmap"), path: shiplog.roadmap_path },
-        { label: t("shiplog.switcher.changelog"), path: shiplog.changelog_path },
+        { label: t("shiplog.switcher.roadmap"), path: shiplog_routes.roadmap_path },
+        { label: t("shiplog.switcher.changelog"), path: shiplog_routes.changelog_path },
         *Shiplog.config.extra_pages.map { |page| { label: shiplog_resolve(page[:label]), path: shiplog_safe_url(shiplog_resolve(page[:path])) } }
       ]
       lengths = pages.map { |page| shiplog_match_length(page[:path]) }
@@ -46,6 +65,14 @@ module Shiplog
     end
 
     private
+
+    # Where the engine's route helpers live: the view itself inside the engine's own pages, otherwise (host pages)
+    # the proxy the host's mount defined, whatever its name.
+    def shiplog_routes
+      return self if controller.try(:_routes) == Shiplog::Engine.routes
+
+      public_send(SwitcherHelper.mount_name)
+    end
 
     # Length of the link's path when it contains the request path (equal, or a parent segment), else nil.
     def shiplog_match_length(url)
