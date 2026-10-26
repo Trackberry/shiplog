@@ -1,5 +1,5 @@
 module Shiplog
-  # schema.org structured data (JSON-LD) of the public pages, for `content_for :shiplog_structured_data`.
+  # schema.org structured data (JSON-LD) of the public pages, for `shiplog_head_tags` (and `content_for :shiplog_structured_data`).
   # Every method returns nil while config.structured_data is off, or when there is nothing worth describing.
   module StructuredDataHelper
     HEADLINE_LENGTH = 110
@@ -23,6 +23,7 @@ module Shiplog
 
       url = shiplog_entry_url(entry)
       images = shiplog_images(entry).filter_map { |image| shiplog_image_url(image) }
+      images = [ shiplog_entry_og_image(entry) ].compact if images.empty?
       shiplog_json_ld({
         "@context" => CONTEXT, "@type" => "Article",
         "headline" => truncate(entry.display_title.to_s.squish, length: HEADLINE_LENGTH, escape: false),

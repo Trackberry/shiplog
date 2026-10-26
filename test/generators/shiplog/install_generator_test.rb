@@ -46,8 +46,8 @@ class Shiplog::Generators::InstallGeneratorTest < Rails::Generators::TestCase
       assert_match(/changelog_seen_at, Time\.current\) if user && Shiplog\.unseen_count/, content)
       assert_includes content, "Shiplog.unseen_count"
       assert_includes content, "shiplog:backfill_slugs"
-      assert_includes content, "content_for :shiplog_og"
-      assert_includes content, "content_for :shiplog_feed"
+      assert_includes content, "shiplog_head_tags"
+      assert_match(/^  # config\.og_image = ->\(entry, locale\)/, content)
       assert_match(/^  # config\.max_areas = 8$/, content)
       assert_includes content, "Detect areas"
       assert_match(/^  # config\.canonical_url = "https:\/\/example\.com"$/, content)

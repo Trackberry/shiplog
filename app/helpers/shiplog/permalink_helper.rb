@@ -46,7 +46,7 @@ module Shiplog
       truncate(entry.display_body.to_s.squish, length: DESCRIPTION_LENGTH, separator: " ", escape:)
     end
 
-    # The Open Graph meta tags of a permalink page, for `content_for :shiplog_og`.
+    # The Open Graph meta tags of a permalink page, for `content_for :shiplog_og` (superseded by shiplog_head_tags).
     def shiplog_og_tags(entry, url:)
       tags = {
         "og:title" => entry.display_title, "og:description" => shiplog_entry_description(entry),
@@ -55,10 +55,45 @@ module Shiplog
       safe_join(tags.compact_blank.map { |property, content| tag.meta(property:, content:) }, "\n")
     end
 
-    # The absolute URL of the image to show when the page is shared (the first image), or nil.
+    # The absolute URL of the image to show when the page is shared, or nil: the entry's first screenshot, else
+    # what config.og_image returns for it. Computed once per entry per render, so a failing callable is logged
+    # once for a page.
     def shiplog_entry_og_image(entry)
+      @shiplog_og_images ||= {}.compare_by_identity
+      return @shiplog_og_images[entry] if @shiplog_og_images.key?(entry)
+
       image = shiplog_images(entry).first
-      shiplog_image_url(image) if image
+      @shiplog_og_images[entry] = (shiplog_image_url(image) if image) || shiplog_configured_og_image(entry)
+    end
+
+    # What config.og_image gives for an entry (called in the view with the entry and the locale), as an absolute
+    # http(s) URL. Nil, after a log line, when it raises or returns something else.
+    def shiplog_configured_og_image(entry)
+      callable = Shiplog.config.og_image
+      return unless callable
+
+      value = callable.is_a?(Proc) ? instance_exec(entry, I18n.locale, &callable) : callable.call(entry, I18n.locale)
+      url = shiplog_absolute_http_url(value)
+      Rails.logger.warn("[shiplog] config.og_image ignored for entry #{entry.id}: expected an http(s) URL or a path, got #{value.inspect}") unless url
+      url
+    rescue StandardError => error
+      Rails.logger.error("[shiplog] config.og_image failed for entry #{entry.id}: #{error.class}: #{error.message}")
+      nil
+    end
+
+    # An http(s) URL as is, a path ("/cards/a.png", not "//host") made absolute with config.canonical_url or the
+    # request's origin; nil for anything else (javascript:, data:, blank, spaces, non-strings).
+    def shiplog_absolute_http_url(value)
+      return unless value.is_a?(String)
+
+      value = value.strip
+      return if value.match?(/[[:space:][:cntrl:]]/)
+
+      value = "#{Shiplog.config.canonical_url || request.base_url}#{value}" if value.match?(%r{\A/(?![/\\])})
+      uri = URI.parse(value)
+      value if uri.is_a?(URI::HTTP) && uri.host.present?
+    rescue URI::InvalidURIError
+      nil
     end
 
     # The HTML of an entry in the Atom feed: its text, then its images with absolute URLs.

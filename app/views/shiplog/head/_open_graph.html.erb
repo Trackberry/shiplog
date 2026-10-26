@@ -1,0 +1,6 @@
+<% open_graph.each do |property, content| %>
+<%= tag.meta(property:, content:) %>
+<% end %>
+<% twitter.each do |name, content| %>
+<%= tag.meta(name:, content:) %>
+<% end %>
