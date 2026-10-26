@@ -8,6 +8,7 @@ module Shiplog
       :roadmap_path, :changelog_path
 
     ADMIN_CHROMES = %i[standalone hosted].freeze
+    REPOSITORY_NAME = %r{\A[\w.-]+/[\w.-]+\z}
     REPOSITORY_OPTION_KEYS = %i[name changelog gem].freeze
 
     attr_reader :repositories
@@ -122,7 +123,7 @@ module Shiplog
     # on the roadmap but never drafts changelog entries from its pull requests or commits. `gem:` is the gem's
     # name in the host's lockfile.
     def repositories=(value)
-      normalize_repositories(value)
+      warn_double_drafting(normalize_repositories(value))
       @repositories = value
     end
 
@@ -194,8 +195,17 @@ module Shiplog
       value.map { |item| normalize_repository(item) }
     end
 
+    # A gem repository that also drafts its own changelog entries announces each change twice: once from its own
+    # pull requests and once from the host's upgrade pull request.
+    def warn_double_drafting(entries)
+      entries.select { |entry| entry[:gem] && entry[:changelog] }.each do |entry|
+        Rails.logger&.warn("[shiplog] Repository #{entry[:name]} has gem: #{entry[:gem].inspect} and changelog: true, so its changes " \
+          "are drafted twice (from its own pull requests and from the host's upgrade pull request). Set changelog: false.")
+      end
+    end
+
     def normalize_repository(item)
-      return { name: item, changelog: true, gem: nil } if item.is_a?(String) && item.present?
+      return { name: valid_repository_name!(item), changelog: true, gem: nil } if item.is_a?(String) && item.present?
       raise ArgumentError, "Invalid repository #{item.inspect}: expected \"owner/name\" or a Hash" unless item.is_a?(Hash)
 
       options = item.transform_keys { |key| key.to_s.to_sym }
@@ -205,10 +215,17 @@ module Shiplog
       name, changelog, gem = options.values_at(:name, :changelog, :gem)
       changelog = true if changelog.nil?
       raise ArgumentError, "Repository #{item.inspect} needs a :name (\"owner/name\")" unless name.is_a?(String) && name.present?
+      valid_repository_name!(name)
       raise ArgumentError, "Repository #{name}: changelog must be true or false" unless [ true, false ].include?(changelog)
       raise ArgumentError, "Repository #{name}: gem must be a non-empty String" unless gem.nil? || (gem.is_a?(String) && gem.present?)
 
       { name:, changelog:, gem: }
+    end
+
+    def valid_repository_name!(name)
+      raise ArgumentError, "Invalid repository name #{name.inspect}: expected \"owner/name\"" unless REPOSITORY_NAME.match?(name)
+
+      name
     end
 
     def ensure_controller_not_loaded!(setting, namespace, name)

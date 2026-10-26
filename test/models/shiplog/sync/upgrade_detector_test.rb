@@ -57,7 +57,18 @@ class Shiplog::Sync::UpgradeDetectorTest < ActiveSupport::TestCase
   def commit(sha) = { sha:, node_id: "C_#{sha}" }
 
   def stub_compare(from, to, commits)
-    stub_request(:get, "#{COMPARE}/#{from}...#{to}").to_return(body: { commits: commits.map { |sha| commit(sha) } }.to_json)
+    stub_request(:get, "#{COMPARE}/#{from}...#{to}").with(query: { per_page: 100, page: 1 })
+      .to_return(body: { commits: commits.map { |sha| commit(sha) } }.to_json)
+  end
+
+  def capture_log
+    io = StringIO.new
+    original = Rails.logger
+    Rails.logger = ActiveSupport::Logger.new(io)
+    yield
+    io.string
+  ensure
+    Rails.logger = original
   end
 
   def pr_node(number, title, body: "Body #{number}", state: "MERGED", repository: "Trackberry/market_data")
@@ -73,7 +84,7 @@ class Shiplog::Sync::UpgradeDetectorTest < ActiveSupport::TestCase
   def stub_trackberry_1952
     stub_blob(BASE, lockfile)
     stub_blob(MERGE, lockfile(market_data: "0.2.2"))
-    stub_request(:get, "#{COMPARE}/v0.2.1...v0.2.2").to_return(status: 404, body: "{}")
+    stub_request(:get, "#{COMPARE}/v0.2.1...v0.2.2").with(query: hash_including({})).to_return(status: 404, body: "{}")
     stub_compare("0.2.1", "0.2.2", %w[c1 c2 c3 c4 c5 c6])
     stub_associated(
       "c1" => [ pr_node(38, "Gem publish workflow: fix the two run annotations") ],
@@ -107,7 +118,7 @@ class Shiplog::Sync::UpgradeDetectorTest < ActiveSupport::TestCase
 
     upgrade = @pull_request.upgrades.sole
     assert_equal %w[v0.2.1 v0.2.2], [ upgrade.from_ref, upgrade.to_ref ]
-    assert_not_requested :get, "#{COMPARE}/0.2.1...0.2.2"
+    assert_not_requested :get, /#{Regexp.escape(COMPARE)}\/0\.2\.1\.\.\.0\.2\.2/
   end
 
   test "does not inspect a pull request that did not touch the lockfile" do
@@ -266,6 +277,109 @@ class Shiplog::Sync::UpgradeDetectorTest < ActiveSupport::TestCase
 
     assert_equal 0, @detector.call
     assert_not_requested(:post, GRAPHQL)
+    assert_nil @pull_request.reload.upgrades_checked_at
+  end
+
+  test "a malformed lockfile is a permanent failure: it warns and marks the pull request checked" do
+    stub_blob(BASE, lockfile)
+    stub_blob(MERGE, "<<<<<<< HEAD\n#{lockfile}=======\n#{lockfile(market_data: '0.2.2')}>>>>>>> branch\n")
+
+    log = capture_log { @detector.call }
+
+    assert_empty @pull_request.upgrades
+    assert @pull_request.reload.upgrades_checked_at
+    assert_match(/Could not inspect Trackberry\/trackberry#1952/, log)
+  end
+
+  test "pages the compare 100 commits at a time until a short page" do
+    stub_blob(BASE, lockfile)
+    stub_blob(MERGE, lockfile(market_data: "0.2.2"))
+    page_one = (1..100).map { |i| commit("a#{i}") }
+    stub_request(:get, "#{COMPARE}/v0.2.1...v0.2.2").with(query: { per_page: 100, page: 1 }).to_return(body: { commits: page_one }.to_json)
+    stub_request(:get, "#{COMPARE}/v0.2.1...v0.2.2").with(query: { per_page: 100, page: 2 }).to_return(body: { commits: [ commit("b1") ] }.to_json)
+    stub_associated({})
+
+    @detector.call
+
+    assert_requested(:get, "#{COMPARE}/v0.2.1...v0.2.2", query: { per_page: 100, page: 2 }, times: 1)
+    assert_not_requested(:get, "#{COMPARE}/v0.2.1...v0.2.2", query: { per_page: 100, page: 3 })
+    assert_requested(:post, GRAPHQL) { |req| JSON.parse(req.body).dig("variables", "ids") == [ "C_b1" ] }
+  end
+
+  test "stops paging the compare after 5 pages and logs it" do
+    stub_blob(BASE, lockfile)
+    stub_blob(MERGE, lockfile(market_data: "0.2.2"))
+    full_page = (1..100).map { |i| commit("a#{i}") }
+    stub_request(:get, /#{Regexp.escape(COMPARE)}\/v0.2.1\.\.\.v0.2.2/).to_return(body: { commits: full_page }.to_json)
+    stub_associated({})
+
+    log = capture_log { @detector.call }
+
+    assert_requested(:get, /#{Regexp.escape(COMPARE)}/, times: 5)
+    assert_match(/market_data.*more than 500 commits|500 commits/, log)
+    assert @pull_request.reload.upgrades_checked_at
+  end
+
+  test "a downgrade is skipped and logged" do
+    stub_blob(BASE, lockfile(market_data: "0.2.2"))
+    stub_blob(MERGE, lockfile(market_data: "0.2.1"))
+
+    log = capture_log { @detector.call }
+
+    assert_empty @pull_request.upgrades
+    assert_not_requested :get, /api.github.com\/repos/
+    assert_match(/downgrade.*market_data.*0\.2\.2.*0\.2\.1/i, log)
+    assert @pull_request.reload.upgrades_checked_at
+  end
+
+  test "a tracked gem added or removed is logged and not stored" do
+    other = lockfile.sub(/GEM\n  remote: https:\/\/rubygems.pkg.github.com.*?\n\n/m, "").sub("  market_data\n", "")
+    stub_blob(BASE, other)
+    stub_blob(MERGE, lockfile)
+
+    log = capture_log { @detector.call }
+
+    assert_empty @pull_request.upgrades
+    assert_match(/added tracked gem market_data/, log)
+  end
+
+  test "a 422 from the compare for one gem records it without changes and continues with the others" do
+    Shiplog.config.repositories += [ { name: "Trackberry/holidays", changelog: false, gem: "holidays" } ]
+    stub_blob(BASE, lockfile)
+    stub_blob(MERGE, lockfile(market_data: "0.2.2", holidays: "8.1.0"))
+    stub_request(:get, /#{Regexp.escape(COMPARE)}/).to_return(status: 422, body: "{}")
+    stub_request(:get, "https://api.github.com/repos/Trackberry/holidays/compare/v8.0.0...v8.1.0").with(query: { per_page: 100, page: 1 })
+      .to_return(body: { commits: [ commit("h1") ] }.to_json)
+    stub_associated("h1" => [ pr_node(5, "Holiday fix", repository: "Trackberry/holidays") ])
+
+    log = capture_log { @detector.call }
+
+    by_gem = @pull_request.upgrades.index_by(&:gem_name)
+    assert_equal [], by_gem.fetch("market_data").gem_changes
+    assert_equal [ 5 ], by_gem.fetch("holidays").gem_changes.map { |change| change["number"] }
+    assert_match(/market_data.*HTTP 422/, log)
+    assert @pull_request.reload.upgrades_checked_at
+  end
+
+  test "an error resolving the gem's pull requests records the upgrade without changes" do
+    stub_blob(BASE, lockfile)
+    stub_blob(MERGE, lockfile(market_data: "0.2.2"))
+    stub_compare("v0.2.1", "v0.2.2", %w[c1])
+    stub_request(:post, GRAPHQL).with { |req| JSON.parse(req.body)["query"].include?("nodes(ids") }
+      .to_return(body: { errors: [ { type: "FORBIDDEN", message: "nope" } ] }.to_json)
+
+    capture_log { @detector.call }
+
+    assert_equal [], @pull_request.upgrades.sole.gem_changes
+    assert @pull_request.reload.upgrades_checked_at
+  end
+
+  test "a rate limit from the compare propagates and leaves the pull request unchecked" do
+    stub_blob(BASE, lockfile)
+    stub_blob(MERGE, lockfile(market_data: "0.2.2"))
+    stub_request(:get, /#{Regexp.escape(COMPARE)}/).to_return(status: 429, headers: { "retry-after" => "30" })
+
+    assert_raises(Shiplog::Github::RateLimited) { @detector.call }
     assert_nil @pull_request.reload.upgrades_checked_at
   end
 end

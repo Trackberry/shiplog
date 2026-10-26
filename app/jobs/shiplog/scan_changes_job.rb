@@ -20,11 +20,18 @@ module Shiplog
           Sync::CommitScanner.new(repository, client:).call(since:)
           draft_changes(ChangeCandidates.new(repository:, since:, before: started_at).to_a)
         end
-        repository.update!(changes_scanned_at: started_at)
+        repository.update!(changes_scanned_at: window_end(repository, started_at))
       rescue Github::RateLimited
         raise
       rescue StandardError => error
         Rails.error.report(error, handled: true, context: { repository: repository.full_name })
+      end
+
+      # Pull requests awaiting upgrade detection are held back by ChangeCandidates, so the window stays at the
+      # oldest one and the next scan reconsiders it once it is checked.
+      def window_end(repository, started_at)
+        oldest_pending = Shiplog.config.changelog_repository?(repository.full_name) ? ChangeCandidates.oldest_pending(repository) : nil
+        oldest_pending ? [ started_at, oldest_pending ].min : started_at
       end
 
       def draft_changes(candidates)

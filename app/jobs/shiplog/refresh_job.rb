@@ -15,7 +15,7 @@ module Shiplog
       when "pull_request" then import(repository, number, Github::Queries::PULL_REQUEST, "pullRequest", Sync::PullRequestImporter)
       else raise ArgumentError, "Unknown kind: #{kind.inspect}"
       end
-      Sync::UpgradeDetector.new(repository).call if kind.to_s == "pull_request"
+      Sync::UpgradeDetector.call_isolated(repository) if kind.to_s == "pull_request"
       Drafter.call
     end
 

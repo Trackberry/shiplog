@@ -207,6 +207,22 @@ class Shiplog::RewriterTest < ActiveSupport::TestCase
     assert_operator body.length, :<=, 220
   end
 
+  test "a roadmap body is not cut after an abbreviation such as e.g." do
+    tail = "every container shows where it is and when it arrives, with the port, the vessel and the customs status in one view " * 2
+    body = roadmap_body("Track ships, e.g. reefers, and get alerts. More text… #{tail}")
+    assert_equal "Track ships, e.g. reefers, and get alerts.", body
+
+    body = roadmap_body("Track ships. Get alerts, e.g. when a reefer runs late, i.e. approx. a day out, etc. #{tail}")
+    assert_equal "Track ships.", body
+  end
+
+  test "a roadmap body that only has abbreviation periods is cut at a word" do
+    body = roadmap_body("Track ships, e.g. #{'reefers and dry containers, ' * 12}")
+
+    assert_not body.end_with?("e.g."), body
+    assert body.end_with?("…"), body
+  end
+
   test "a roadmap body within the limit is untouched" do
     assert_equal "You'll be able to import files. See the rows.", roadmap_body("You'll be able to import files. See the rows.")
   end

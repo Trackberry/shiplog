@@ -39,6 +39,9 @@ class LiveGithubQueriesTest < ActiveSupport::TestCase
     skip "no merged pull request in #{@vars.values.join("/")}" unless node
     assert node.key?("baseRefOid")
     assert node.dig("mergeCommit", "oid")
+    assert node.dig("mergeCommit", "parents", "nodes").is_a?(Array)
+    assert node.dig("mergeCommit", "parents", "nodes", 0, "oid")
+    assert_includes [ true, false ], node.dig("files", "pageInfo", "hasNextPage")
     assert node["files"]["nodes"].is_a?(Array)
   end
 

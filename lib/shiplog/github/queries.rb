@@ -28,7 +28,7 @@ module Shiplog
         fragment PullRequestWithIssues on PullRequest {
           ...PullRequestFields
           baseRefOid
-          mergeCommit { oid }
+          mergeCommit { oid parents(first: 1) { nodes { oid } } }
           files(first: 100) { pageInfo { hasNextPage } nodes { path } }
           closingIssuesReferences(first: 20) {
             pageInfo { hasNextPage }

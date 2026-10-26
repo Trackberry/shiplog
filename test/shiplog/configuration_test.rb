@@ -120,6 +120,33 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
     assert_raises(ArgumentError) { config.repositories = "a/b" }
   end
 
+  test "repositories rejects names that are not owner/name" do
+    config = Shiplog::Configuration.new
+    [ "nope", "a/b/c", "a/ b", "a/b\n", "/b", "a/", { name: "bad name/x" }, { name: "a/b", gem: "g" }.merge(name: "a/b;rm") ].each do |item|
+      assert_raises(ArgumentError, item.inspect) { config.repositories = [ item ] }
+    end
+    config.repositories = [ "Acme/my-app.rb_2", { name: "Acme/gem", gem: "gem" } ]
+    assert_equal %w[Acme/my-app.rb_2 Acme/gem], config.repository_names
+  end
+
+  test "warns when a gem repository also drafts its own changelog entries" do
+    config = Shiplog::Configuration.new
+    io = StringIO.new
+    original = Rails.logger
+    Rails.logger = ActiveSupport::Logger.new(io)
+    begin
+      config.repositories = [ { name: "Acme/both", changelog: true, gem: "both" }, { name: "Acme/ok", changelog: false, gem: "ok" } ]
+      config.repository_entries
+    ensure
+      Rails.logger = original
+    end
+
+    assert_equal 1, io.string.scan("Acme/both").size
+    assert_match(/draft.*twice|twice/i, io.string)
+    assert_not_includes io.string, "Acme/ok"
+    assert_equal({ "both" => "Acme/both", "ok" => "Acme/ok" }, config.tracked_gems)
+  end
+
   test "lockfile_path defaults to Gemfile.lock" do
     assert_equal "Gemfile.lock", Shiplog::Configuration.new.lockfile_path
   end

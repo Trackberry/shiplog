@@ -39,8 +39,16 @@ module Shiplog
         return {} unless node.key?("files")
 
         paths = nodes_of(node, "files").map { |file| file["path"] }
-        { base_oid: node["baseRefOid"], merge_oid: node.dig("mergeCommit", "oid"),
-          lockfile_changed: paths.include?(Shiplog.config.lockfile_path) }
+        # More files than one page: the lockfile may be on a later page, and the blob diff is the real check.
+        { base_oid: base_oid(node), merge_oid: node.dig("mergeCommit", "oid"),
+          lockfile_changed: paths.include?(Shiplog.config.lockfile_path) || !complete?(node, "files") }
+      end
+
+      # `baseRefOid` is the base tip as of the last update of the pull request, so upgrades merged since then
+      # would show up as false diffs. The merge commit's first parent is the base at merge, for merge and squash
+      # commits alike.
+      def base_oid(node)
+        node.dig("mergeCommit", "parents", "nodes", 0, "oid").presence || node["baseRefOid"]
       end
 
       def repository_for(node)

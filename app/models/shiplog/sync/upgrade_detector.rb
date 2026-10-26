@@ -12,6 +12,19 @@ module Shiplog
       MAX_CHANGES = 50
       EXCERPT_CHARS = 300
       COMMIT_BATCH = 100
+      COMPARE_PER_PAGE = 100
+      MAX_COMPARE_PAGES = 5
+
+      # Runs the detection without letting it fail the caller: detection is secondary to importing, so only
+      # rate limits and transient failures (which the caller retries) are re-raised; anything else is logged.
+      def self.call_isolated(repository, client: Github::Client.new)
+        new(repository, client:).call
+      rescue Github::RateLimited, Github::Transient
+        raise
+      rescue StandardError => error
+        Rails.logger.error("[shiplog] Gem upgrade detection failed for #{repository.full_name}: #{error.class}: #{error.message}")
+        nil
+      end
 
       def initialize(repository, client: Github::Client.new)
         @repository = repository
@@ -41,8 +54,9 @@ module Shiplog
         end
       rescue Github::RateLimited, Github::Transient
         raise
-      rescue Github::Error => error
-        # Marked as checked anyway: a permanent failure must not keep taking one of the limited slots.
+      rescue Github::Error, Bundler::BundlerError => error
+        # Marked as checked anyway: a permanent failure (including a malformed or conflicted lockfile) must not
+        # keep taking one of the limited slots, nor make every later sync fail.
         Rails.logger.warn("[shiplog] Could not inspect #{@repository.full_name}##{pull_request.number} for gem upgrades: #{error.message}")
         pull_request.update!(upgrades_checked_at: Time.current)
       end
@@ -56,10 +70,30 @@ module Shiplog
 
         tracked_gems.filter_map do |gem_name, gem_repository|
           old_gem, new_gem = before[gem_name], after[gem_name]
-          next unless old_gem && new_gem && old_gem != new_gem
+          next log_added_or_removed(pull_request, gem_name, old_gem, new_gem) unless old_gem && new_gem
+          next if old_gem == new_gem
+          next log_downgrade(pull_request, gem_name, old_gem, new_gem) if downgrade?(old_gem, new_gem)
 
           resolve(gem_name, gem_repository, old_gem, new_gem)
         end
+      end
+
+      def downgrade?(old_gem, new_gem)
+        versions = [ old_gem[:version], new_gem[:version] ]
+        versions.all? { |version| Gem::Version.correct?(version) } && Gem::Version.new(versions.first) > Gem::Version.new(versions.last)
+      end
+
+      def log_downgrade(pull_request, gem_name, old_gem, new_gem)
+        Rails.logger.info("[shiplog] #{@repository.full_name}##{pull_request.number} downgrades #{gem_name} " \
+          "#{old_gem[:version]} -> #{new_gem[:version]}; skipping")
+        nil
+      end
+
+      def log_added_or_removed(pull_request, gem_name, old_gem, new_gem)
+        return unless old_gem || new_gem
+
+        Rails.logger.info("[shiplog] #{@repository.full_name}##{pull_request.number} #{new_gem ? "added" : "removed"} tracked gem #{gem_name}; skipping")
+        nil
       end
 
       # { gem name => { version:, revision: } } from the lockfile at a commit, or nil when it is missing.
@@ -86,6 +120,13 @@ module Shiplog
         Rails.logger.warn("[shiplog] Could not resolve #{gem_name} #{old_gem[:version]} -> #{new_gem[:version]} in #{gem_repository} " \
           "(tag not found or repository not accessible); recording the upgrade without changes")
         upgrade
+      rescue Github::RateLimited, Github::Transient
+        raise
+      rescue Github::Error => error
+        # One gem's failure must not abort the other gems of the pull request.
+        Rails.logger.warn("[shiplog] Could not resolve #{gem_name} #{old_gem[:version]} -> #{new_gem[:version]} in #{gem_repository}: " \
+          "#{error.message}; recording the upgrade without changes")
+        upgrade
       end
 
       # A git source is pinned by revision; a version tries the tag "v<version>", then "<version>".
@@ -96,9 +137,20 @@ module Shiplog
 
       def candidates(locked) = locked[:revision] ? [ locked[:revision] ] : [ "v#{locked[:version]}", locked[:version] ]
 
+      # The commits between two refs, or nil when a ref does not exist. Paged, since the compare endpoint caps a
+      # page; past MAX_COMPARE_PAGES the rest is dropped (the stored changes are capped anyway).
       def compare(gem_repository, from, to)
         escape = ERB::Util.method(:url_encode)
-        @client.get("/repos/#{gem_repository}/compare/#{escape.(from)}...#{escape.(to)}").fetch("commits")
+        path = "/repos/#{gem_repository}/compare/#{escape.(from)}...#{escape.(to)}"
+        commits = []
+        MAX_COMPARE_PAGES.times do |index|
+          page = @client.get("#{path}?per_page=#{COMPARE_PER_PAGE}&page=#{index + 1}").fetch("commits")
+          commits.concat(page)
+          return commits if page.size < COMPARE_PER_PAGE
+        end
+        Rails.logger.warn("[shiplog] Compare #{gem_repository} #{from}...#{to} has more than #{commits.size} commits; " \
+          "only the first #{commits.size} are read")
+        commits
       rescue Github::NotFound
         nil
       end

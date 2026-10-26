@@ -5,7 +5,8 @@ module Shiplog
     MAX_TITLE_CHARS = 120
     MAX_BODY_CHARS = 2_000
     MAX_ROADMAP_BODY_CHARS = 220
-    SENTENCE_END = /[.!?](?=\s|\z)/
+    # A period after a common abbreviation ("e.g.", "i.e.", "approx.", "etc.") does not end a sentence.
+    SENTENCE_END = /(?<!\be\.g)(?<!\bi\.e)(?<!\bapprox)(?<!\betc)(?<!\bvs)(?<!\bcf)[.!?](?=\s|\z)/i
 
     # Balanced, string-aware {...} candidates (recursion via \g<0>).
     JSON_OBJECT = /\{(?:[^{}"]++|"(?:\\.|[^"\\])*+"|\g<0>)*+\}/m

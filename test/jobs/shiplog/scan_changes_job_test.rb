@@ -74,6 +74,37 @@ class Shiplog::ScanChangesJobTest < ActiveJob::TestCase
     assert_equal 1, Shiplog::Entry.change.where(subject_type: "Shiplog::PullRequest", subject_id: host.pull_requests.select(:id)).count
   end
 
+  test "a bot's bump awaiting detection is held back and the window stays at it, then the next scan drafts it" do
+    Shiplog.config.repositories = [ "Acme/widgets", { name: "Acme/gadgets", changelog: false, gem: "gadgets" } ]
+    host = Shiplog::Repository.create!(full_name: "Acme/widgets", changes_scanned_at: Time.utc(2026, 10, 1))
+    merged_at = Time.utc(2026, 10, 18, 9)
+    bump = host.pull_requests.create!(node_id: "PR_bump", number: 7, title: "chore(deps): Bump gadgets from 1.0.0 to 1.1.0", state: "merged",
+      merged_at:, author_login: "dependabot[bot]", labels: [ "dependencies" ], github_updated_at: merged_at,
+      base_oid: "base1", merge_oid: "merge1", lockfile_changed: true)
+
+    with_detection_disabled { Shiplog::ScanChangesJob.perform_now }
+
+    assert_not bump.entries.exists?
+    assert_equal merged_at, host.reload.changes_scanned_at
+
+    lock = ->(version) { "GEM\n  remote: https://rubygems.org/\n  specs:\n    gadgets (#{version})\n\nPLATFORMS\n  ruby\n\nDEPENDENCIES\n  gadgets\n" }
+    { "base1" => "1.0.0", "merge1" => "1.1.0" }.each do |oid, version|
+      stub_request(:post, GRAPHQL).with { |req| JSON.parse(req.body).dig("variables", "expression") == "#{oid}:Gemfile.lock" }
+        .to_return(body: { data: { repository: { object: { text: lock.(version) } } } }.to_json)
+    end
+    stub_request(:get, %r{repos/Acme/gadgets/compare/v1.0.0...v1.1.0}).to_return(body: { commits: [ { node_id: "C1" } ] }.to_json)
+    stub_request(:post, GRAPHQL).with { |req| JSON.parse(req.body).dig("variables", "ids") == [ "C1" ] }.to_return(body: { data: { nodes: [
+      { oid: "c1", associatedPullRequests: { nodes: [ { number: 3, title: "Faster", body: "b", url: "u", state: "MERGED",
+                                                      repository: { nameWithOwner: "Acme/gadgets" } } ] } }
+    ] } }.to_json)
+
+    Shiplog::ScanChangesJob.perform_now
+
+    assert bump.reload.upgrades_checked_at
+    assert bump.entries.exists?(kind: "change")
+    assert_equal Time.utc(2026, 10, 26, 12), host.reload.changes_scanned_at
+  end
+
   test "a changelog: false repository is synced but never drafts changes" do
     Shiplog.config.repositories = [ { name: "Acme/widgets", changelog: false } ]
     repository = Shiplog::Repository.create!(full_name: "Acme/widgets", changes_scanned_at: Time.utc(2026, 10, 1))
@@ -156,5 +187,15 @@ class Shiplog::ScanChangesJobTest < ActiveJob::TestCase
 
     assert_nil Shiplog::Repository.find_by!(full_name: "Acme/widgets").changes_scanned_at
     assert Shiplog::Repository.find_by!(full_name: "Acme/gadgets").changes_scanned_at
+  end
+
+  # Simulates detection having been unable to run in this scan (e.g. more pending than one call handles).
+  def with_detection_disabled
+    noop = Struct.new(:call).new(0)
+    original = Shiplog::Sync::UpgradeDetector.method(:new)
+    Shiplog::Sync::UpgradeDetector.define_singleton_method(:new) { |*, **| noop }
+    yield
+  ensure
+    Shiplog::Sync::UpgradeDetector.define_singleton_method(:new, original)
   end
 end

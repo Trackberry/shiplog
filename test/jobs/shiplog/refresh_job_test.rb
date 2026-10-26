@@ -147,6 +147,18 @@ class Shiplog::RefreshJobTest < ActiveJob::TestCase
     assert_equal [ "gadgets", [] ], [ upgrade.gem_name, upgrade.gem_changes ]
   end
 
+  test "an unexpected detector error does not fail the refresh, and drafting still runs" do
+    Shiplog.config.repositories = [ "Acme/widgets", { name: "Acme/gadgets", changelog: false, gem: "gadgets" } ]
+    node = JSON.parse(github_fixture("pull_request_single"))
+    node.dig("data", "repository", "pullRequest").merge!("baseRefOid" => "base1", "mergeCommit" => { "oid" => "merge1" },
+      "files" => { "nodes" => [ { "path" => "Gemfile.lock" } ] })
+    stub_request(:post, URL).with { |req| JSON.parse(req.body)["query"].include?("pullRequest(number") }.to_return(body: node.to_json)
+    stub_request(:post, URL).with { |req| JSON.parse(req.body).dig("variables", "expression") }.to_raise(RuntimeError.new("boom"))
+
+    assert_nothing_raised { Shiplog::RefreshJob.perform_now("Acme/widgets", "pull_request", 12) }
+    assert Shiplog::PullRequest.exists?(node_id: "PR_kwDOSync103")
+  end
+
   test "ignores repositories that are not configured" do
     assert_no_difference -> { Shiplog::Repository.count } do
       Shiplog::RefreshJob.perform_now("Other/repo", "issue", 1)
