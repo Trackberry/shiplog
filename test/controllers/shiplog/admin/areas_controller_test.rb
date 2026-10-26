@@ -338,7 +338,7 @@ class Shiplog::Admin::AreasControllerTest < ActionDispatch::IntegrationTest
     assert_equal({}, @billing.reload.name_translations)
   end
 
-  test "Translate names enqueues a forced job for the areas missing a translation only" do
+  test "Translate names enqueues a job that fills in missing names only, for the areas missing a translation" do
     Shiplog.config.locales = [ :es ]
     Shiplog.config.rewriter = ->(_prompt) { "{}" }
     @billing.update_columns(name_translations: { "es" => "Facturacion" })
@@ -348,8 +348,8 @@ class Shiplog::Admin::AreasControllerTest < ActionDispatch::IntegrationTest
 
     assert_redirected_to "#{ADMIN}/areas"
     assert_enqueued_jobs 2, only: Shiplog::TranslateAreaJob
-    assert_enqueued_with(job: Shiplog::TranslateAreaJob, args: [ @reports, { force: true } ])
-    assert_enqueued_with(job: Shiplog::TranslateAreaJob, args: [ @empty, { force: true } ])
+    assert_enqueued_with(job: Shiplog::TranslateAreaJob, args: [ @reports, { force: false } ])
+    assert_enqueued_with(job: Shiplog::TranslateAreaJob, args: [ @empty, { force: false } ])
     follow_redirect!
     assert_select ".shiplog-admin__flash--notice", text: /2 areas/
   end

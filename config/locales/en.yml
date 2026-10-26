@@ -77,7 +77,7 @@ en:
         last_error: "Last detection failed (%{time}): %{error}"
         detection_queued: Detection queued. Refresh in a moment.
         translate_names: Translate names
-        translate_names_help: Ask the AI for the names of areas that have no translation in some language. This replaces the names of those areas in every language.
+        translate_names_help: Ask the AI for the names that are missing in some language. Names that are already there, including ones you edited, are kept.
         no_locales: Translating names needs config.locales, which is empty.
         no_rewriter_translate: Translating names needs config.rewriter, which is not set.
         translation_queued:

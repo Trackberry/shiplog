@@ -10,7 +10,7 @@
     <% end %>
     <% if Shiplog.config.locales.any? %>
       <%= form_with url: area_translation_path, class: "shiplog-admin-inline-form" do |form| %>
-        <%= form.button t("shiplog.admin.areas.translate_names", default: "Translate names"), type: "submit", class: "shiplog-button", title: t("shiplog.admin.areas.translate_names_help", default: "Ask the AI for the names of areas that have no translation in some language. This replaces the names of those areas in every language.") %>
+        <%= form.button t("shiplog.admin.areas.translate_names", default: "Translate names"), type: "submit", class: "shiplog-button", title: t("shiplog.admin.areas.translate_names_help", default: "Ask the AI for the names that are missing in some language. Names that are already there, including ones you edited, are kept.") %>
       <% end %>
     <% end %>
   </div>
