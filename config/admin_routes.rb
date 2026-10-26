@@ -5,9 +5,11 @@ Shiplog::Admin::Engine.routes.draw do
       resource :approval, only: :create
       resource :discard, only: %i[create destroy]
       resource :rewrite, only: :create
-      resources :translations, only: :update, param: :locale, constraints: { locale: /[A-Za-z][A-Za-z0-9_-]*/ } do
-        resource :retranslation, only: :create, module: :translations
-      end
+      # The locale segment is :translation_locale, not :locale: a host's around_action that switches the locale
+      # from params[:locale] must not read it (a configured translation locale may not be an available one).
+      locale = { translation_locale: /[A-Za-z][A-Za-z0-9_-]*/ }
+      patch "translations/:translation_locale", to: "translations#update", as: :translation, constraints: locale
+      post "translations/:translation_locale/retranslation", to: "translations/retranslations#create", as: :translation_retranslation, constraints: locale
       resources :images, only: %i[create update destroy] do
         resource :move, only: :create, module: :images
       end

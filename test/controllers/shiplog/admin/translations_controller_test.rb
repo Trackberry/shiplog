@@ -179,6 +179,30 @@ class Shiplog::Admin::TranslationsControllerTest < ActionDispatch::IntegrationTe
     end
   end
 
+  test "the admin renders and saves for a locale outside available_locales under a host that switches locale from params[:locale]" do
+    assert_not_includes I18n.available_locales, :fr
+    @entry.translations.create!(locale: "fr", title: "Mode sombre", body: "Texte", source_digest: @entry.translation_source_digest)
+
+    get "#{ADMIN}/entries/#{@entry.id}/edit"
+    assert_response :ok
+    assert_select "#{section(:fr)} form[action=?]", "#{ADMIN}/entries/#{@entry.id}/translations/fr"
+
+    patch "#{ADMIN}/entries/#{@entry.id}/translations/fr", params: { translation: { title: "Mode nuit", body: "Un thème sombre." } }
+    assert_redirected_to "#{ADMIN}/entries/#{@entry.id}/edit"
+    assert_equal "Mode nuit", @entry.translations.find_by!(locale: "fr").title
+
+    assert_enqueued_with(job: Shiplog::TranslateEntryJob, args: [ @entry, :fr, { force: true } ]) do
+      post "#{ADMIN}/entries/#{@entry.id}/translations/fr/retranslation"
+    end
+  end
+
+  test "the locale in the URL is not params[:locale]" do
+    patch "#{ADMIN}/entries/#{@entry.id}/translations/es", params: { translation: { title: "x", body: "y" } }
+
+    assert_equal "es", request.path_parameters[:translation_locale]
+    assert_nil request.path_parameters[:locale]
+  end
+
   test "requires the admin to be authorized" do
     Shiplog.config.authorize_admin = ->(_controller) { false }
 

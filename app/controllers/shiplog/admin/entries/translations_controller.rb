@@ -22,7 +22,7 @@ module Shiplog
 
         def set_entry_and_locale
           @entry = Entry.find(params[:entry_id])
-          @locale = params[:locale].to_s
+          @locale = params[:translation_locale].to_s
           head :not_found unless Entry.translated_locale?(@locale)
         end
 

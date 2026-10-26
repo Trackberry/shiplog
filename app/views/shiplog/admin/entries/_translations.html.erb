@@ -23,7 +23,7 @@
           <span class="shiplog-badge"><%= t("shiplog.admin.entries.translations.edited", default: "Edited by an admin") %></span>
         <% end %>
       </h3>
-      <%= form_with url: entry_translation_path(entry, locale, inbox_filter_params), scope: :translation, method: :patch, class: "shiplog-admin-form" do |form| %>
+      <%= form_with url: entry_translation_path(entry, inbox_filter_params.merge(translation_locale: locale)), scope: :translation, method: :patch, class: "shiplog-admin-form" do |form| %>
         <p>
           <%= form.label :title, t("shiplog.admin.entries.fields.title"), for: "translation_#{locale}_title" %>
           <%= form.text_field :title, value: translation&.title, id: "translation_#{locale}_title", lang: locale %>
@@ -35,7 +35,7 @@
         <%= form.submit t("shiplog.admin.entries.save"), class: "shiplog-button shiplog-button--primary" %>
       <% end %>
       <% if entry.approved? %>
-        <%= button_to t("shiplog.admin.entries.translations.retranslate", default: "Retranslate"), entry_translation_retranslation_path(entry, locale, inbox_filter_params), class: "shiplog-button" %>
+        <%= button_to t("shiplog.admin.entries.translations.retranslate", default: "Retranslate"), entry_translation_retranslation_path(entry, inbox_filter_params.merge(translation_locale: locale)), class: "shiplog-button" %>
       <% end %>
     </div>
   <% end %>
