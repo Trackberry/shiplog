@@ -195,6 +195,38 @@ class Shiplog::RewriterTest < ActiveSupport::TestCase
     assert_equal "line1\nline2", entry.body
   end
 
+  def roadmap_body(text) = rewrite(shiplog_entries(:soon_item_roadmap), { title: "T", body: text }.to_json).body
+
+  test "a roadmap body over the limit is cut at the last sentence boundary within 220 characters" do
+    first = "You'll be able to import hundreds of produce bundles in one go."
+    second = "See every row that needs a fix before anything is saved."
+    third = "Send the corrected file straight back to us for another quick pass through the importer, whenever it suits you best."
+    body = roadmap_body("#{first} #{second} #{third}")
+
+    assert_equal "#{first} #{second}", body
+    assert_operator body.length, :<=, 220
+  end
+
+  test "a roadmap body within the limit is untouched" do
+    assert_equal "You'll be able to import files. See the rows.", roadmap_body("You'll be able to import files. See the rows.")
+  end
+
+  test "a single long roadmap sentence is cut at a word boundary with an ellipsis" do
+    body = roadmap_body("You'll be able to " + "import every bundle " * 30 + "today.")
+
+    assert_operator body.length, :<=, 220
+    assert body.end_with?("…")
+    assert_not body.end_with?(" …")
+    assert_no_match(/\bimpo…\z/, body)
+  end
+
+  test "feature and change bodies keep the 2000 character limit" do
+    long = "A sentence of moderate length. " * 20
+    assert_equal long.strip, rewrite(shiplog_entries(:csv_change_draft), { title: "T", body: long }.to_json).body
+    feature = Shiplog::Entry.create!(kind: "feature", subject: shiplog_issues(:bulk_upload), title: "x")
+    assert_equal long.strip, rewrite(feature, { title: "T", body: long }.to_json).body
+  end
+
   test "truncates long titles and bodies on a word boundary" do
     entry = rewrite(shiplog_entries(:csv_change_draft), { title: "word " * 60, body: "sentence " * 400 }.to_json)
 

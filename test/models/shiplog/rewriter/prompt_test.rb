@@ -146,6 +146,27 @@ class Shiplog::Rewriter::PromptTest < ActiveSupport::TestCase
     assert_includes text, "<source>"
   end
 
+  test "roadmap prompts ask for two short sentences that lead with the customer outcome, not 'We're working on'" do
+    text = Shiplog::Rewriter::Prompt.new(shiplog_entries(:bulk_upload_roadmap)).to_s
+
+    assert_includes text, "Body: at most 2 short sentences (about 220 characters)"
+    assert_includes text, "Lead with the customer outcome"
+    assert_includes text, "Do not open with \"We're working on\" or \"We are working on\""
+    assert_not_includes text, "1–3 short sentences"
+    assert_no_match(/\("You'll be able to…", "We're working on…"\)/, text)
+  end
+
+  test "feature and change prompts keep their body length and have no roadmap opening rules" do
+    feature = Shiplog::Entry.new(kind: "feature", subject: shiplog_issues(:bulk_upload))
+    [ feature, shiplog_entries(:csv_change_draft) ].each do |entry|
+      text = Shiplog::Rewriter::Prompt.new(entry).to_s
+
+      assert_includes text, "Body: 1–3 short sentences (features may use up to 2 short paragraphs)"
+      assert_not_includes text, "Lead with the customer outcome"
+      assert_not_includes text, "We are working on"
+    end
+  end
+
   test "feature and change prompts do not carry the roadmap future-tense instructions" do
     feature = Shiplog::Entry.new(kind: "feature", subject: shiplog_issues(:bulk_upload))
     [ feature, shiplog_entries(:csv_change_draft) ].each do |entry|
