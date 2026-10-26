@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.1 (2026-10-26)
+
+### Added
+
+- schema.org structured data (JSON-LD) on the public pages, through the new `content_for :shiplog_structured_data` (one `<script type="application/ld+json">` per page). A permalink page is an `Article` (`headline`, `description`, `inLanguage`, `datePublished`, `dateModified`, `url`, `mainEntityOfPage`, and when available `image`, `articleSection` and `publisher`, plus `isPartOf` the changelog); the changelog list is a `CollectionPage` with an `ItemList` of the entries on the page (left out for search results and an empty list); the roadmap is a `CollectionPage` with an `ItemList` of its cards. Titles and descriptions follow the request locale and `config.canonical_url`. The JSON is built from a Hash with `<`, `>` and `&` escaped as `\u003c`, `\u003e` and `\u0026`, so a `</script>` in a title cannot break out of the tag.
+- `config.structured_data` (default `true`; `false` turns the JSON-LD off). Part of `render_digest`, so changing it refreshes cached pages.
+
+### Upgrading
+
+- Hosts with a custom `config.public_layout` should render `<%= content_for(:shiplog_structured_data) %>` in the `<head>`, next to `content_for(:shiplog_og)`. Without it the pages work as before, with no structured data. Shiplog's own layout already does.
+
 ## 0.3.0 (2026-10-26)
 
 ### Added
