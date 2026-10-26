@@ -1,6 +1,6 @@
 <tr class="shiplog-entry-row">
   <td>
-    <%= link_to entry_heading(entry), edit_entry_path(entry) %>
+    <%= link_to entry_heading(entry), edit_entry_path(entry, inbox_filter_params) %>
     <%= render "shiplog/admin/entries/badges", entry: %>
     <% if entry.discarded? && entry.discard_reason.present? %>
       <div class="shiplog-admin__muted"><%= entry.discard_reason %></div>
@@ -11,11 +11,11 @@
     <%= shiplog_github_link(source_reference(entry.subject), entry.subject.url) %>
   </td>
   <td class="shiplog-admin-table__actions">
-    <%= link_to t("shiplog.admin.entries.edit"), edit_entry_path(entry), class: "shiplog-button" %>
+    <%= link_to t("shiplog.admin.entries.edit"), edit_entry_path(entry, inbox_filter_params), class: "shiplog-button" %>
     <% if entry.draft? %>
-      <%= button_to t("shiplog.admin.entries.approve"), entry_approval_path(entry), class: "shiplog-button shiplog-button--primary" %>
+      <%= button_to t("shiplog.admin.entries.approve"), entry_approval_path(entry, inbox_filter_params), class: "shiplog-button shiplog-button--primary" %>
     <% elsif entry.discarded? %>
-      <%= button_to t("shiplog.admin.entries.restore"), entry_discard_path(entry), method: :delete, class: "shiplog-button" %>
+      <%= button_to t("shiplog.admin.entries.restore"), entry_discard_path(entry, inbox_filter_params), method: :delete, class: "shiplog-button" %>
     <% end %>
   </td>
 </tr>

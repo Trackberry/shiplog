@@ -7,8 +7,8 @@ module Shiplog
       before_action :set_entry, only: %i[edit update]
 
       def index
-        @status = Entry.statuses.key(params[:status].to_s) || "draft"
-        @kind = Entry.kinds.key(params[:kind].to_s)
+        @status = inbox_filter_params[:status] || "draft"
+        @kind = inbox_filter_params[:kind]
         @page = page_number
         scope = Entry.where(status: @status)
         scope = scope.where(kind: @kind) if @kind
@@ -24,7 +24,7 @@ module Shiplog
 
       def update
         if @entry.update(entry_params)
-          redirect_to root_path, notice: t("shiplog.admin.entries.saved")
+          redirect_to root_path(inbox_filter_params), notice: t("shiplog.admin.entries.saved")
         else
           render :edit, status: :unprocessable_content
         end

@@ -6,12 +6,12 @@ module Shiplog
 
         def create
           @entry.discard!(reason: params[:reason].to_s.strip.presence)
-          redirect_to root_path, notice: t("shiplog.admin.entries.discarded")
+          redirect_to root_path(inbox_filter_params), notice: t("shiplog.admin.entries.discarded")
         end
 
         def destroy
           @entry.restore!
-          redirect_to root_path, notice: t("shiplog.admin.entries.restored")
+          redirect_to root_path(inbox_filter_params), notice: t("shiplog.admin.entries.restored")
         end
 
         private
