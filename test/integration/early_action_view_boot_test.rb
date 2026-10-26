@@ -14,7 +14,10 @@ class EarlyActionViewBootTest < ActiveSupport::TestCase
     assert_equal "Shiplog::HeadTagsHelper", report["helper_owner"]
     assert_equal "", report["host_page"]
     assert_equal 200, report["host_page_status"]
-    assert_equal false, report["public_controller_loaded_by_host_page"], "a host page loaded Shiplog::PublicController"
+    # Only meaningful when loading is lazy: with eager_load (the dummy app on CI) every controller is loaded at boot.
+    unless report["eager_load"]
+      assert_equal false, report["public_controller_loaded_by_host_page"], "a host page loaded Shiplog::PublicController"
+    end
     assert_equal 200, report["status"]
     assert_equal "http://example.org/changelog", report["canonical"]
   end
