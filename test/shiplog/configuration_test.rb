@@ -21,6 +21,9 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
     assert_equal true, config.admin_flash
     assert_not config.authorize_admin.call(Object.new)
     assert_equal [], config.extra_pages
+    assert_equal({}, config.repository_labels)
+    assert_equal 4, config.roadmap_shipped_count
+    assert_nil config.feedback_path
   end
 
   test "extra_pages accepts Strings and callables for label and path, and string keys" do
@@ -41,6 +44,23 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
       assert_raises(ArgumentError, "expected #{value.inspect} to raise") { config.extra_pages = value }
     end
     assert_equal [], config.extra_pages
+  end
+
+  test "repository_labels accepts a Hash of Strings and callables" do
+    config = Shiplog::Configuration.new
+    config.repository_labels = { "Acme/ios" => "iPhone", "Acme/android" => -> { "Android" } }
+    assert_equal "iPhone", config.repository_labels["Acme/ios"]
+    config.repository_labels = nil
+    assert_equal({}, config.repository_labels)
+    assert_raises(ArgumentError) { config.repository_labels = [ "Acme/ios" ] }
+    assert_raises(ArgumentError) { config.repository_labels = { "Acme/ios" => 1 } }
+  end
+
+  test "roadmap_shipped_count must be a non-negative Integer" do
+    config = Shiplog::Configuration.new
+    config.roadmap_shipped_count = 0
+    assert_equal 0, config.roadmap_shipped_count
+    [ -1, "4", nil, 1.5 ].each { |value| assert_raises(ArgumentError) { config.roadmap_shipped_count = value } }
   end
 
   test "github_token accepts a string or a callable" do

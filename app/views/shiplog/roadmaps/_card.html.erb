@@ -1,6 +1,17 @@
 <%# locals: (entry:) %>
-<%# one roadmap item: its public title and body %>
+<%# one roadmap item: its public title and body, then what places it: the repository's label (config.repository_labels) and how many parts a grouped item has. No label and fewer than two parts renders no meta. %>
+<%
+  issue = entry.subject
+  tag_label = shiplog_repository_label(issue.repository)
+  parts = issue.children.size
+%>
 <li class="<%= shiplog_class(:card) %>">
   <h3 class="<%= shiplog_class(:card_title) %>"><%= entry.title %></h3>
   <div class="<%= shiplog_class(:card_body) %>"><%= simple_format(h(entry.body)) %></div>
+  <% if tag_label || parts > 1 %>
+    <p class="<%= shiplog_class(:card_meta) %>">
+      <% if tag_label %><span class="<%= shiplog_class(:card_tag) %>"><%= tag_label %></span><% end %>
+      <% if parts > 1 %><span><%= t("shiplog.roadmap.parts", count: parts) %></span><% end %>
+    </p>
+  <% end %>
 </li>

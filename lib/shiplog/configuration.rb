@@ -16,8 +16,9 @@ module Shiplog
 
     attr_reader :admin_chrome, :classes, :public_parent_controller, :admin_parent_controller
 
-    # Product updates navigation.
-    attr_reader :extra_pages
+    # Product updates navigation and roadmap options.
+    attr_accessor :feedback_path
+    attr_reader :extra_pages, :repository_labels, :roadmap_shipped_count
 
     EXTRA_PAGE_KEYS = %i[label path].freeze
 
@@ -38,6 +39,25 @@ module Shiplog
         { label: page[:label], path: page[:path] }.freeze
       end
       @extra_pages = pages.freeze
+    end
+
+    # Display names for repositories on roadmap cards: { "owner/name" => "iPhone & iPad" }. Values are Strings or
+    # callables evaluated in the view.
+    def repository_labels=(value)
+      labels = value.nil? ? {} : value
+      raise ArgumentError, "repository_labels must be a Hash, got #{value.inspect}" unless labels.is_a?(Hash)
+      labels.each do |name, label|
+        unless label.respond_to?(:call) || label.is_a?(String)
+          raise ArgumentError, "repository_labels[#{name.inspect}] must be a String or a callable, got #{label.inspect}"
+        end
+      end
+      @repository_labels = labels.transform_keys(&:to_s).freeze
+    end
+
+    # How many recently shipped changelog entries the roadmap lists; 0 hides the section.
+    def roadmap_shipped_count=(value)
+      raise ArgumentError, "roadmap_shipped_count must be a non-negative Integer, got #{value.inspect}" unless value.is_a?(Integer) && value >= 0
+      @roadmap_shipped_count = value
     end
 
     # :standalone (default) wraps the admin in Shiplog's own page chrome; :hosted renders it inside the
@@ -103,6 +123,8 @@ module Shiplog
       @roadmap_path = "roadmap"
       @changelog_path = "changelog"
       @extra_pages = [].freeze
+      @repository_labels = {}.freeze
+      @roadmap_shipped_count = 4
     end
 
     def resolved_github_token

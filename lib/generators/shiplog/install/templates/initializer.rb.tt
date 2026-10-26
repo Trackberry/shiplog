@@ -103,4 +103,14 @@ Shiplog.configure do |config|
   # view (route helpers, I18n). Render the same switcher on your own pages with `helper Shiplog::SwitcherHelper`
   # and `<%%= shiplog_switcher %>`.
   # config.extra_pages = [ { label: "News", path: -> { main_app.news_path } } ]
+
+  # Names shown on roadmap cards for the repository an item lives in (Strings or callables).
+  # config.repository_labels = { "acme/app-ios" => "iPhone & iPad" }
+
+  # How many recently shipped changelog entries the roadmap lists; 0 hides the section.
+  # config.roadmap_shipped_count = 4
+
+  # Where the roadmap's "Suggest a feature" link goes (String or callable); no link while nil. Add a footnote
+  # next to it with the shiplog.roadmap.footnote translation.
+  # config.feedback_path = -> { main_app.new_feedback_path }
 end

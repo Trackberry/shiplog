@@ -1,0 +1,15 @@
+<%# locals: (entries:) %>
+<%# "Recently shipped": the latest approved changelog entries, each linking to its month on the changelog %>
+<% heading_id = "shiplog-recently-shipped" %>
+<section class="<%= shiplog_class(:shipped) %>" aria-labelledby="<%= heading_id %>">
+  <h2 class="<%= shiplog_class(:shipped_title) %>" id="<%= heading_id %>"><%= t("shiplog.roadmap.shipped_heading") %></h2>
+  <%= link_to t("shiplog.roadmap.full_changelog"), changelog_path, class: shiplog_class(:shipped_link, :all) %>
+  <ul class="<%= shiplog_class(:shipped_list) %>">
+    <% entries.each do |entry| %>
+      <li class="<%= shiplog_class(:shipped_item) %>">
+        <time class="<%= shiplog_class(:shipped_date) %>" datetime="<%= entry.released_on.iso8601 %>"><%= l(entry.released_on, format: t("shiplog.roadmap.shipped_date_format")) %></time>
+        <%= link_to entry.title, changelog_path(anchor: "shiplog-month-#{entry.released_on.strftime("%Y-%m")}"), class: shiplog_class(:shipped_link) %>
+      </li>
+    <% end %>
+  </ul>
+</section>

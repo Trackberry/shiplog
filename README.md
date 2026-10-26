@@ -109,6 +109,9 @@ All settings live in `config/initializers/shiplog.rb`:
 | `roadmap_path` | `"roadmap"` | Path of the public roadmap. |
 | `changelog_path` | `"changelog"` | Path of the public changelog. |
 | `extra_pages` | `[]` | Pages added to the switcher after Roadmap and Changelog: `[{ label:, path: }]`, each a String or a callable evaluated in the view. See [Product updates navigation](#product-updates-navigation). Anything else raises `ArgumentError`. |
+| `repository_labels` | `{}` | Tag shown on a roadmap card for the repository of its issue: `{ "owner/name" => "iPhone & iPad" }`. Values are Strings or callables evaluated in the view; repositories without one show no tag. |
+| `roadmap_shipped_count` | `4` | How many recently shipped changelog entries (features and changes) the roadmap lists below its columns. `0` hides the section. |
+| `feedback_path` | `nil` | Target of the roadmap's "Suggest a feature" link, a String or a callable evaluated in the view. No link while `nil`. |
 
 Example:
 
@@ -294,6 +297,13 @@ end
 
 Labels come from `shiplog.switcher.roadmap`, `.changelog` and `.label` (the `nav` label). Style it with the `switcher` and `switcher_link` keys of [`config.classes`](#3-configclasses-tailwind-and-other-utility-frameworks); the current link also has `shiplog-switcher__link--current`. Hosts that override `shiplog/_page_header` keep their own header; render `shiplog_switcher` or the `shiplog/switcher` partial in it to get the links.
 
+### Roadmap details
+
+- **Status:** each column has a rule on top and a marker (`shiplog-column__marker--in-progress` / `--coming-soon` / `--later`).
+- **Card meta:** the label of the issue's repository (`config.repository_labels`) and "Includes N parts" when the issue has more than one sub-issue (`shiplog.roadmap.parts`). A card with neither has no meta element.
+- **Recently shipped:** the last `config.roadmap_shipped_count` approved feature and change entries (default 4), each linking to its month on the changelog, plus a "See the full changelog" link. The roadmap's ETag follows changelog approvals.
+- **Footnote:** set the `shiplog.roadmap.footnote` translation (empty by default, nothing renders while it is empty) and `config.feedback_path` for a "Suggest a feature" link (`shiplog.roadmap.suggest`).
+
 ## Styling
 
 The public pages ship plain semantic HTML with stable [BEM](https://getbem.com) classes (`shiplog-card`, `shiplog-entry__title`, ...) and a small, framework-free stylesheet. Pick the level that fits your app; the same views work in all of them.
@@ -373,6 +383,7 @@ Without it, `shiplog` is first seen when `shiplog.css` loads, which can put it a
 | `columns` | `shiplog-columns` | Roadmap column grid |
 | `column` | `shiplog-column` (+ `--in-progress` / `--coming-soon` / `--later`) | One roadmap column |
 | `column_header` | `shiplog-column__header` | Column heading block |
+| `column_marker` | `shiplog-column__marker` (+ `--in-progress` / `--coming-soon` / `--later`) | Status dot inside the column `h2`. The column's rule is its `border-top`, set by the column modifier (`shiplog-column--later`); with utility classes, target it with a variant such as `in-[.shiplog-column--later]:bg-gray-300`. |
 | `column_title` | `shiplog-column__title` | Column `h2` |
 | `column_count` | `shiplog-column__count` | Number of items |
 | `column_description` | `shiplog-column__description` | One-line description |
@@ -381,6 +392,16 @@ Without it, `shiplog` is first seen when `shiplog.css` loads, which can put it a
 | `card` | `shiplog-card` | Roadmap card |
 | `card_title` | `shiplog-card__title` | Card `h3` |
 | `card_body` | `shiplog-card__body` | Card text |
+| `card_meta` | `shiplog-card__meta` | Line under the card text (omitted when empty) |
+| `card_tag` | `shiplog-card__tag` | Repository label |
+| `shipped` | `shiplog-shipped` | "Recently shipped" section |
+| `shipped_title` | `shiplog-shipped__title` | Its `h2` |
+| `shipped_list` | `shiplog-shipped__list` | Its list |
+| `shipped_item` | `shiplog-shipped__item` | One entry |
+| `shipped_date` | `shiplog-shipped__date` | Release date of the entry |
+| `shipped_link` | `shiplog-shipped__link` (+ `--all` on the changelog link) | Links to the changelog |
+| `footnote` | `shiplog-footnote` | Footnote paragraph |
+| `footnote_link` | `shiplog-footnote__link` | "Suggest a feature" link |
 | `months` | `shiplog-months` | Changelog months wrapper |
 | `month` | `shiplog-month` | One month section |
 | `month_title` | `shiplog-month__title` | Month `h2` |
@@ -395,7 +416,7 @@ Without it, `shiplog` is first seen when `shiplog.css` loads, which can put it a
 | `pagination_link` | `shiplog-pagination__link` (+ `--newer` / `--older`) | Newer/older links |
 | `empty` | `shiplog-empty` | "Nothing here yet" notice |
 
-Values may be strings or arrays. The list is `Shiplog::Classes::KEYS`; assigning `config.classes` raises `ArgumentError` (listing the valid keys) for any other key, in every environment. String keys are accepted and normalised to symbols, and the hash is stored frozen. Texts come from I18n (`shiplog.roadmap.title`, `shiplog.roadmap.lede`, `shiplog.switcher.*`, `shiplog.changelog.*`, `shiplog.categories.feature` / `change`, `shiplog.date_format` (default `%-d %B %Y`, used for entry dates), `shiplog.columns.<column>_description`), so override them in your locale files.
+Values may be strings or arrays. The list is `Shiplog::Classes::KEYS`; assigning `config.classes` raises `ArgumentError` (listing the valid keys) for any other key, in every environment. String keys are accepted and normalised to symbols, and the hash is stored frozen. Texts come from I18n (`shiplog.roadmap.title`, `shiplog.roadmap.lede`, `shiplog.roadmap.*` (`parts`, `shipped_heading`, `full_changelog`, `footnote`, `suggest`), `shiplog.switcher.*`, `shiplog.changelog.*`, `shiplog.categories.feature` / `change`, `shiplog.date_format` (default `%-d %B %Y`, used for entry dates), `shiplog.columns.<column>_description`), so override them in your locale files.
 
 ### 4. Override the partials
 
@@ -403,7 +424,7 @@ Copy any view from the engine's `app/views/shiplog/` into your app with the same
 
 - `shiplog/_page.html.erb`, `shiplog/_page_header.html.erb`, `shiplog/_pagination.html.erb`, `shiplog/_empty.html.erb`
 - `shiplog/_switcher.html.erb`
-- `shiplog/roadmaps/_column.html.erb`, `shiplog/roadmaps/_card.html.erb`
+- `shiplog/roadmaps/_column.html.erb`, `shiplog/roadmaps/_card.html.erb`, `shiplog/roadmaps/_shipped.html.erb`
 - `shiplog/changelogs/_month.html.erb`, `shiplog/changelogs/_entry.html.erb`
 
 `shiplog/_page.html.erb` is what links the stylesheet (so it also works in layouts you don't control); keep that line if you copy it and still want the bundled CSS.

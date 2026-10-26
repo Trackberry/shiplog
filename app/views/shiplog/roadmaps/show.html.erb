@@ -6,4 +6,13 @@
       <%= render "shiplog/roadmaps/column", column:, entries: items.map(&:entry) %>
     <% end %>
   </div>
+  <%= render "shiplog/roadmaps/shipped", entries: @shipped if @shipped.any? %>
+  <% footnote = t("shiplog.roadmap.footnote", default: "").presence %>
+  <% feedback_path = shiplog_feedback_path %>
+  <% if footnote || feedback_path %>
+    <p class="<%= shiplog_class(:footnote) %>">
+      <%= footnote %>
+      <% if feedback_path %><%= link_to t("shiplog.roadmap.suggest"), feedback_path, class: shiplog_class(:footnote_link) %><% end %>
+    </p>
+  <% end %>
 <% end %>
