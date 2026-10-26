@@ -1,0 +1,25 @@
+<% content_for :title, t("shiplog.changelog.title") %>
+<div class="shiplog shiplog-changelog">
+  <h1 class="shiplog-page-title"><%= t("shiplog.changelog.title") %></h1>
+  <% if @months.empty? %>
+    <p class="shiplog-empty"><%= t("shiplog.empty") %></p>
+  <% end %>
+  <% @months.each do |month, entries| %>
+    <section class="shiplog-month" aria-labelledby="shiplog-month-<%= month.strftime("%Y-%m") %>">
+      <h2 class="shiplog-month__title" id="shiplog-month-<%= month.strftime("%Y-%m") %>"><%= l(month, format: "%B %Y") %></h2>
+      <ul class="shiplog-entries">
+        <%= render partial: "shiplog/entry", collection: entries, as: :entry %>
+      </ul>
+    </section>
+  <% end %>
+  <% if @page > 1 || @older %>
+    <nav class="shiplog-pagination" aria-label="<%= t("shiplog.changelog.pagination.label") %>">
+      <% if @page > 1 %>
+        <%= link_to t("shiplog.changelog.pagination.newer"), changelog_path(page: (@page - 1 if @page > 2)), class: "shiplog-pagination__newer", rel: "prev" %>
+      <% end %>
+      <% if @older %>
+        <%= link_to t("shiplog.changelog.pagination.older"), changelog_path(page: @page + 1), class: "shiplog-pagination__older", rel: "next" %>
+      <% end %>
+    </nav>
+  <% end %>
+</div>

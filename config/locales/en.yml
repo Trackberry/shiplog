@@ -1,5 +1,18 @@
 en:
   shiplog:
+    columns:
+      in_progress: In progress
+      coming_soon: Coming soon
+      later: Later
+    empty: Nothing here yet
+    roadmap:
+      title: Roadmap
+    changelog:
+      title: Changelog
+      pagination:
+        label: Pagination
+        older: Older
+        newer: Newer
     admin:
       title: Shiplog admin
       nav:
