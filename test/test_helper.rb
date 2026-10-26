@@ -13,3 +13,11 @@ if ActiveSupport::TestCase.respond_to?(:fixture_paths=)
   ActiveSupport::TestCase.file_fixture_path = File.expand_path("fixtures", __dir__) + "/files"
   ActiveSupport::TestCase.fixtures :all
 end
+
+require "webmock/minitest"
+
+class ActiveSupport::TestCase
+  teardown { Shiplog.reset_config! }
+
+  def github_fixture(name) = file_fixture("github/#{name}.json").read
+end
