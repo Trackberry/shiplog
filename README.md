@@ -382,10 +382,11 @@ The host layouts keep using their own helpers (`root_path`, `current_user`, ...)
 ```sh
 bin/rails db:create db:schema:load   # once, creates shiplog_test on local PostgreSQL
 bin/rails test
+bin/rails test test/system           # the roadmap board in headless Chrome
 bin/rubocop
 ```
 
-The database is configured in `test/dummy/config/database.yml`; set `PGHOST`, `PGUSER` and `PGPASSWORD` if your PostgreSQL needs them.
+The system tests need Chrome; Selenium fetches a matching chromedriver. The database is configured in `test/dummy/config/database.yml`; set `PGHOST`, `PGUSER` and `PGPASSWORD` if your PostgreSQL needs them.
 
 Tests that call the real GitHub API are skipped by default. To run them:
 

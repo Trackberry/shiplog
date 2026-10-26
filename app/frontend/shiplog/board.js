@@ -17,7 +17,13 @@ if (board) {
       headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-Token": csrfToken },
       body: JSON.stringify({ column: list.dataset.column, moved_id: Number(card.dataset.issueId), issue_ids: issueIds })
     })
-    if (!response.ok) window.location.reload()
+    if (!response.ok) return window.location.reload()
+
+    // The server renders the moved card as a reload would (Pinned badge, column select, Unpin).
+    const { card: html } = await response.json()
+    const template = document.createElement("template")
+    template.innerHTML = html.trim()
+    card.replaceWith(template.content.firstElementChild)
   }
 
   const cardAfter = (list, y) => {

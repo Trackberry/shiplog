@@ -72,16 +72,28 @@ class Shiplog::Admin::BoardsControllerTest < ActionDispatch::IntegrationTest
     patch "/admin/shiplog/board", params:, as: :json
   end
 
-  test "json update pins only the moved card, orders the column and returns 204" do
+  test "json update pins only the moved card and orders the column" do
     moved = shiplog_issues(:export_report)
     bystander = shiplog_issues(:later_item)
     natural = Shiplog::Roadmap.new(published_only: false).items.to_h { |item| [ item.issue.id, item.column ] }
     patch_json column: "coming_soon", moved_id: moved.id, issue_ids: [ bystander.id, moved.id ]
-    assert_response :no_content
+    assert_response :ok
     assert_equal [ "coming_soon", 1 ], [ moved.reload.pinned_column, moved.position ]
     assert_nil bystander.reload.pinned_column
     assert_equal 0, bystander.position
     assert_equal natural[bystander.id], Shiplog::Roadmap.new(published_only: false).items.find { |item| item.issue.id == bystander.id }.column
+  end
+
+  test "json update returns the moved card rendered as it would be on reload" do
+    moved = shiplog_issues(:export_report)
+    patch_json column: "coming_soon", moved_id: moved.id, issue_ids: [ moved.id ]
+
+    assert_response :ok
+    card = Nokogiri::HTML5.fragment(response.parsed_body["card"]).at_css(".shiplog-card")
+    assert_equal moved.id.to_s, card["data-issue-id"]
+    assert_includes card.css(".shiplog-badge").map(&:text), I18n.t("shiplog.admin.board.pinned")
+    assert_equal "coming_soon", card.at_css("select option[selected]")["value"]
+    assert card.at_css("input[name=unpin]"), "the moved card offers Unpin"
   end
 
   test "json update with a bad column is 422" do

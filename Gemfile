@@ -13,3 +13,8 @@ gem "rubocop-rails-omakase", require: false
 # Start debugger with binding.b [https://github.com/ruby/debug]
 # gem "debug", ">= 1.0.0"
 gem "webmock", group: :test
+
+group :test do
+  gem "capybara"
+  gem "selenium-webdriver"
+end
