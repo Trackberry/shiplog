@@ -43,6 +43,7 @@ en:
         regenerate_warning: Regenerating unpublishes this entry until re-approved.
         source_changed: GitHub text changed since this draft
         rewrite_error: Rewrite failed
+        not_rewritten: Not rewritten yet
         public_text: Public text
         source: GitHub source
         back: Back to drafts

@@ -19,6 +19,14 @@ class Shiplog::Admin::AuthorizationTest < ActionDispatch::IntegrationTest
   end
 end
 
+class Shiplog::Admin::DefaultAuthorizationTest < ActionDispatch::IntegrationTest
+  test "admin is forbidden when authorize_admin was never configured" do
+    Shiplog.reset_config!
+    get "/admin/shiplog/"
+    assert_response :forbidden
+  end
+end
+
 class Shiplog::Admin::ForgeryProtectionTest < ActionDispatch::IntegrationTest
   include ActiveJob::TestHelper
 

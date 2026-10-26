@@ -58,6 +58,66 @@ class Shiplog::RefreshJobTest < ActiveJob::TestCase
     end
   end
 
+  def not_found_body
+    {
+      data: { repository: { issue: nil } },
+      errors: [ { type: "NOT_FOUND", path: %w[repository issue], locations: [ { line: 3, column: 5 } ], message: "Could not resolve to an Issue." } ]
+    }.to_json
+  end
+
+  def local_issue(number: 40, node_id: "I_gone", labels: [ "public" ])
+    repository = Shiplog::Repository.find_or_create_by!(full_name: "Acme/widgets")
+    issue = repository.issues.create!(node_id:, number:, title: "Gone", body: "b", state: "open", labels:, assignees_count: 0,
+      url: "https://github.com/Acme/widgets/issues/#{number}", github_created_at: 1.day.ago, github_updated_at: 1.day.ago)
+    issue.entries.create!(kind: "roadmap", status: "approved", title: "Gone", body: "b", approved_at: 1.hour.ago, approved_by: "ed")
+    issue
+  end
+
+  test "a null issue closes the local row as deleted, keeping it and its entries" do
+    issue = local_issue
+    stub_request(:post, URL).to_return(body: not_found_body)
+
+    Shiplog::RefreshJob.perform_now("Acme/widgets", "issue", 40)
+
+    issue.reload
+    assert_equal %w[closed deleted], [ issue.state, issue.state_reason ]
+    assert_equal 1, issue.entries.count
+    assert_not_includes Shiplog::Roadmap.new(published_only: false).items.map(&:issue), issue
+  end
+
+  test "a deleted issue never gets a feature draft" do
+    issue = local_issue
+    stub_request(:post, URL).to_return(body: not_found_body)
+
+    Shiplog::RefreshJob.perform_now("Acme/widgets", "issue", 40)
+
+    assert_not issue.entries.exists?(kind: "feature")
+  end
+
+  test "closing a deleted issue leaves a missing local row alone" do
+    stub_request(:post, URL).to_return(body: not_found_body)
+    assert_nothing_raised { Shiplog::RefreshJob.perform_now("Acme/widgets", "issue", 41) }
+  end
+
+  test "a transferred issue returned under a different node closes the old local row" do
+    issue = local_issue(number: 12, node_id: "I_old")
+    stub_request(:post, URL).to_return(body: github_fixture("issue_single"))
+
+    Shiplog::RefreshJob.perform_now("Acme/widgets", "issue", 12)
+
+    assert_equal %w[closed deleted], [ issue.reload.state, issue.state_reason ]
+    assert Shiplog::Issue.exists?(node_id: "I_kwDOSync001")
+  end
+
+  test "an unchanged node id does not close the local row" do
+    issue = local_issue(number: 1, node_id: "I_kwDOSync001")
+    stub_request(:post, URL).to_return(body: github_fixture("issue_single"))
+
+    Shiplog::RefreshJob.perform_now("Acme/widgets", "issue", 1)
+
+    assert_equal "open", issue.reload.state
+  end
+
   test "ignores repositories that are not configured" do
     assert_no_difference -> { Shiplog::Repository.count } do
       Shiplog::RefreshJob.perform_now("Other/repo", "issue", 1)

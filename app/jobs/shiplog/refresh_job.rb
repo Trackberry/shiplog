@@ -24,6 +24,15 @@ module Shiplog
       owner, name = repository.full_name.split("/", 2)
       node = Github::Client.new.query(query, { owner:, name:, number: }).dig("repository", field)
       importer.new(repository).import(node) if node
+      close_deleted(repository, number, node) if field == "issue"
+    end
+
+    # Deleted issues come back as null; transferred ones may come back as a different node. Either way the local
+    # row at this repository and number is gone from GitHub: close it, keeping the row and its entries for audit.
+    def close_deleted(repository, number, node)
+      Issue.where(repository:, number:).where.not(node_id: node&.fetch("id")).find_each do |issue|
+        issue.update!(state: "closed", state_reason: "deleted", closed_at: issue.closed_at || Time.current)
+      end
     end
   end
 end

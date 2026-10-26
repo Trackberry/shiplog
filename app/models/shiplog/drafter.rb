@@ -7,7 +7,12 @@ module Shiplog
     def self.call
       draft_roadmap_items
       draft_shipped_features
+      requeue_lost_rewrites
     end
+
+    # Rewrite jobs can be lost (queue flushed, process killed). Drafts that never got a result nor an error are retried.
+    REQUEUE_AFTER = 1.hour
+    REQUEUE_LIMIT = 100
 
     # Returns the new entry, or nil when one already exists for the subject and kind.
     def self.draft(subject, kind, released_on: nil)
@@ -41,6 +46,11 @@ module Shiplog
       end
     end
 
+    def self.requeue_lost_rewrites
+      Entry.draft.where(rewritten_at: nil, rewrite_error: nil, created_at: ..REQUEUE_AFTER.ago)
+        .order(:created_at).limit(REQUEUE_LIMIT).ids.each { |id| RewriteEntryJob.perform_later(id) }
+    end
+
     def self.shipped_candidates
       drafted = Entry.feature.where(subject_type: Issue.name).select(:subject_id)
       Issue.publicly_labeled.where(state: "closed", state_reason: "completed", closed_at: FEATURE_LOOKBACK.ago..)
@@ -54,6 +64,6 @@ module Shiplog
         .group(:issue_node_id).maximum(PullRequest.arel_table[:merged_at])
     end
 
-    private_class_method :draft_roadmap_items, :draft_shipped_features, :shipped_candidates, :merged_at_by_issue_node_id
+    private_class_method :draft_roadmap_items, :draft_shipped_features, :requeue_lost_rewrites, :shipped_candidates, :merged_at_by_issue_node_id
   end
 end

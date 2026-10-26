@@ -10,12 +10,12 @@ Gem::Specification.new do |spec|
   spec.description = "A mountable Rails engine that turns GitHub issues, pull requests and commits into a customer-friendly roadmap and changelog, with LLM drafts approved by an admin."
   spec.license     = "MIT"
 
-  spec.metadata["homepage_uri"] = spec.homepage
+  spec.metadata["rubygems_mfa_required"] = "true"
   spec.metadata["source_code_uri"] = spec.homepage
   spec.metadata["changelog_uri"] = "#{spec.homepage}/blob/main/CHANGELOG.md"
 
   spec.files = Dir["{app,config,db,lib}/**/*", "MIT-LICENSE", "README.md", "CHANGELOG.md"]
   spec.required_ruby_version = ">= 4.0"
 
-  spec.add_dependency "rails", ">= 8.1.4"
+  spec.add_dependency "rails", ">= 8.1.4", "< 9"
 end

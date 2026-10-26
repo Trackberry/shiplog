@@ -9,7 +9,7 @@ A mountable Rails engine that turns your GitHub issues, pull requests and commit
 ## Requirements
 
 - Ruby 4.0 or newer
-- Rails 8.1 or newer
+- Rails 8.1.4 or newer (< 9)
 - PostgreSQL (tables use `jsonb`)
 - A job backend for Active Job (GoodJob, Solid Queue, ...)
 
@@ -48,7 +48,7 @@ end
 
 The generator writes the admin mount as a comment because authentication differs between apps. Uncomment it once it is wrapped in a constraint.
 
-`config.authorize_admin` is checked as well by the admin controllers, and a falsy result returns 403. Use it as defence in depth.
+`config.authorize_admin` is checked by the admin controllers and a falsy result returns 403. It is fail-closed: the default denies everyone, so a mount that is not configured is never open. The generated initializer sets `config.authorize_admin = ->(controller) { true }` because the route constraint around the mount does the authentication. If you do not wrap the mount in a constraint, replace it with a real check (for example `controller.current_user&.admin?`).
 
 The public paths come from `config.roadmap_path` and `config.changelog_path`, read when routes are drawn.
 
@@ -92,7 +92,7 @@ All settings live in `config/initializers/shiplog.rb`:
 | `prompt_builder` | `nil` | Optional `->(kind:, context:) { String }` replacing the built-in prompts. `kind` is `"roadmap"`, `"feature"` or `"change"`. |
 | `public_parent_controller` | `"ActionController::Base"` | Parent class of the public controllers. Read once when they load, so set it in the initializer. |
 | `public_layout` | `"shiplog/application"` | Layout of the public pages. |
-| `authorize_admin` | `->(controller) { true }` | Extra admin check; return false for a 403. |
+| `authorize_admin` | `->(controller) { false }` | Admin check; return false for a 403. Denies everyone until set; the generated initializer opens it, relying on your route constraint. |
 | `current_admin` | `->(controller) { controller.try(:current_user)&.try(:email) }` | Stored as the approver of an entry. |
 | `roadmap_path` | `"roadmap"` | Path of the public roadmap. |
 | `changelog_path` | `"changelog"` | Path of the public changelog. |
@@ -211,9 +211,14 @@ end
 
 Every entry starts as a **draft**. In the admin inbox you can edit the text, regenerate it, approve it or discard it. Only approved entries are public. Discarded entries are never proposed again but can be restored. If the GitHub text changes after a draft was written, the entry is flagged "GitHub text changed since this draft" and can be regenerated, and approved text is never replaced silently.
 
+Approved changelog entries do not react to later GitHub changes (a reverted pull request, a removed label): discard them by hand in the admin. A roadmap issue that is re-labelled or reopened shows its previously approved text again, and the inbox flags it as "GitHub text changed". Issues deleted or transferred on GitHub are closed locally (state reason `deleted`), which removes them from the roadmap; their entries are kept.
+
+Drafts whose rewrite job was lost (no result and no error after an hour) are queued again by the next sync, and the admin marks them "Not rewritten yet" until then.
+
 ## Hosting notes
 
 - Set `public_parent_controller` in an initializer (`config/initializers/shiplog.rb`). It is read once, when the engine's public controller class loads, so changing it later has no effect.
+- Public pages run under the host's `public_parent_controller`, so its `before_action`s (authentication, for example) apply to them. Choose a parent controller that lets visitors through.
 - Host layouts rendered by engine controllers must use `main_app.` route helpers (for example `main_app.root_path`), because the engine's own routes are the default inside them.
 - If your host layout shows per-user content, add `etag { current_user&.id }` to the parent controller so cached responses are not shared between users.
 

@@ -7,6 +7,7 @@ module Shiplog
       Shiplog.config.repositories.each do |full_name|
         scan(Repository.find_or_create_by!(full_name:), client)
       end
+      Drafter.call
     end
 
     private

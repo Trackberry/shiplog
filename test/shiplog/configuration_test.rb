@@ -1,6 +1,10 @@
 require "test_helper"
 
 class Shiplog::ConfigurationTest < ActiveSupport::TestCase
+  test "admin access is denied by default" do
+    assert_not Shiplog::Configuration.new.authorize_admin.call(Object.new)
+  end
+
   test "defaults" do
     config = Shiplog.config
     assert_equal "public", config.public_label
@@ -9,7 +13,7 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
     assert_equal "roadmap", config.roadmap_path
     assert_equal "changelog", config.changelog_path
     assert_equal "ActionController::Base", config.public_parent_controller
-    assert config.authorize_admin.call(Object.new)
+    assert_not config.authorize_admin.call(Object.new)
   end
 
   test "github_token accepts a string or a callable" do

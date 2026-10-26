@@ -16,6 +16,11 @@ end
 
 require "webmock/minitest"
 
+class ActionDispatch::IntegrationTest
+  # The default is fail-closed; the dummy app stands in for a host that wraps the admin mount in a route constraint.
+  setup { Shiplog.config.authorize_admin = ->(_controller) { true } }
+end
+
 class ActiveSupport::TestCase
   teardown { Shiplog.reset_config! }
 

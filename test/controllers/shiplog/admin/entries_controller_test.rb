@@ -44,6 +44,25 @@ class Shiplog::Admin::EntriesControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "LLM timed out"
   end
 
+  test "index flags drafts that have not been rewritten yet" do
+    Shiplog::Entry.update_all(rewritten_at: Time.current)
+    entry = shiplog_entries(:csv_change_draft)
+    entry.update!(rewritten_at: nil, rewrite_error: nil)
+    get "/admin/shiplog/"
+    assert_select ".shiplog-badge", text: "Not rewritten yet", count: 1
+
+    entry.update!(rewritten_at: Time.current)
+    get "/admin/shiplog/"
+    assert_select ".shiplog-badge", text: "Not rewritten yet", count: 0
+  end
+
+  test "index does not flag a failed rewrite as not rewritten yet" do
+    Shiplog::Entry.update_all(rewritten_at: Time.current)
+    shiplog_entries(:csv_change_draft).update!(rewritten_at: nil, rewrite_error: "boom")
+    get "/admin/shiplog/"
+    assert_select ".shiplog-badge", text: "Not rewritten yet", count: 0
+  end
+
   test "index escapes titles" do
     shiplog_entries(:csv_change_draft).update!(title: "<script>alert(1)</script>")
     get "/admin/shiplog/"

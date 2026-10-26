@@ -39,8 +39,10 @@ Shiplog.configure do |config|
   # config.public_parent_controller = "ActionController::Base"
   # config.public_layout = "shiplog/application"
 
-  # Checked by the admin controllers in addition to your route constraint; return false for a 403.
-  # config.authorize_admin = ->(controller) { true }
+  # Checked by the admin controllers; return false for a 403. It defaults to denying everyone.
+  # The line below opens it because the route constraint around the admin mount does the authentication.
+  # If the mount is not wrapped in such a constraint, replace it with a real check (e.g. controller.current_user&.admin?).
+  config.authorize_admin = ->(controller) { true } # the route constraint around the admin mount does the authentication
 
   # Recorded as the approver of an entry.
   # config.current_admin = ->(controller) { controller.try(:current_user)&.try(:email) }

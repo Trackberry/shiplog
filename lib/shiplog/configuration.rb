@@ -16,7 +16,7 @@ module Shiplog
       @tone = "Friendly, concise, no jargon. Address the customer as 'you'."
       @public_parent_controller = "ActionController::Base"
       @public_layout = "shiplog/application"
-      @authorize_admin = ->(_controller) { true }
+      @authorize_admin = ->(_controller) { false }
       @current_admin = ->(controller) { controller.try(:current_user)&.try(:email) }
       @roadmap_path = "roadmap"
       @changelog_path = "changelog"

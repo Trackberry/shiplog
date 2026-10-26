@@ -25,6 +25,7 @@ class Shiplog::DrafterTest < ActiveJob::TestCase
   end
 
   test "is idempotent" do
+    Shiplog::Entry.update_all(rewritten_at: Time.current)
     Shiplog::Drafter.call
     assert_no_difference -> { Shiplog::Entry.count } do
       assert_no_enqueued_jobs { Shiplog::Drafter.call }
@@ -117,4 +118,53 @@ class Shiplog::DrafterTest < ActiveJob::TestCase
       ActiveSupport::Notifications.subscribed(callback, "sql.active_record") { yield }
       count
     end
+
+  test "no feature draft for a deleted issue" do
+    issue = shiplog_issues(:bulk_upload)
+    issue.update!(state: "closed", state_reason: "deleted", closed_at: Time.utc(2026, 10, 12))
+
+    Shiplog::Drafter.call
+
+    assert_not issue.entries.exists?(kind: "feature")
+  end
+
+  test "re-enqueues rewrites for drafts that were never rewritten and are over an hour old" do
+    lost = shiplog_entries(:csv_change_draft)
+    lost.update_columns(rewritten_at: nil, rewrite_error: nil, created_at: 2.hours.ago)
+
+    assert_enqueued_with(job: Shiplog::RewriteEntryJob, args: [ lost.id ]) { Shiplog::Drafter.call }
+  end
+
+  test "does not re-enqueue recent, errored, rewritten or approved entries" do
+    Shiplog::Entry.update_all(rewritten_at: Time.current)
+    recent = shiplog_entries(:csv_change_draft)
+    recent.update_columns(rewritten_at: nil, rewrite_error: nil, created_at: 10.minutes.ago)
+    soon = shiplog_entries(:soon_item_roadmap)
+    soon.update_columns(rewritten_at: nil, rewrite_error: "boom", created_at: 2.hours.ago)
+    approved = shiplog_entries(:bulk_upload_roadmap)
+    approved.update_columns(rewritten_at: nil, rewrite_error: nil, created_at: 2.hours.ago)
+
+    Shiplog::Drafter.call
+
+    ids = enqueued_jobs.select { |j| j["job_class"] == "Shiplog::RewriteEntryJob" }.flat_map { |j| j["arguments"] }
+    assert_not_includes ids, recent.id
+    assert_not_includes ids, soon.id
+    assert_not_includes ids, approved.id
+  end
+
+  test "re-enqueues at most 100 lost rewrites per call" do
+    Shiplog::Entry.update_all(rewritten_at: Time.current)
+    repository = shiplog_repositories(:app)
+    105.times do |i|
+      issue = repository.issues.create!(node_id: "I_lost#{i}", number: 1000 + i, title: "t", body: "b", state: "open", labels: [],
+        assignees_count: 0, url: "https://example.test/#{i}", github_created_at: 1.day.ago, github_updated_at: 1.day.ago)
+      issue.entries.create!(kind: "change", title: "t", body: "b", created_at: 2.hours.ago)
+    end
+
+    lost_ids = Shiplog::Entry.where(rewritten_at: nil, kind: "change").ids
+    Shiplog::Drafter.call
+
+    requeued = enqueued_jobs.select { |j| j["job_class"] == "Shiplog::RewriteEntryJob" }.flat_map { |j| j["arguments"] } & lost_ids
+    assert_equal 100, requeued.size
+  end
 end

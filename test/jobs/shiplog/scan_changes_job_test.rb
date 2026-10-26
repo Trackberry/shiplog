@@ -43,14 +43,14 @@ class Shiplog::ScanChangesJobTest < ActiveJob::TestCase
     pr = repository.pull_requests.create!(node_id: "PR_x", number: 5, title: "Add thing", state: "merged", merged_at: Time.utc(2026, 10, 15, 9),
       author_login: "ed", labels: [], github_updated_at: Time.utc(2026, 10, 15))
 
-    assert_enqueued_jobs 2, only: Shiplog::RewriteEntryJob do
-      Shiplog::ScanChangesJob.perform_now
-    end
+    Shiplog::ScanChangesJob.perform_now
 
     pr_entry = pr.entries.find_by!(kind: "change")
+    assert_enqueued_with(job: Shiplog::RewriteEntryJob, args: [ pr_entry.id ])
     assert pr_entry.draft?
     assert_equal Date.new(2026, 10, 15), pr_entry.released_on
     commit = repository.commits.find_by!(sha: "a" * 40)
+    assert_enqueued_with(job: Shiplog::RewriteEntryJob, args: [ commit.entries.find_by!(kind: "change").id ])
     assert_equal Date.new(2026, 10, 12), commit.entries.find_by!(kind: "change").released_on
     assert_not repository.commits.find_by!(sha: "c" * 40).entries.exists?
   end
@@ -87,9 +87,22 @@ class Shiplog::ScanChangesJobTest < ActiveJob::TestCase
     assert pull_request.entries.exists?(kind: "change")
   end
 
+  test "runs the drafter once after all repositories" do
+    Shiplog.config.repositories = [ "Acme/widgets", "Acme/gadgets" ]
+    calls = []
+    original = Shiplog::Drafter.method(:call)
+    Shiplog::Drafter.define_singleton_method(:call) { calls << Shiplog::Repository.where.not(changes_scanned_at: nil).count }
+
+    Shiplog::ScanChangesJob.perform_now
+
+    assert_equal [ 2 ], calls
+  ensure
+    Shiplog::Drafter.define_singleton_method(:call, original)
+  end
+
   test "advances the window even with no candidates" do
     stub_marker("history", { data: { repository: { defaultBranchRef: nil } } }.to_json)
-    assert_no_difference -> { Shiplog::Entry.count } do
+    assert_no_difference -> { Shiplog::Entry.change.count } do
       Shiplog::ScanChangesJob.perform_now
     end
 

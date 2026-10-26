@@ -22,6 +22,15 @@ class Shiplog::Generators::InstallGeneratorTest < Rails::Generators::TestCase
     end
   end
 
+  test "the initializer explicitly opens the admin check and explains why" do
+    run_generator_without_rake
+
+    assert_file "config/initializers/shiplog.rb" do |content|
+      assert_match(/^  config\.authorize_admin = ->\(controller\) \{ true \}/, content)
+      assert_match(/route constraint around the admin mount does the authentication/, content)
+    end
+  end
+
   test "the generated initializer is valid Ruby" do
     run_generator_without_rake
 
