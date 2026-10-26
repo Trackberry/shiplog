@@ -3,14 +3,17 @@ require "nokogiri"
 module Shiplog
   class ImageFetcher
     # Which images of a GitHub body (its rendered HTML) may be downloaded: <img src> URLs on GitHub's own image
-    # hosts, https only, matched on the exact host (so user-images.githubusercontent.com.evil.com is out).
+    # hosts (raw. and objects.githubusercontent.com too: GitHub serves attachments and redirects from them),
+    # https only, matched on the exact host (so user-images.githubusercontent.com.evil.com is out).
     module Sources
       HOSTS = %w[
         private-user-images.githubusercontent.com user-images.githubusercontent.com camo.githubusercontent.com
         raw.githubusercontent.com objects.githubusercontent.com
       ].freeze
       ATTACHMENTS_HOST = "github.com".freeze
-      ATTACHMENTS_PATH = "/user-attachments/assets/".freeze
+      # Exactly /user-attachments/assets/<id>: the id is letters, digits and dashes, so no dot, no slash and no
+      # percent-encoding (%2e%2e, %2f) can walk out of the directory.
+      ATTACHMENTS_PATH = %r{\A/user-attachments/assets/[A-Za-z0-9-]+\z}
 
       # The allowed, distinct image URLs of the HTML, in document order, at most `limit`.
       def self.urls(html, limit:)
@@ -25,7 +28,7 @@ module Shiplog
         host = uri.host.to_s.downcase
         return true if HOSTS.include?(host)
 
-        host == ATTACHMENTS_HOST && uri.path.start_with?(ATTACHMENTS_PATH) && !uri.path.split("/").include?("..")
+        host == ATTACHMENTS_HOST && ATTACHMENTS_PATH.match?(uri.path)
       end
 
       def self.parse(value)

@@ -20,6 +20,20 @@ end
 
 require "webmock/minitest"
 
+# WebMock hands a response body to Net::HTTP whole. While a test sets Thread.current[:shiplog_stream] (see
+# ActiveSupport::TestCase#streaming), read_body yields the chunks of that Enumerable one by one instead, and
+# stops pulling when the caller raises.
+module StreamedWebMockBody
+  def read_body(dest = nil, &block)
+    stream = Thread.current[:shiplog_stream]
+    return super unless stream && block
+
+    stream.each(&block)
+    nil
+  end
+end
+Net::WebMockHTTPResponse.prepend(StreamedWebMockBody)
+
 class ActionDispatch::IntegrationTest
   # The default is fail-closed; the dummy app stands in for a host that wraps the admin mount in a route constraint.
   setup { Shiplog.config.authorize_admin = ->(_controller) { true } }
@@ -78,6 +92,14 @@ class ActiveSupport::TestCase
     yield
   ensure
     own ? singleton.send(:define_method, name, original) : singleton.send(:remove_method, name)
+  end
+
+  # Runs the block with WebMock responses streamed as the chunks of `chunks` (any Enumerable, consumed lazily).
+  def streaming(chunks)
+    Thread.current[:shiplog_stream] = chunks
+    yield
+  ensure
+    Thread.current[:shiplog_stream] = nil
   end
 
   # Runs the block with ActiveStorage::Blob.create_and_upload! recorded: each call appends :upload to `log` and
