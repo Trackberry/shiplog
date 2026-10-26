@@ -76,4 +76,33 @@ class Shiplog::Sync::PullRequestImporterTest < ActiveSupport::TestCase
     end
     assert_equal "Newer", Shiplog::PullRequest.find_by!(node_id: @nodes[0]["id"]).title
   end
+
+  test "stores the oids and whether the lockfile changed" do
+    node = @nodes[0].deep_dup.merge("baseRefOid" => "cb3cbf6b", "mergeCommit" => { "oid" => "53e43492" },
+      "files" => { "pageInfo" => { "hasNextPage" => false }, "nodes" => [ { "path" => "app/a.rb" }, { "path" => "Gemfile.lock" } ] })
+
+    pull_request = @importer.import(node)
+
+    assert_equal %w[cb3cbf6b 53e43492 true], [ pull_request.base_oid, pull_request.merge_oid, pull_request.lockfile_changed.to_s ]
+    assert_includes Shiplog::PullRequest.awaiting_upgrade_check, pull_request
+  end
+
+  test "honours config.lockfile_path and ignores a lockfile of the same name elsewhere" do
+    Shiplog.config.lockfile_path = "backend/Gemfile.lock"
+    files = { "nodes" => [ { "path" => "Gemfile.lock" } ] }
+    assert_not @importer.import(@nodes[0].deep_dup.merge("files" => files)).lockfile_changed
+
+    files = { "nodes" => [ { "path" => "backend/Gemfile.lock" } ] }
+    assert @importer.import(@nodes[0].deep_dup.merge("files" => files, "updatedAt" => "2026-10-21T10:00:00Z")).lockfile_changed
+  end
+
+  test "a node without files does not erase the stored upgrade inputs" do
+    files = { "nodes" => [ { "path" => "Gemfile.lock" } ] }
+    @importer.import(@nodes[0].deep_dup.merge("files" => files, "baseRefOid" => "b", "mergeCommit" => { "oid" => "m" }))
+
+    nested = @nodes[0].deep_dup.merge("updatedAt" => "2026-10-21T10:00:00Z")
+    pull_request = @importer.import(nested)
+
+    assert_equal [ "b", "m", true ], [ pull_request.base_oid, pull_request.merge_oid, pull_request.lockfile_changed ]
+  end
 end

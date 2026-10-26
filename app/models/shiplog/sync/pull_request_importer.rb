@@ -30,7 +30,17 @@ module Shiplog
           state: STATES.fetch(node["state"]), merged_at: node["mergedAt"],
           author_login: author_login(node), labels: label_names(node),
           url: node["url"], github_updated_at: node["updatedAt"]
-        }
+        }.merge(upgrade_inputs(node))
+      end
+
+      # What upgrade detection needs. Nested pull requests (from an issue's closing references) carry no
+      # `files`, and must not erase what an earlier import stored.
+      def upgrade_inputs(node)
+        return {} unless node.key?("files")
+
+        paths = nodes_of(node, "files").map { |file| file["path"] }
+        { base_oid: node["baseRefOid"], merge_oid: node.dig("mergeCommit", "oid"),
+          lockfile_changed: paths.include?(Shiplog.config.lockfile_path) }
       end
 
       def repository_for(node)

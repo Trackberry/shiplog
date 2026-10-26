@@ -21,6 +21,53 @@ class Shiplog::Sync::RepositorySyncTest < ActiveSupport::TestCase
     @pulls = stub_graphql("pullRequests(first", github_fixture("pull_requests"), EMPTY_PULLS)
   end
 
+  def lock(version) = "GEM\n  remote: https://rubygems.pkg.github.com/Acme/\n  specs:\n    gadgets (#{version})\n\nPLATFORMS\n  ruby\n\nDEPENDENCIES\n  gadgets\n"
+
+  def stub_gadgets_upgrade
+    Shiplog.config.repositories = [ "Acme/widgets", { name: "Acme/gadgets", changelog: false, gem: "gadgets" } ]
+    { "base1" => "1.0.0", "merge1" => "1.1.0" }.each do |oid, version|
+      stub_request(:post, URL).with { |req| JSON.parse(req.body).dig("variables", "expression") == "#{oid}:Gemfile.lock" }
+        .to_return(body: { data: { repository: { object: { text: lock(version) } } } }.to_json)
+    end
+    stub_request(:get, "https://api.github.com/repos/Acme/gadgets/compare/v1.0.0...v1.1.0").to_return(body: { commits: [ { node_id: "C1" } ] }.to_json)
+    stub_request(:post, URL).with { |req| JSON.parse(req.body).dig("variables", "ids") == [ "C1" ] }.to_return(body: { data: { nodes: [
+      { oid: "c1", associatedPullRequests: { nodes: [ { number: 3, title: "Faster gadgets", body: "b", url: "u", state: "MERGED",
+                                                      repository: { nameWithOwner: "Acme/gadgets" } } ] } }
+    ] } }.to_json)
+  end
+
+  def with_lockfile_files(body)
+    JSON.parse(body).tap do |page|
+      page.dig("data", "repository", "pullRequests", "nodes").first.merge!(
+        "baseRefOid" => "base1", "mergeCommit" => { "oid" => "merge1" }, "files" => { "nodes" => [ { "path" => "Gemfile.lock" } ] }
+      )
+    end.to_json
+  end
+
+  test "detects gem upgrades in the merged pull requests it imports" do
+    stub_gadgets_upgrade
+    stub_graphql("issues(first", github_fixture("issues_page_2"))
+    stub_graphql("pullRequests(first", with_lockfile_files(github_fixture("pull_requests")), EMPTY_PULLS)
+
+    sync.call
+
+    upgrade = @repository.pull_requests.find_by!(number: 12).upgrades.sole
+    assert_equal [ "gadgets", "v1.0.0", "v1.1.0" ], [ upgrade.gem_name, upgrade.from_ref, upgrade.to_ref ]
+    assert_equal [ 3 ], upgrade.gem_changes.map { |change| change["number"] }
+  end
+
+  test "does not detect upgrades in a changelog: false repository" do
+    stub_gadgets_upgrade
+    Shiplog.config.repositories = [ { name: "Acme/widgets", changelog: false }, { name: "Acme/gadgets", changelog: false, gem: "gadgets" } ]
+    stub_graphql("issues(first", github_fixture("issues_page_2"))
+    stub_graphql("pullRequests(first", with_lockfile_files(github_fixture("pull_requests")), EMPTY_PULLS)
+
+    sync.call
+
+    assert_not_requested(:post, URL) { |req| JSON.parse(req.body).dig("variables", "expression") }
+    assert_equal 0, Shiplog::PullRequestUpgrade.count
+  end
+
   test "pages through issues and imports every node" do
     stub_issues_and_prs
 

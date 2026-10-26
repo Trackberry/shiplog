@@ -16,6 +16,7 @@ module Shiplog
         @started_at = Time.current
         sync_issues
         sync_pull_requests
+        UpgradeDetector.new(@repository, client: @client).call
         @repository.update!(sync_cursor: next_cursor, synced_at: Time.current, last_error: nil)
       rescue StandardError => error
         @repository.update!(last_error: error.message)

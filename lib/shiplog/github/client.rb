@@ -6,6 +6,7 @@ module Shiplog
   module Github
     class Client
       ENDPOINT = URI("https://api.github.com/graphql")
+      REST_ROOT = "https://api.github.com".freeze
       RETRYABLE_STATUSES = [ 502, 503, 504 ].freeze
       NETWORK_ERRORS = [
         Net::OpenTimeout, Net::ReadTimeout, Errno::ECONNRESET, Errno::ECONNREFUSED,
@@ -25,40 +26,72 @@ module Shiplog
         handle(response)
       end
 
+      # REST GET (e.g. "/repos/owner/name/compare/a...b") with the same auth, errors and rate-limit
+      # handling as #query. Returns the parsed JSON body; a 404 raises NotFound.
+      def get(path)
+        raise Error, "No GitHub token configured (Shiplog.config.github_token)" if @token.blank?
+
+        uri = URI("#{REST_ROOT}#{path}")
+        response = perform(retried: false) { build_get(uri) }
+        check_status(response)
+        JSON.parse(response.body)
+      rescue JSON::ParserError
+        raise Error, "GitHub returned an unparseable response"
+      end
+
       private
 
-      def post(payload, retried: false)
-        response = request(payload)
+      def post(payload) = perform(retried: false) { build_request(payload) }
+
+      def perform(retried:, &build)
+        response = request(build.call)
         return response unless RETRYABLE_STATUSES.include?(response.code.to_i) && !retried
 
         sleep @retry_delay
-        post(payload, retried: true)
+        perform(retried: true, &build)
       end
 
-      def request(payload)
-        http = Net::HTTP.new(ENDPOINT.host, ENDPOINT.port)
+      def request(http_request)
+        uri = http_request.uri
+        http = Net::HTTP.new(uri.host, uri.port)
         http.use_ssl = true
         http.open_timeout = 10
         http.read_timeout = 30
-        http.request(build_request(payload))
+        http.request(http_request)
       rescue *NETWORK_ERRORS => error
         raise Transient, "#{error.class}: #{error.message}"
       end
 
       def build_request(payload)
         Net::HTTP::Post.new(ENDPOINT).tap do |req|
-          req["Authorization"] = "Bearer #{@token}"
+          authorize(req)
           req["Content-Type"] = "application/json"
-          req["User-Agent"] = "shiplog/#{Shiplog::VERSION}"
           req.body = payload
         end
       end
 
-      def handle(response)
+      def build_get(uri)
+        Net::HTTP::Get.new(uri).tap do |req|
+          authorize(req)
+          req["Accept"] = "application/vnd.github+json"
+        end
+      end
+
+      def authorize(req)
+        req["Authorization"] = "Bearer #{@token}"
+        req["User-Agent"] = "shiplog/#{Shiplog::VERSION}"
+      end
+
+      def check_status(response)
         status = response.code.to_i
         raise_rate_limited(response) if rate_limited?(response, status)
         raise Transient, "GitHub responded with HTTP #{status}" if status >= 500
+        raise NotFound, "GitHub responded with HTTP 404" if status == 404
         raise Error, "GitHub responded with HTTP #{status}" unless status.between?(200, 299)
+      end
+
+      def handle(response)
+        check_status(response)
 
         body = JSON.parse(response.body)
         errors = body["errors"].to_a
