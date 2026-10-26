@@ -314,9 +314,15 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
     config = Shiplog::Configuration.new
     config.changelog_path = "whats-new"
     [ "", "  ", "/", "//", nil, "change log", " changelog", "changelog.atom", "..", "../x", "a/../b", "a//b", "change?x=1", "change#top",
-      "Changelog", "chângelog", "a\\b", :changelog ].each do |value|
+      "chângelog", "a\\b", :changelog ].each do |value|
       assert_raises(ArgumentError, value.inspect) { config.changelog_path = value }
     end
     assert_equal "whats-new", config.changelog_path
+  end
+
+  test "changelog_path accepts upper case, as Rails routes do" do
+    config = Shiplog::Configuration.new
+    config.changelog_path = "/Changelog/"
+    assert_equal "Changelog", config.changelog_path
   end
 end

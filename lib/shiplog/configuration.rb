@@ -20,7 +20,7 @@ module Shiplog
     # "docs/whats_new"); surrounding slashes are stripped. Permalinks live below it and the Atom feed is
     # "<path>.atom". Read when routes are drawn.
     attr_reader :changelog_path
-    CHANGELOG_PATH = %r{\A[a-z0-9_-]+(?:/[a-z0-9_-]+)*\z}
+    CHANGELOG_PATH = %r{\A[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*\z}
 
     # The site's canonical origin, e.g. "https://trackberry.com" (nil by default). When set, the Atom feed's ids
     # and links, entry links, og:url and the other absolute URLs use it instead of the request's host, which
@@ -120,7 +120,7 @@ module Shiplog
     def changelog_path=(value)
       path = value.gsub(%r{\A/+|/+\z}, "") if value.is_a?(String)
       unless path && CHANGELOG_PATH.match?(path)
-        raise ArgumentError, "changelog_path must be a path of a-z, 0-9, dashes and underscores, with / between segments (like \"changelog\"), got #{value.inspect}"
+        raise ArgumentError, "changelog_path must be a path of letters, digits, dashes and underscores, with / between segments (like \"changelog\"), got #{value.inspect}"
       end
       @changelog_path = path
     end
