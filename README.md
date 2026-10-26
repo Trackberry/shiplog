@@ -399,3 +399,12 @@ SHIPLOG_LIVE_GITHUB=1 GITHUB_TOKEN=... SHIPLOG_LIVE_REPO=owner/name bin/rails te
 ## License
 
 Released under the [MIT License](MIT-LICENSE).
+
+## Releasing
+
+Releases are published by `.github/workflows/release.yml` through RubyGems trusted publishing; there is no API key and no manual `gem push`.
+
+1. Open a pull request that bumps `lib/shiplog/version.rb` and adds a `## x.y.z (date)` entry to `CHANGELOG.md`.
+2. Merge it. The workflow reruns the tests, refuses a version that is already on RubyGems, publishes the gem, tags `vx.y.z` and creates the GitHub release with that changelog entry as its notes.
+
+The workflow can also be started by hand (Actions → Release → Run workflow), for the first release or to retry one that failed for an unrelated reason.

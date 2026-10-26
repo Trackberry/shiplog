@@ -1,0 +1,82 @@
+name: Release
+
+# Publishing is triggered by the version file changing on main, which only a
+# merged pull request can do. There is no manual push path and no API key: the
+# gem is signed for by RubyGems trusted publishing, which trusts this workflow
+# in this repository and nothing else.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "lib/shiplog/version.rb"
+  # The first release has no version bump to ride in on, and a release that
+  # failed on something unrelated should not need a fake one either.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: rubygems
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      RAILS_ENV: test
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "4.0.9"
+          bundler-cache: true
+
+      # The suite runs again here rather than trusting the pull request's run,
+      # because what ships is this commit, not the one that was reviewed.
+      - run: bin/rails db:create db:schema:load
+      - run: bin/rails test
+      - run: bin/rails test test/system
+
+      - name: Read the version being released
+        id: version
+        run: echo "value=$(ruby -Ilib -rshiplog/version -e 'print Shiplog::VERSION')" >> "$GITHUB_OUTPUT"
+
+      - name: Stop if this version is already published
+        run: |
+          if gem list --remote --exact shiplog --all | grep -q "\b${{ steps.version.outputs.value }}\b"; then
+            echo "shiplog ${{ steps.version.outputs.value }} is already on RubyGems."
+            exit 1
+          fi
+
+      - uses: rubygems/release-gem@v1
+
+      # The notes are the version's changelog entry, so the release page and
+      # the changelog cannot drift apart.
+      - name: Write the release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          notes=$(ruby -e '
+            changelog = File.read("CHANGELOG.md")
+            print changelog[/^## #{Regexp.escape(ENV.fetch("VERSION"))}\b.*?(?=\n## |\z)/m].to_s.strip
+          ')
+          gh release create "v${VERSION}" --title "v${VERSION}" --notes "${notes}"
