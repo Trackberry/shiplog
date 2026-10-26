@@ -1,0 +1,88 @@
+{
+  "data": {
+    "repository": {
+      "pullRequests": {
+        "pageInfo": {
+          "hasNextPage": true,
+          "endCursor": "Y3Vyc29yOnYyOpHOAAAD"
+        },
+        "nodes": [
+          {
+            "id": "PR_kwDOSync103",
+            "number": 12,
+            "title": "PR 12 title",
+            "body": "PR 12 body",
+            "state": "MERGED",
+            "mergedAt": "2026-10-20T10:00:00Z",
+            "url": "https://github.com/Acme/widgets/pull/12",
+            "updatedAt": "2026-10-20T10:00:00Z",
+            "author": {
+              "login": "octocat"
+            },
+            "repository": {
+              "nameWithOwner": "Acme/widgets"
+            },
+            "labels": {
+              "nodes": [
+                {
+                  "name": "feature"
+                }
+              ]
+            },
+            "closingIssuesReferences": {
+              "nodes": [
+                {
+                  "id": "I_kwDOSync001"
+                }
+              ]
+            }
+          },
+          {
+            "id": "PR_kwDOSync104",
+            "number": 13,
+            "title": "PR 13 title",
+            "body": "PR 13 body",
+            "state": "OPEN",
+            "mergedAt": null,
+            "url": "https://github.com/Acme/widgets/pull/13",
+            "updatedAt": "2026-10-10T10:00:00Z",
+            "author": {
+              "login": "octocat"
+            },
+            "repository": {
+              "nameWithOwner": "Acme/widgets"
+            },
+            "labels": {
+              "nodes": []
+            },
+            "closingIssuesReferences": {
+              "nodes": []
+            }
+          },
+          {
+            "id": "PR_kwDOSync105",
+            "number": 14,
+            "title": "PR 14 title",
+            "body": "PR 14 body",
+            "state": "CLOSED",
+            "mergedAt": null,
+            "url": "https://github.com/Acme/widgets/pull/14",
+            "updatedAt": "2026-09-01T10:00:00Z",
+            "author": {
+              "login": "octocat"
+            },
+            "repository": {
+              "nameWithOwner": "Acme/widgets"
+            },
+            "labels": {
+              "nodes": []
+            },
+            "closingIssuesReferences": {
+              "nodes": []
+            }
+          }
+        ]
+      }
+    }
+  }
+}

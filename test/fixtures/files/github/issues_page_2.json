@@ -1,0 +1,38 @@
+{
+  "data": {
+    "repository": {
+      "issues": {
+        "pageInfo": {
+          "hasNextPage": false,
+          "endCursor": "Y3Vyc29yOnYyOpHOAAAC"
+        },
+        "nodes": [
+          {
+            "__typename": "Issue",
+            "id": "I_kwDOSync003",
+            "number": 3,
+            "title": "Issue 3 title",
+            "body": "Issue 3 body",
+            "state": "CLOSED",
+            "stateReason": "NOT_PLANNED",
+            "url": "https://github.com/Acme/widgets/issues/3",
+            "createdAt": "2026-09-01T09:00:00Z",
+            "updatedAt": "2026-10-03T10:00:00Z",
+            "closedAt": "2026-10-03T10:00:00Z",
+            "labels": {
+              "nodes": []
+            },
+            "milestone": null,
+            "assignees": {
+              "totalCount": 0
+            },
+            "parent": null,
+            "closedByPullRequestsReferences": {
+              "nodes": []
+            }
+          }
+        ]
+      }
+    }
+  }
+}

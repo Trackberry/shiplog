@@ -1,0 +1,116 @@
+{
+  "data": {
+    "repository": {
+      "issues": {
+        "pageInfo": {
+          "hasNextPage": true,
+          "endCursor": "Y3Vyc29yOnYyOpHOAAAB"
+        },
+        "nodes": [
+          {
+            "__typename": "Issue",
+            "id": "I_kwDOSync001",
+            "number": 1,
+            "title": "Issue 1 title",
+            "body": "Issue 1 body",
+            "state": "OPEN",
+            "stateReason": null,
+            "url": "https://github.com/Acme/widgets/issues/1",
+            "createdAt": "2026-09-01T09:00:00Z",
+            "updatedAt": "2026-10-01T10:00:00Z",
+            "closedAt": null,
+            "labels": {
+              "nodes": [
+                {
+                  "name": "public"
+                },
+                {
+                  "name": "soon"
+                }
+              ]
+            },
+            "milestone": {
+              "title": "v2"
+            },
+            "assignees": {
+              "totalCount": 1
+            },
+            "parent": null,
+            "closedByPullRequestsReferences": {
+              "nodes": []
+            }
+          },
+          {
+            "__typename": "Issue",
+            "id": "I_kwDOSync002",
+            "number": 2,
+            "title": "Issue 2 title",
+            "body": "Issue 2 body",
+            "state": "CLOSED",
+            "stateReason": "COMPLETED",
+            "url": "https://github.com/Acme/widgets/issues/2",
+            "createdAt": "2026-09-01T09:00:00Z",
+            "updatedAt": "2026-10-02T10:00:00Z",
+            "closedAt": "2026-10-02T10:00:00Z",
+            "labels": {
+              "nodes": [
+                {
+                  "name": "public"
+                }
+              ]
+            },
+            "milestone": null,
+            "assignees": {
+              "totalCount": 0
+            },
+            "parent": {
+              "id": "I_kwDOSync001"
+            },
+            "closedByPullRequestsReferences": {
+              "nodes": [
+                {
+                  "id": "PR_kwDOSync101",
+                  "number": 10,
+                  "title": "PR 10 title",
+                  "body": "PR 10 body",
+                  "state": "MERGED",
+                  "mergedAt": "2026-10-02T09:30:00Z",
+                  "url": "https://github.com/Acme/widgets/pull/10",
+                  "updatedAt": "2026-10-02T09:30:00Z",
+                  "author": {
+                    "login": "octocat"
+                  },
+                  "repository": {
+                    "nameWithOwner": "Acme/widgets"
+                  },
+                  "labels": {
+                    "nodes": []
+                  }
+                },
+                {
+                  "id": "PR_kwDOSync102",
+                  "number": 11,
+                  "title": "PR 11 title",
+                  "body": "PR 11 body",
+                  "state": "OPEN",
+                  "mergedAt": null,
+                  "url": "https://github.com/Acme/widgets-ios/pull/11",
+                  "updatedAt": "2026-10-02T08:00:00Z",
+                  "author": {
+                    "login": "octocat"
+                  },
+                  "repository": {
+                    "nameWithOwner": "Acme/widgets-ios"
+                  },
+                  "labels": {
+                    "nodes": []
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

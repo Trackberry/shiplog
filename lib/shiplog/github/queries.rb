@@ -9,7 +9,7 @@ module Shiplog
           labels(first: 30) { nodes { name } }
         }
         fragment IssueFields on Issue {
-          id number title body state stateReason url createdAt updatedAt closedAt
+          __typename id number title body state stateReason url createdAt updatedAt closedAt
           labels(first: 30) { nodes { name } }
           milestone { title }
           assignees { totalCount }

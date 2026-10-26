@@ -1,0 +1,32 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "id": "PR_kwDOSync103",
+        "number": 12,
+        "title": "PR 12 title",
+        "body": "PR 12 body",
+        "state": "MERGED",
+        "mergedAt": "2026-10-20T10:00:00Z",
+        "url": "https://github.com/Acme/widgets/pull/12",
+        "updatedAt": "2026-10-20T10:00:00Z",
+        "author": {
+          "login": "octocat"
+        },
+        "repository": {
+          "nameWithOwner": "Acme/widgets"
+        },
+        "labels": {
+          "nodes": []
+        },
+        "closingIssuesReferences": {
+          "nodes": [
+            {
+              "id": "I_kwDOSync001"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
