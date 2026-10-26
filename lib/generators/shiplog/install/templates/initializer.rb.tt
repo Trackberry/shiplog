@@ -44,13 +44,26 @@ Shiplog.configure do |config|
   # config.admin_parent_controller = "ActionController::Base"
   # config.admin_layout = "shiplog/admin"
 
+<% if options[:tailwind] -%>
+  # The bundled stylesheet is off: the pages are styled with the Tailwind classes below, added next to
+  # the stable shiplog-* BEM classes. Tailwind finds them through the @source line in
+  # app/assets/tailwind/application.css (@source "../../../config/initializers/shiplog.rb";).
+  config.stylesheet = false
+
+  config.classes = {
+<%= tailwind_classes_ruby -%>
+  }
+
+<% else -%>
   # Include the bundled stylesheet (CSS variables and @layer shiplog) in the public pages.
+  # Set it to false when your app styles the pages itself, for example with Tailwind.
   # config.stylesheet = true
 
   # Extra classes per element, added to the stable shiplog-* BEM classes (e.g. Tailwind utilities).
   # Keys: <%= Shiplog::Classes::KEYS.join(", ") %>
   # config.classes = {}
 
+<% end -%>
   # Checked by the admin controllers; return false for a 403. It defaults to denying everyone.
   # The line below opens it because the route constraint around the admin mount does the authentication.
   # If the mount is not wrapped in such a constraint, replace it with a real check (e.g. controller.current_user&.admin?).
