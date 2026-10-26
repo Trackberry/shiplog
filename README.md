@@ -33,6 +33,8 @@ The generator:
 - runs `shiplog:install:migrations` (all tables are prefixed `shiplog_`);
 - copies the issue form to `.github/ISSUE_TEMPLATE/shiplog-feature.yml`. It has Problem / Before / After fields and applies the `public` label.
 
+With `--tailwind` the initializer also sets `config.stylesheet = false` and a `config.classes` hash of Tailwind classes, and the generator adds the `@source` line to `app/assets/tailwind/application.css`. See [Styling](#styling).
+
 ## Mounting
 
 Shiplog ships two engines so that the admin can sit behind your own authentication while the public pages and the GitHub webhook stay open (the same approach as GoodJob):
@@ -54,18 +56,21 @@ The public paths come from `config.roadmap_path` and `config.changelog_path`, re
 
 ### Customising the admin layout
 
-The admin uses its own layout (`layouts/shiplog/admin`) and its own CSS and JS, served by the engine (and aware of your CSP nonce). To change it, create the same file in your app, which takes precedence over the engine's:
+By default the admin uses its own layout (`layouts/shiplog/admin`) and its own CSS and JS, served by the engine (and aware of your CSP nonce). To change it, create the same file in your app, which takes precedence over the engine's:
 
 ```erb
 <%# app/views/layouts/shiplog/admin.html.erb %>
 ```
 
+To render the admin inside your own admin layout instead, see [Rendering inside your layouts](#rendering-inside-your-layouts).
+
 For smaller tweaks override a partial instead:
 
-- `app/views/shiplog/admin/_custom_head.html.erb`: rendered inside `<head>` (extra stylesheets, favicon, ...).
-- `app/views/shiplog/admin/_nav.html.erb`: the navigation bar.
+- `app/views/shiplog/admin/_custom_head.html.erb`: rendered inside `<head>` of the engine layout (extra stylesheets, favicon, ...).
+- `app/views/shiplog/admin/_nav.html.erb`: the navigation bar (a compact sub-nav when a host layout is used).
+- `app/views/shiplog/admin/_assets.html.erb`: links `admin.css`; every admin page renders it, so it works in any layout.
 
-Engine views use the engine's route helpers, so inside a host layout or partial rendered by a Shiplog controller use `main_app.` helpers for your own routes.
+Engine views use the engine's route helpers, so inside a host layout or partial rendered by a Shiplog controller your own routes are available as `main_app.` helpers, or directly (see [host route helpers](#host-route-helpers)).
 
 ### Public pages
 
@@ -92,6 +97,10 @@ All settings live in `config/initializers/shiplog.rb`:
 | `prompt_builder` | `nil` | Optional `->(kind:, context:) { String }` replacing the built-in prompts. `kind` is `"roadmap"`, `"feature"` or `"change"`. |
 | `public_parent_controller` | `"ActionController::Base"` | Parent class of the public controllers. Read once when they load, so set it in the initializer. |
 | `public_layout` | `"shiplog/application"` | Layout of the public pages. |
+| `admin_parent_controller` | `"ActionController::Base"` | Parent class of the admin controllers. Read once when they load, so set it in the initializer. |
+| `admin_layout` | `"shiplog/admin"` | Layout of the admin pages. Any other value is treated as a host layout (compact sub-nav, no flash messages from Shiplog). |
+| `stylesheet` | `true` | Include the bundled `shiplog.css` in the public pages. Set to `false` when you style them yourself. |
+| `classes` | `{}` | Extra classes per element, added to the stable `shiplog-*` classes. See [Styling](#styling). |
 | `authorize_admin` | `->(controller) { false }` | Admin check; return false for a 403. Denies everyone until set; the generated initializer opens it, relying on your route constraint. |
 | `current_admin` | `->(controller) { controller.try(:current_user)&.try(:email) }` | Stored as the approver of an entry. |
 | `roadmap_path` | `"roadmap"` | Path of the public roadmap. |
@@ -215,11 +224,144 @@ Approved changelog entries do not react to later GitHub changes (a reverted pull
 
 Drafts whose rewrite job was lost (no result and no error after an hour) are queued again by the next sync, and the admin marks them "Not rewritten yet" until then.
 
+## Styling
+
+The public pages ship plain semantic HTML with stable [BEM](https://getbem.com) classes (`shiplog-card`, `shiplog-entry__title`, ...) and a small, framework-free stylesheet. Pick the level that fits your app; the same views work in all of them.
+
+### 1. CSS variables
+
+The bundled stylesheet follows light and dark mode and is driven by variables you can set on `:root`, `body` or `.shiplog-page`:
+
+| Variable | Meaning |
+|---|---|
+| `--shiplog-fg` | Text colour |
+| `--shiplog-muted` | Secondary text |
+| `--shiplog-bg` | Page background (only painted by the engine's own layout) |
+| `--shiplog-card` | Card and entry background |
+| `--shiplog-border` | Borders and dividers |
+| `--shiplog-accent` | Links, feature marker, pill, hover |
+| `--shiplog-radius` | Corner radius (default `0.5rem`) |
+| `--shiplog-font` | Font family |
+| `--shiplog-space` | Base spacing unit (default `1rem`) |
+
+```css
+:root { --shiplog-accent: #7c3aed; --shiplog-radius: 0.75rem; }
+```
+
+### 2. Override the BEM classes
+
+All rules live in `@layer shiplog`, so any unlayered CSS in your app wins without extra specificity:
+
+```css
+.shiplog-card { border-radius: 0; }
+.shiplog-entry--feature { border-left-width: 8px; }
+```
+
+If your own CSS is layered too, declare the order up front, for example `@layer shiplog, app;`.
+
+### 3. `config.classes` (Tailwind and other utility frameworks)
+
+`config.classes` maps a key to the classes added to that element, next to its BEM class. Set `config.stylesheet = false` to drop the bundled CSS:
+
+```ruby
+Shiplog.configure do |config|
+  config.stylesheet = false
+  config.classes = {
+    columns: "grid gap-6 md:grid-cols-3",
+    card: "rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900"
+  }
+end
+```
+
+With Tailwind v4, the class names live in a Ruby file, so tell Tailwind to scan it. In `app/assets/tailwind/application.css`:
+
+```css
+@import "tailwindcss";
+@source "../../../config/initializers/shiplog.rb";
+```
+
+(The path is relative to the stylesheet: `app/assets/tailwind/` up three levels is the app root.) `bin/rails generate shiplog:install --tailwind` writes both for you, with neutral gray/indigo classes covering every key.
+
+| Key | BEM class | Element |
+|---|---|---|
+| `page` | `shiplog-page` (+ `--roadmap` / `--changelog`) | Page wrapper |
+| `page_header` | `shiplog-page__header` | Header with title and lede |
+| `page_title` | `shiplog-page__title` | `h1` |
+| `page_lede` | `shiplog-page__lede` | Intro paragraph |
+| `columns` | `shiplog-columns` | Roadmap column grid |
+| `column` | `shiplog-column` (+ `--in-progress` / `--coming-soon` / `--later`) | One roadmap column |
+| `column_header` | `shiplog-column__header` | Column heading block |
+| `column_title` | `shiplog-column__title` | Column `h2` |
+| `column_count` | `shiplog-column__count` | Number of items |
+| `column_description` | `shiplog-column__description` | One-line description |
+| `column_empty` | `shiplog-column__empty` | Empty column notice |
+| `cards` | `shiplog-cards` | List of roadmap cards |
+| `card` | `shiplog-card` | Roadmap card |
+| `card_title` | `shiplog-card__title` | Card `h3` |
+| `card_body` | `shiplog-card__body` | Card text |
+| `months` | `shiplog-months` | Changelog months wrapper |
+| `month` | `shiplog-month` | One month section |
+| `month_title` | `shiplog-month__title` | Month `h2` |
+| `entries` | `shiplog-entries` | List of entries |
+| `entry` | `shiplog-entry` (+ `--feature` / `--change`) | Changelog entry |
+| `entry_feature` | `shiplog-entry--feature` | Also applied to feature entries |
+| `entry_category` | `shiplog-entry__category` | "New" / "Improved" pill |
+| `entry_title` | `shiplog-entry__title` | Entry `h3` |
+| `entry_body` | `shiplog-entry__body` | Entry text |
+| `entry_date` | `shiplog-entry__date` | `time` element |
+| `pagination` | `shiplog-pagination` | Pagination `nav` |
+| `pagination_link` | `shiplog-pagination__link` (+ `--newer` / `--older`) | Newer/older links |
+| `empty` | `shiplog-empty` | "Nothing here yet" notice |
+
+Values may be strings or arrays. The list is `Shiplog::Classes::KEYS`; in development and test, `shiplog_class` raises `ArgumentError` for any other key. Texts come from I18n (`shiplog.roadmap.title`, `shiplog.roadmap.lede`, `shiplog.changelog.*`, `shiplog.categories.feature` / `change`, `shiplog.columns.<column>_description`), so override them in your locale files.
+
+### 4. Override the partials
+
+Copy any view from the engine's `app/views/shiplog/` into your app with the same path and edit it. Each partial documents its locals in a comment on its first lines:
+
+- `shiplog/_page.html.erb`, `shiplog/_page_header.html.erb`, `shiplog/_pagination.html.erb`, `shiplog/_empty.html.erb`
+- `shiplog/roadmaps/_column.html.erb`, `shiplog/roadmaps/_card.html.erb`
+- `shiplog/changelogs/_month.html.erb`, `shiplog/changelogs/_entry.html.erb`
+
+`shiplog/_page.html.erb` is what links the stylesheet (so it also works in layouts you don't control); keep that line if you copy it and still want the bundled CSS.
+
+The admin has its own stylesheet, scoped under `.shiplog-admin` and also in `@layer shiplog`. Its variables (`--shiplog-admin-fg`, `-muted`, `-bg`, `-surface`, `-border`, `-accent`) can be set on `.shiplog-admin`.
+
+## Rendering inside your layouts
+
+- **Public pages**: set `config.public_parent_controller` (default `ActionController::Base`; read once when the controller loads, so use the initializer) and `config.public_layout` (default `"shiplog/application"`). The public controllers run under the parent's `before_action`s, so pick one that lets visitors through.
+- **Admin**: set `config.admin_parent_controller` (same rule) and `config.admin_layout`. Each admin page links its own `admin.css` (and `board.js` on the board) and wraps itself in `<div class="shiplog-admin">`, so nothing depends on your layout's `<head>`. With a host layout Shiplog adds a small Drafts / Roadmap board / Sync sub-nav inside the content and leaves flash messages to your layout. The board reads the CSRF token from `meta[name=csrf-token]` and falls back to a `data-csrf-token` attribute, so your layout does not need `csrf_meta_tags` for drag and drop.
+- `config.authorize_admin` and the route constraint still apply.
+
+### Host route helpers
+
+A layout rendered by a Shiplog controller runs in the engine's isolated routing context. Shiplog's controllers include `Shiplog::HostRoutesHelper`, which forwards any `*_path` / `*_url` helper the engine does not define to `main_app`, so `root_path`, `about_path` or `new_user_session_path` work in your layout as they do elsewhere. Helpers the engine defines win: in the public engine `roadmap_path` is Shiplog's, and in the admin engine `root_path` is the admin root, so use `main_app.root_path` there when you mean your own.
+
+### Example: Trackberry-style setup
+
+```ruby
+# config/routes.rb
+mount Shiplog::Engine => "/"                       # /roadmap and /changelog next to the app's own pages
+authenticate :user, ->(user) { user.admin? } do
+  mount Shiplog::Admin::Engine => "/admin/shiplog"
+end
+
+# config/initializers/shiplog.rb
+Shiplog.configure do |config|
+  config.public_parent_controller = "ApplicationController"
+  config.public_layout            = "application"
+  config.admin_parent_controller  = "Admin::BaseController"
+  config.admin_layout             = "admin"
+  config.stylesheet               = false
+  config.classes                  = { columns: "grid gap-6 md:grid-cols-3", card: "rounded-lg border p-3" } # see the generator for all keys
+end
+```
+
+The host layouts keep using their own helpers (`root_path`, `current_user`, ...) and Tailwind compiles the classes through the `@source` line.
+
 ## Hosting notes
 
-- Set `public_parent_controller` in an initializer (`config/initializers/shiplog.rb`). It is read once, when the engine's public controller class loads, so changing it later has no effect.
-- Public pages run under the host's `public_parent_controller`, so its `before_action`s (authentication, for example) apply to them. Choose a parent controller that lets visitors through.
-- Host layouts rendered by engine controllers must use `main_app.` route helpers (for example `main_app.root_path`), because the engine's own routes are the default inside them.
+- Set `public_parent_controller` and `admin_parent_controller` in an initializer (`config/initializers/shiplog.rb`). They are read once, when the engine's controller classes load, so changing them later has no effect.
 - If your host layout shows per-user content, add `etag { current_user&.id }` to the parent controller so cached responses are not shared between users.
 
 ## Running the tests
