@@ -80,6 +80,44 @@ class Shiplog::AreaTest < ActiveSupport::TestCase
     end
   end
 
+  test "resolve_or_create takes the creation lock before it checks the cap" do
+    Shiplog.config.max_areas = 3
+    area("Billing")
+
+    statements = sql_statements { Shiplog::Area.resolve_or_create("Reports") }
+
+    lock = statements.index { |sql| sql.include?("pg_advisory_xact_lock") }
+    assert lock, "no advisory lock was taken"
+    assert(statements[lock + 1..].any? { |sql| sql.match?(/SELECT COUNT/i) }, "the cap is not checked after the lock")
+  end
+
+  test "an area created by someone else while waiting for the lock counts against the cap" do
+    Shiplog.config.max_areas = 2
+    area("Billing")
+    raced = false
+    racer = lambda do |*, payload|
+      next if raced || !payload[:sql].include?("pg_advisory_xact_lock")
+
+      raced = true # another process got the lock first, created the second area and committed
+      Shiplog::Area.connection.execute("INSERT INTO shiplog_areas (name, slug, position, created_at, updated_at) VALUES ('Other', 'other', 5, NOW(), NOW())")
+    end
+
+    result = ActiveSupport::Notifications.subscribed(racer, "sql.active_record") { Shiplog::Area.resolve_or_create("Reports") }
+
+    assert raced
+    assert_nil result
+    assert_equal %w[Billing Other], Shiplog::Area.order(:name).pluck(:name)
+  end
+
+  test "a non-Latin name gets a Unicode slug" do
+    assert_equal "оплата", area("Оплата").slug
+    assert_equal "支付", area("支付").slug
+    assert_equal "оплата-и-счета", area("Оплата и Счета").slug
+    assert_equal "billing", area("Billing").slug
+    assert_equal "оплата", Shiplog::Area.resolve("ОПЛАТА").slug
+    assert_equal "оплата", Shiplog::Area.resolve("оплата").slug
+  end
+
   test "max_areas of 0 creates nothing" do
     Shiplog.config.max_areas = 0
 
@@ -104,6 +142,19 @@ class Shiplog::AreaTest < ActiveSupport::TestCase
 
     assert_raises(ArgumentError) { billing.merge_into!(billing) }
     assert Shiplog::Area.exists?(billing.id)
+  end
+
+  test "merging and deleting bump the entries' updated_at" do
+    source = area("Old")
+    target = area("New")
+    moved = shiplog_entries(:dark_mode_feature)
+    moved.update_columns(area_id: source.id, updated_at: 1.year.ago)
+    source.merge_into!(target)
+    assert_in_delta Time.current, moved.reload.updated_at, 5
+
+    moved.update_columns(updated_at: 1.year.ago)
+    target.destroy!
+    assert_in_delta Time.current, moved.reload.updated_at, 5
   end
 
   test "destroying an area clears its entries, including the admin flag" do
@@ -141,6 +192,15 @@ class Shiplog::AreaTest < ActiveSupport::TestCase
     second.move(:down)
     assert_equal %w[Third First Second], Shiplog::Area.ordered.map(&:name)
     assert_equal [ 0, 1, 2 ], Shiplog::Area.ordered.map(&:position)
+  end
+
+  test "move locks all the areas in order while it renumbers" do
+    area("First")
+    second = area("Second")
+
+    statements = sql_statements { second.move(:up) }
+
+    assert(statements.any? { |sql| sql.match?(/FROM "shiplog_areas" ORDER BY .*"position".* FOR UPDATE/i) }, statements.inspect)
   end
 
   test "entry_counts counts every entry of each area" do

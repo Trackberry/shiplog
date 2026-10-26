@@ -159,6 +159,20 @@ class Shiplog::ChangelogAreasTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "an area with a non-Latin name filters by its URL-encoded slug" do
+    pay = Shiplog::Area.create!(name: "Оплата")
+    @csv.update!(area: pay)
+    slug = CGI.escape("оплата")
+
+    get "/changelog?area=#{slug}"
+
+    assert_response :ok
+    assert_equal [ "Better CSV validation" ], titles
+    assert_select "a.shiplog-areas__link--current[href=?]", "/changelog?area=#{slug}", text: "Оплата"
+    get "/changelog.atom?area=#{slug}"
+    assert_response :ok
+  end
+
   test "a blank or non-string area is ignored" do
     get "/changelog", params: { area: "" }
     assert_response :ok
