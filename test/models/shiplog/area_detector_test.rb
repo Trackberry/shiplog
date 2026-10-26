@@ -24,6 +24,28 @@ class Shiplog::AreaDetectorTest < ActiveSupport::TestCase
 
   def detect = Shiplog::AreaDetector.new.call
 
+  # A second database session (the tests' connection is shared by every pooled checkout, so it can't stand in).
+  def other_session
+    config = ActiveRecord::Base.connection_db_config.configuration_hash
+    session = PG.connect(config.slice(:host, :port, :user, :password).compact.merge(dbname: config[:database]))
+    yield session
+  ensure
+    session&.close
+  end
+
+  # Runs the block while another database session holds the detection lock.
+  def with_detection_lock_held
+    other_session do |session|
+      assert_equal "t", session.exec("SELECT pg_try_advisory_lock(#{Shiplog::AreaDetector::LOCK_KEY})").getvalue(0, 0), "a leaked lock from an earlier test"
+      yield
+    end
+  end
+
+  # True when a different session can take the lock (so this one does not hold it).
+  def other_session_can_lock?
+    other_session { |session| session.exec("SELECT pg_try_advisory_lock(#{Shiplog::AreaDetector::LOCK_KEY})").getvalue(0, 0) == "t" }
+  end
+
   def assignments(*pairs) = JSON.generate(assignments: pairs.map { |id, area| { id:, area: } })
 
   test "with no areas it asks for a proposal from approved feature and change titles, then classifies" do
@@ -146,15 +168,120 @@ class Shiplog::AreaDetectorTest < ActiveSupport::TestCase
     assert_equal "Billing", one.reload.area.name
   end
 
-  test "entries the AI cannot place stay without an area and a rerun asks again" do
+  test "entries the AI cannot place are marked as checked, so a rerun does not ask again" do
     Shiplog::Area.create!(name: "Billing")
     one = entry("One")
     stub_rewriter(assignments, assignments([ one.id, "Billing" ]))
 
     detect
     assert_nil one.reload.area
+    assert_not_nil one.area_detected_at
     detect
+
+    assert_equal 1, @prompts.size
+    assert_nil one.reload.area
+  end
+
+  test "entries that got an area are marked as checked too" do
+    Shiplog::Area.create!(name: "Billing")
+    one = entry("One")
+    stub_rewriter(assignments([ one.id, "Billing" ]))
+
+    detect
+
+    assert_not_nil one.reload.area_detected_at
+  end
+
+  test "recheck clears the mark of unplaced entries only, then asks again" do
+    billing = Shiplog::Area.create!(name: "Billing")
+    placed = entry("Placed", area: billing, area_detected_at: 1.day.ago)
+    locked = entry("Locked", area_set_by_admin: true, area_detected_at: 1.day.ago)
+    unplaced = entry("Unplaced", area_detected_at: 1.day.ago)
+    stub_rewriter(assignments([ unplaced.id, "Billing" ]))
+
+    Shiplog::AreaDetector.new.call(recheck: true)
+
+    assert_equal 1, @prompts.size
+    assert_includes @prompts.first, "Unplaced"
+    assert_not_includes @prompts.first, "Locked"
+    assert_equal billing, unplaced.reload.area
+    assert_not_nil placed.reload.area_detected_at
+    assert_not_nil locked.reload.area_detected_at
+  end
+
+  test "an AI that declines the first 1000 entries does not stall later runs" do
+    Shiplog::Area.create!(name: "Billing")
+    now = Time.current
+    Shiplog::Entry.insert_all!(Array.new(1_100) do |i|
+      { kind: "change", status: "approved", subject_type: "Shiplog::Issue", subject_id: 60_000 + i, title: "Bulk #{i}", body: "B",
+        released_on: Date.new(2026, 9, 1), approved_at: now, created_at: now, updated_at: now }
+    end)
+    stub_rewriter { assignments }
+    detect
+    asked = @prompts.flat_map { |prompt| prompt.scan(/^(\d+): /).flatten }
+    assert_equal 1_000, asked.uniq.size
+
+    stub_rewriter { |prompt| assignments(*prompt.scan(/^(\d+): /).flatten.map { |id| [ id.to_i, "Billing" ] }) }
+    detect
+
+    later = @prompts.flat_map { |prompt| prompt.scan(/^(\d+): /).flatten }
+    assert_equal 100, later.size
+    assert_empty asked & later, "the second run moved on to entries the first never reached"
+    assert_equal 100, Shiplog::Entry.where.not(area_id: nil).count
+  end
+
+  test "ids given as strings are accepted, other ids are ignored" do
+    Shiplog::Area.create!(name: "Billing")
+    one = entry("One")
+    two = entry("Two")
+    three = entry("Three")
+    stub_rewriter(JSON.generate(assignments: [ { id: one.id.to_s, area: "Billing" }, { id: " #{two.id} ", area: "Billing" }, { id: "#{three.id}x", area: "Billing" }, { id: 1.5, area: "Billing" }, { id: true, area: "Billing" } ]))
+
+    detect
+
     assert_equal "Billing", one.reload.area.name
+    assert_equal "Billing", two.reload.area.name
+    assert_nil three.reload.area
+  end
+
+  test "assigning bumps updated_at so the feed's updated changes" do
+    Shiplog::Area.create!(name: "Billing")
+    one = entry("One")
+    one.update_columns(updated_at: 1.year.ago)
+    stub_rewriter(assignments([ one.id, "Billing" ]))
+
+    detect
+
+    assert_in_delta Time.current, one.reload.updated_at, 5
+  end
+
+  test "a run that finds the detection lock taken logs and does nothing" do
+    Shiplog::Area.create!(name: "Billing")
+    entry("One")
+    stub_rewriter { raise "must not be called" }
+    output = StringIO.new
+    original = Rails.logger
+    Rails.logger = ActiveSupport::Logger.new(output)
+
+    with_detection_lock_held { detect }
+
+    assert_empty @prompts
+    assert_match(/\[shiplog\] Detect areas: another run is in progress/, output.string)
+  ensure
+    Rails.logger = original
+  end
+
+  test "the lock is released after a run, also a failing one" do
+    Shiplog::Area.create!(name: "Billing")
+    entry("One")
+    stub_rewriter { raise "model down" }
+    assert_raises(RuntimeError) { detect }
+
+    assert other_session_can_lock?, "the lock stays held after a failure"
+
+    stub_rewriter { assignments }
+    detect
+    assert other_session_can_lock?, "the lock stays held after a run"
   end
 
   test "the proposal ignores invalid and duplicate names" do

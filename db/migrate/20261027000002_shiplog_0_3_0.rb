@@ -39,6 +39,9 @@ class Shiplog030 < ActiveRecord::Migration[8.1]
     add_index :shiplog_areas, :slug, unique: true
     add_reference :shiplog_entries, :area, null: true, index: true, foreign_key: { to_table: :shiplog_areas, on_delete: :nullify }
     add_column :shiplog_entries, :area_set_by_admin, :boolean, null: false, default: false
+    # When detection last asked the AI about the entry (placed or not): unplaced entries are not asked again
+    # until an admin asks for a re-check.
+    add_column :shiplog_entries, :area_detected_at, :datetime
   end
 
   # Gives every approved feature and change with a release date, and no slug, one: the title as [a-z0-9-] only

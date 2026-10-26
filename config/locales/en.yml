@@ -70,6 +70,8 @@ en:
         title: Product areas
         help: The AI groups entries into areas (at most %{max}) while it rewrites them. Visitors can filter the changelog by area once two areas have published entries.
         detect: Detect areas
+        recheck: Re-check unplaced entries
+        recheck_help: Ask the AI again about entries it left without an area, e.g. after renaming, merging or adding areas.
         detection_queued: Detection queued. Refresh in a moment.
         empty: No areas yet. Detect areas to propose some from your entries.
         columns:

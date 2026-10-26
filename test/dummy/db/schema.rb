@@ -54,6 +54,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_27_000002) do
     t.string "slug"
     t.bigint "area_id"
     t.boolean "area_set_by_admin", default: false, null: false
+    t.datetime "area_detected_at"
     t.index ["area_id"], name: "index_shiplog_entries_on_area_id"
     t.index ["slug"], name: "index_shiplog_entries_on_slug", unique: true, where: "(slug IS NOT NULL)"
     t.index ["status"], name: "index_shiplog_entries_on_status"

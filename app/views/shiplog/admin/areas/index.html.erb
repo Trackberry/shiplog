@@ -3,7 +3,11 @@
   <p class="shiplog-admin__muted"><%= t("shiplog.admin.areas.help", max: Shiplog.config.max_areas, default: "The AI groups entries into areas (at most %{max}) while it rewrites them. Visitors can filter the changelog by area once two areas have published entries.") %></p>
 
   <div class="shiplog-admin-actions">
-    <%= button_to t("shiplog.admin.areas.detect", default: "Detect areas"), area_detection_path, class: "shiplog-button shiplog-button--primary" %>
+    <%= form_with url: area_detection_path, class: "shiplog-admin-inline-form" do |form| %>
+      <%= form.button t("shiplog.admin.areas.detect", default: "Detect areas"), type: "submit", class: "shiplog-button shiplog-button--primary" %>
+      <%= form.check_box :recheck, {}, "1", nil %>
+      <%= form.label :recheck, t("shiplog.admin.areas.recheck", default: "Re-check unplaced entries"), title: t("shiplog.admin.areas.recheck_help", default: "Ask the AI again about entries it left without an area, e.g. after renaming, merging or adding areas.") %>
+    <% end %>
   </div>
 
   <% if @areas.empty? %>

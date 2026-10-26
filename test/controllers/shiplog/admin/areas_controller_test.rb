@@ -50,6 +50,20 @@ class Shiplog::Admin::AreasControllerTest < ActionDispatch::IntegrationTest
     assert_select ".shiplog-admin__flash--notice", text: "Detection queued. Refresh in a moment."
   end
 
+  test "the detect form offers a re-check of unplaced entries" do
+    get "#{ADMIN}/areas"
+
+    assert_select "form[action=?]", "#{ADMIN}/areas/detection" do
+      assert_select "input[type=checkbox][name=recheck][value='1']"
+      assert_select "label", text: "Re-check unplaced entries"
+    end
+  end
+
+  test "detect enqueues with recheck only when asked" do
+    assert_enqueued_with(job: Shiplog::DetectAreasJob, args: [ { recheck: false } ]) { post "#{ADMIN}/areas/detection" }
+    assert_enqueued_with(job: Shiplog::DetectAreasJob, args: [ { recheck: true } ]) { post "#{ADMIN}/areas/detection", params: { recheck: "1" } }
+  end
+
   test "rename updates the name and the slug" do
     patch "#{ADMIN}/areas/#{@billing.id}", params: { area: { name: "Payments & Billing" } }
 
