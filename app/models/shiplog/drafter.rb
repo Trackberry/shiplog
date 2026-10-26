@@ -52,7 +52,7 @@ module Shiplog
     end
 
     def self.shipped_candidates
-      drafted = Entry.feature.where(subject_type: Issue.name).select(:subject_id)
+      drafted = Entry.where(kind: Entry::CHANGELOG_KINDS, subject_type: Issue.name).select(:subject_id)
       Issue.publicly_labeled.where(state: "closed", state_reason: "completed", closed_at: FEATURE_LOOKBACK.ago..)
         .where.not(id: drafted)
         .includes(:parent).reject { |issue| issue.parent&.public? }
