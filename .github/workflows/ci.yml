@@ -9,7 +9,6 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     env:
-      RUBY_VERSION: ruby-4.0.7
       RUBOCOP_CACHE_ROOT: tmp/rubocop
     steps:
       - name: Checkout code
@@ -18,7 +17,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: ${{ env.RUBY_VERSION }}
+          ruby-version: "4.0.9"
           bundler-cache: true
 
       - name: Prepare RuboCop cache
@@ -27,9 +26,9 @@ jobs:
           DEPENDENCIES_HASH: ${{ hashFiles('**/.rubocop.yml', '**/.rubocop_todo.yml', 'Gemfile.lock') }}
         with:
           path: ${{ env.RUBOCOP_CACHE_ROOT }}
-          key: rubocop-${{ runner.os }}-${{ env.RUBY_VERSION }}-${{ env.DEPENDENCIES_HASH }}-${{ github.ref_name == github.event.repository.default_branch && github.run_id || 'default' }}
+          key: rubocop-${{ runner.os }}-4.0.9-${{ env.DEPENDENCIES_HASH }}-${{ github.ref_name == github.event.repository.default_branch && github.run_id || 'default' }}
           restore-keys: |
-            rubocop-${{ runner.os }}-${{ env.RUBY_VERSION }}-${{ env.DEPENDENCIES_HASH }}-
+            rubocop-${{ runner.os }}-4.0.9-${{ env.DEPENDENCIES_HASH }}-
 
       - name: Lint code for consistent style
         run: bin/rubocop -f github
@@ -39,19 +38,23 @@ jobs:
 
     services:
       postgres:
-        image: postgres
+        image: postgres:17
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         ports:
           - 5432:5432
-        options: --health-cmd="pg_isready" --health-interval=10s --health-timeout=5s --health-retries=3
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
 
-      # redis:
-      #   image: valkey/valkey:8
-      #   ports:
-      #     - 6379:6379
-      #   options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      RAILS_ENV: test
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
 
     steps:
       - name: Checkout code
@@ -60,21 +63,11 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: ruby-4.0.7
+          ruby-version: "4.0.9"
           bundler-cache: true
 
-      - name: Run tests
-        env:
-          RAILS_ENV: test
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432
-          # RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
-          # REDIS_URL: redis://localhost:6379/0
-        run: bin/rails db:test:prepare test
+      - name: Set up the dummy app database
+        run: bin/rails db:create db:schema:load
 
-      - name: Keep screenshots from failed system tests
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: screenshots
-          path: ${{ github.workspace }}/tmp/screenshots
-          if-no-files-found: ignore
+      - name: Run tests
+        run: bin/rails test
