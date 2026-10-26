@@ -45,6 +45,8 @@ class Shiplog::Generators::InstallGeneratorTest < Rails::Generators::TestCase
       assert_includes content, "shiplog:backfill_slugs"
       assert_includes content, "content_for :shiplog_og"
       assert_includes content, "content_for :shiplog_feed"
+      assert_match(/^  # config\.max_areas = 8$/, content)
+      assert_includes content, "Detect areas"
     end
   end
 

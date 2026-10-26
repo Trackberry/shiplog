@@ -6,7 +6,10 @@
     <% content_for :shiplog_robots, "noindex" %>
   <% end %>
   <% if Shiplog.config.changelog_search %>
-    <%= render "shiplog/changelogs/search", query: @query, count: @result_count %>
+    <%= render "shiplog/changelogs/search", query: @query, count: @result_count, area: @area %>
+  <% end %>
+  <% if @areas.any? %>
+    <%= render "shiplog/changelogs/areas", areas: @areas, current: @area, query: @query %>
   <% end %>
   <% if @months.empty? && @query %>
     <p class="<%= shiplog_class(:search_empty) %>"><%= t("shiplog.changelog.search.empty", query: @query, default: "No entries match “%{query}”.") %></p>
@@ -20,8 +23,8 @@
     </div>
   <% end %>
   <%= render "shiplog/pagination",
-        newer_path: (changelog_path(page: (@page - 1 if @page > 2), q: @query) if @page > 1),
-        older_path: (changelog_path(page: @page + 1, q: @query) if @older) %>
+        newer_path: (changelog_path(area: @area&.slug, page: (@page - 1 if @page > 2), q: @query) if @page > 1),
+        older_path: (changelog_path(area: @area&.slug, page: @page + 1, q: @query) if @older) %>
   <p class="<%= shiplog_class(:footnote) %>">
     <%= link_to t("shiplog.feed.subscribe", default: "Subscribe (Atom)"), changelog_feed_path, class: shiplog_class(:footnote_link, :feed) %>
   </p>

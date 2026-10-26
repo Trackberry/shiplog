@@ -12,7 +12,7 @@ module Shiplog
         @page = page_number
         scope = Entry.where(status: @status)
         scope = scope.where(kind: @kind) if @kind
-        records = scope.includes(:subject).order(updated_at: :desc, id: :desc)
+        records = scope.includes(:subject, :area).order(updated_at: :desc, id: :desc)
           .offset((@page - 1) * PER_PAGE).limit(PER_PAGE + 1).to_a
         @more = records.size > PER_PAGE
         @entries = records.first(PER_PAGE)
@@ -23,7 +23,9 @@ module Shiplog
       end
 
       def update
-        if @entry.update(entry_params)
+        @entry.assign_attributes(entry_params)
+        @entry.area_set_by_admin = true if @entry.area_id_changed? # the admin's choice, which detection never overwrites
+        if @entry.save
           redirect_to root_path(inbox_filter_params), notice: t("shiplog.admin.entries.saved")
         else
           render :edit, status: :unprocessable_content
@@ -48,7 +50,7 @@ module Shiplog
       end
 
       def entry_params
-        params.expect(entry: %i[title body released_on changelog_kind])
+        params.expect(entry: %i[title body released_on changelog_kind area_id])
       end
 
       def page_number

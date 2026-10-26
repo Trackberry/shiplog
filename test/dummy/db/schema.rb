@@ -14,6 +14,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_27_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
+  create_table "shiplog_areas", force: :cascade do |t|
+    t.string "name", null: false
+    t.string "slug", null: false
+    t.integer "position", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["slug"], name: "index_shiplog_areas_on_slug", unique: true
+  end
+
   create_table "shiplog_commits", force: :cascade do |t|
     t.bigint "repository_id", null: false
     t.string "sha", null: false
@@ -43,6 +52,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_27_000002) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "slug"
+    t.bigint "area_id"
+    t.boolean "area_set_by_admin", default: false, null: false
+    t.index ["area_id"], name: "index_shiplog_entries_on_area_id"
     t.index ["slug"], name: "index_shiplog_entries_on_slug", unique: true, where: "(slug IS NOT NULL)"
     t.index ["status"], name: "index_shiplog_entries_on_status"
     t.index ["status", "approved_at"], name: "index_shiplog_entries_on_status_and_approved_at"
@@ -145,6 +157,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_27_000002) do
   end
 
   add_foreign_key "shiplog_commits", "shiplog_repositories", column: "repository_id"
+  add_foreign_key "shiplog_entries", "shiplog_areas", column: "area_id", on_delete: :nullify
   add_foreign_key "shiplog_issues", "shiplog_repositories", column: "repository_id"
   add_foreign_key "shiplog_pull_request_upgrades", "shiplog_pull_requests", column: "pull_request_id"
   add_foreign_key "shiplog_pull_requests", "shiplog_repositories", column: "repository_id"

@@ -128,6 +128,13 @@ Shiplog.configure do |config|
   # `content_for :shiplog_description` and `content_for :shiplog_feed` (the Atom discovery link); Shiplog's own
   # layout renders them, so emit them in your layout's <head> when you set `config.public_layout`.
 
+  # Product areas. The rewriter's reply may name an area (an existing one, or a new name of 1-3 words); Shiplog
+  # creates it while fewer than max_areas exist, so the AI cannot sprawl. The changelog offers an area filter
+  # (?area=slug) once two areas have published entries. Manage areas in the admin ("Areas"): rename, reorder,
+  # merge, delete, and "Detect areas" to backfill entries that have none (it reuses config.rewriter).
+  # Entries you set by hand on the edit page are never changed by the AI.
+  # config.max_areas = 8
+
   # Callables above cannot be part of the public pages' ETag. Bump this when the output of a callable you
   # configured changes (a new label, another path) so cached pages are refreshed.
   # config.cache_version = nil

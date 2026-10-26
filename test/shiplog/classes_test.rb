@@ -13,6 +13,7 @@ class Shiplog::ClassesTest < ActiveSupport::TestCase
     pagination pagination_link empty
     search search_input search_button search_summary search_clear search_empty
     permalink permalink_back permalink_nav permalink_nav_link
+    areas area_link entry_area
   ].freeze
 
   test "KEYS is the frozen public list" do
@@ -25,6 +26,12 @@ class Shiplog::ClassesTest < ActiveSupport::TestCase
     assert_equal "shiplog-permalink__back", Shiplog::Classes::BEM[:permalink_back]
     assert_equal "shiplog-permalink__nav", Shiplog::Classes::BEM[:permalink_nav]
     assert_equal "shiplog-permalink__nav-link", Shiplog::Classes::BEM[:permalink_nav_link]
+  end
+
+  test "the area keys have BEM classes" do
+    assert_equal "shiplog-areas", Shiplog::Classes::BEM[:areas]
+    assert_equal "shiplog-areas__link", Shiplog::Classes::BEM[:area_link]
+    assert_equal "shiplog-entry__area", Shiplog::Classes::BEM[:entry_area]
   end
 
   test "every key has a stable BEM class" do

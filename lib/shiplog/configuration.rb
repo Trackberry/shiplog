@@ -29,6 +29,9 @@ module Shiplog
     # callables cannot be part of the ETag, so this is how cached public pages learn about it.
     attr_accessor :cache_version
     attr_reader :extra_pages, :repository_labels, :roadmap_shipped_count
+    # How many product areas the AI may create (default 8). Past it, entries can only join existing areas.
+    # Not part of render_digest: the markup depends on the areas themselves, which the ETag carries.
+    attr_reader :max_areas
 
     EXTRA_PAGE_KEYS = %i[label path].freeze
 
@@ -93,6 +96,11 @@ module Shiplog
     def roadmap_shipped_count=(value)
       raise ArgumentError, "roadmap_shipped_count must be a non-negative Integer, got #{value.inspect}" unless value.is_a?(Integer) && value >= 0
       @roadmap_shipped_count = value
+    end
+
+    def max_areas=(value)
+      raise ArgumentError, "max_areas must be a non-negative Integer, got #{value.inspect}" unless value.is_a?(Integer) && value >= 0
+      @max_areas = value
     end
 
     def on_changelog_seen=(value)
@@ -166,6 +174,7 @@ module Shiplog
       @repository_labels = {}.freeze
       @roadmap_shipped_count = 4
       @changelog_search = true
+      @max_areas = 8
     end
 
     def resolved_github_token

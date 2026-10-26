@@ -10,7 +10,9 @@ class Shiplog::Admin::AuthorizationTest < ActionDispatch::IntegrationTest
       [ :get, "#{base}/" ], [ :get, "#{base}/entries/#{entry.id}/edit" ], [ :patch, "#{base}/entries/#{entry.id}" ],
       [ :post, "#{base}/entries/#{entry.id}/approval" ], [ :post, "#{base}/entries/#{entry.id}/discard" ],
       [ :delete, "#{base}/entries/#{entry.id}/discard" ], [ :post, "#{base}/entries/#{entry.id}/rewrite" ],
-      [ :get, "#{base}/board" ], [ :patch, "#{base}/board" ], [ :get, "#{base}/sync" ], [ :post, "#{base}/sync" ]
+      [ :get, "#{base}/board" ], [ :patch, "#{base}/board" ], [ :get, "#{base}/sync" ], [ :post, "#{base}/sync" ],
+      [ :get, "#{base}/areas" ], [ :patch, "#{base}/areas/1" ], [ :delete, "#{base}/areas/1" ], [ :post, "#{base}/areas/1/merge" ],
+      [ :post, "#{base}/areas/1/move" ], [ :post, "#{base}/areas/detection" ]
     ].each do |verb, path|
       public_send(verb, path)
       assert_response :forbidden, "#{verb} #{path}"

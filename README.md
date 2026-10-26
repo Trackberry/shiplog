@@ -115,6 +115,7 @@ All settings live in `config/initializers/shiplog.rb`:
 | `feedback_path` | `nil` | Target of the roadmap's "Suggest a feature" link, a String or a callable evaluated in the view. No link while `nil`. |
 | `changelog_search` | `true` | Search box on the public changelog and `?q=` filtering. `false` hides the form and ignores `q`. See [Changelog search](#changelog-search). |
 | `on_changelog_seen` | `nil` | `->(controller) { ... }` called on each changelog index or permalink view (a 200, or a 304 for a revisit), to stamp a visitor's "last seen" time. See [What's new](#whats-new-the-unseen-count). Anything but `nil` or a callable raises `ArgumentError`. |
+| `max_areas` | `8` | How many [product areas](#product-areas) the AI may create. Past it, entries can only join existing areas. A non-negative Integer; `0` stops the AI creating areas. |
 
 Example:
 
@@ -231,8 +232,10 @@ You can also trigger a sync from the admin Sync page. Rewriting always runs in `
 `config.rewriter` is a callable that receives the prompt (a String) and returns a String containing a JSON object:
 
 ```json
-{"title": "...", "body": "...", "customer_facing": true}
+{"title": "...", "body": "...", "customer_facing": true, "area": "Billing"}
 ```
+
+`area` is optional (see [Product areas](#product-areas)); a reply without it works as before.
 
 Shiplog extracts the first valid JSON object from the reply, so models that wrap it in prose or code fences still work. `customer_facing: false` means the model thinks the change is irrelevant for customers; such small changes are stored as discarded and can be restored by an admin. If no rewriter is configured, the reply can't be parsed or the call raises, the entry keeps the original GitHub text and the error is shown in the admin, where you can edit the text or regenerate.
 
@@ -328,6 +331,17 @@ The public changelog has a search form above its months: `GET /changelog?q=csv` 
 ```erb
 <%= tag.meta name: "robots", content: content_for(:shiplog_robots) if content_for?(:shiplog_robots) %>
 ```
+
+## Product areas
+
+The rewriter groups entries into product areas ("Billing", "Reports"), and the changelog lets visitors filter by area.
+
+- **Detection while rewriting.** The prompt lists the existing areas (as data, before the `<source>` block) and asks the model for `"area"` in its JSON reply: an existing name, or a new name of 1-3 words when none fits. Shiplog matches the name against the existing areas ignoring case, then by slug, and creates a new area only while fewer than `config.max_areas` (default 8) exist and the name is valid: at most 40 characters, letters, digits, spaces, `&` and `-`. Anything else leaves the entry without an area. A reply without `"area"` (or with one that is not a String) changes nothing. Roadmap entries get areas too, but only features and changes show them publicly. A custom `config.prompt_builder` builds its own prompt, so it has to ask for `area` itself.
+- **Detect areas.** The admin has an Areas page with a "Detect areas" button, which enqueues `Shiplog::DetectAreasJob`. With no areas yet, the job asks your `config.rewriter` (same callable, a dedicated prompt, reply `{"areas": [...]}`) to propose up to `max_areas` areas from the titles of up to 200 approved features and changes. Then it classifies the draft and approved entries that have no area, 50 titles per prompt (reply `{"assignments": [{"id": 1, "area": "Billing"}]}`), using only existing areas; unknown ids and areas are ignored. It is idempotent (it only touches entries without an area), bounded (at most 20 classification prompts, 1000 entries, per run; click again for more) and logs what it did (`[shiplog] Detect areas: ...`). The page shows no job state, only a "Detection queued" flash; refresh to see the result. The titles are sent, never the bodies.
+- **Admin.** The Areas page lists areas with their entry counts. You can rename (the slug follows), move up/down, merge into another area (moves the entries, deletes the source) and delete (the entries have no area). The entry edit page has an Area select with "None"; changing it marks the entry as set by an admin (`area_set_by_admin`), and neither rewrites nor detection ever change such an entry's area. The inbox shows the area as a badge.
+- **Public.** With at least 2 areas that have published features or changes, the changelog shows an "All" link and one link per area above the list (`?area=slug`, the `areas` / `area_link` keys, `--current` on the selected one). It combines with search and pagination (the links keep both) and is part of the ETag, with the names, slugs and order of all areas. An unknown `?area=` slug answers 404; a blank one is ignored. Every entry shows its area as a tag (`entry_area`), in the list and on the permalink page. The Atom feed adds `<category term="slug" label="Name"/>` to entries with an area and honours `?area=` (404 for an unknown one). Roadmap cards don't change.
+- **Texts:** `shiplog.changelog.areas.label` and `.all`, and `shiplog.admin.areas.*`, `shiplog.admin.nav.areas`, `shiplog.admin.entries.no_area` and `.fields.area`; all have English defaults.
+- **Schema:** the `shiplog_areas` table (`name`, `slug` unique, `position`) and `shiplog_entries.area_id` (nullable foreign key, `ON DELETE SET NULL`) and `area_set_by_admin`. The cap is checked, not locked: two rewrites racing for the last slot can create one area too many.
 
 ## Entry permalinks
 
@@ -504,6 +518,9 @@ Without it, `shiplog` is first seen when `shiplog.css` loads, which can put it a
 | `permalink_back` | `shiplog-permalink__back` | "Back to the changelog" link |
 | `permalink_nav` | `shiplog-permalink__nav` | Newer / older `nav` |
 | `permalink_nav_link` | `shiplog-permalink__nav-link` (+ `--newer` / `--older`) | One neighbour link |
+| `areas` | `shiplog-areas` | The area filter `nav` |
+| `area_link` | `shiplog-areas__link` (+ `--current`) | One filter link, "All" included |
+| `entry_area` | `shiplog-entry__area` | An entry's area tag |
 
 Values may be strings or arrays. The list is `Shiplog::Classes::KEYS`; assigning `config.classes` raises `ArgumentError` (listing the valid keys) for any other key, in every environment. String keys are accepted and normalised to symbols, and the hash is stored frozen. Texts come from I18n (`shiplog.roadmap.title`, `shiplog.roadmap.lede`, `shiplog.roadmap.*` (`parts`, `shipped_heading`, `full_changelog`, `footnote`, `suggest`), `shiplog.switcher.*`, `shiplog.changelog.*`, `shiplog.categories.feature` / `change`, `shiplog.date_format` (default `%-d %B %Y`, used for entry dates), `shiplog.columns.<column>_description`), so override them in your locale files.
 

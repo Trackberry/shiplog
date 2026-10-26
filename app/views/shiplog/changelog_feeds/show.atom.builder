@@ -10,6 +10,7 @@ atom_feed(language: I18n.locale.to_s, url: changelog_feed_url, root_url: changel
     feed.entry(entry, id: "tag:#{request.host},2005:#{changelog_entry_path(entry.slug)}", url: changelog_entry_url(entry.slug),
         published: entry.released_on.in_time_zone, updated: entry.updated_at) do |item|
       item.title(entry.title.to_s)
+      item.category(term: entry.area.slug, label: entry.area.name) if entry.area
       item.content(shiplog_feed_content(entry), type: "html")
     end
   end

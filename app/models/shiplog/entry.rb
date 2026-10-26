@@ -3,6 +3,7 @@ module Shiplog
     class InvalidTransition < StandardError; end
 
     belongs_to :subject, polymorphic: true
+    belongs_to :area, class_name: "Shiplog::Area", optional: true
 
     enum :kind, %w[roadmap feature change].index_by(&:itself), validate: true
     enum :status, %w[draft approved discarded].index_by(&:itself), default: "draft", validate: true
@@ -10,6 +11,7 @@ module Shiplog
     CHANGELOG_KINDS = %w[feature change].freeze
 
     validates :released_on, presence: true, if: -> { approved? && !roadmap? }
+    validate :area_exists
     validate :kind_change_allowed, on: :update
     validate :kind_free_for_subject, on: :update
 
@@ -148,6 +150,10 @@ module Shiplog
       return unless will_save_change_to_kind? && self.class.where(subject_type:, subject_id:, kind:).where.not(id:).exists?
 
       errors.add(:changelog_kind, :taken)
+    end
+
+    def area_exists
+      errors.add(:area, :invalid) if area_id && will_save_change_to_area_id? && area.nil?
     end
 
     def kind_change_allowed

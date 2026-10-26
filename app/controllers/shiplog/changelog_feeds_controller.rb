@@ -4,11 +4,14 @@ module Shiplog
     LIMIT = 50
 
     layout false
+    before_action :set_area
 
     def show
-      @entries = Entry.published_changelog.newest_first.limit(LIMIT).to_a
+      scope = Entry.published_changelog.newest_first
+      scope = scope.where(area_id: @area.id) if @area
+      @entries = scope.includes(:area).limit(LIMIT).to_a
       @entries.each(&:ensure_slug!)
-      fresh_when etag: [ *shiplog_etag_parts, @entries.map { |entry| [ entry.id, entry.updated_at ] } ]
+      fresh_when etag: [ *shiplog_etag_parts, *shiplog_area_etag_parts, @entries.map { |entry| [ entry.id, entry.updated_at, entry.area_id ] } ]
     end
   end
 end

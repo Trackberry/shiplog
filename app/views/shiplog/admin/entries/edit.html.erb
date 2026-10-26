@@ -29,6 +29,10 @@
           </p>
         <% end %>
         <p>
+          <%= form.label :area_id, t("shiplog.admin.entries.fields.area", default: "Area") %>
+          <%= form.collection_select :area_id, Shiplog::Area.ordered, :id, :name, include_blank: t("shiplog.admin.entries.no_area", default: "None") %>
+        </p>
+        <p>
           <%= form.label :released_on, t("shiplog.admin.entries.fields.released_on") %>
           <%= form.date_field :released_on %>
         </p>

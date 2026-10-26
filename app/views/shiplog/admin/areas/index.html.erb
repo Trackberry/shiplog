@@ -1,0 +1,56 @@
+<%= render layout: "shiplog/admin/page" do %>
+  <h1 class="shiplog-admin__title"><%= t("shiplog.admin.areas.title", default: "Product areas") %></h1>
+  <p class="shiplog-admin__muted"><%= t("shiplog.admin.areas.help", max: Shiplog.config.max_areas, default: "The AI groups entries into areas (at most %{max}) while it rewrites them. Visitors can filter the changelog by area once two areas have published entries.") %></p>
+
+  <div class="shiplog-admin-actions">
+    <%= button_to t("shiplog.admin.areas.detect", default: "Detect areas"), area_detection_path, class: "shiplog-button shiplog-button--primary" %>
+  </div>
+
+  <% if @areas.empty? %>
+    <p class="shiplog-admin__empty"><%= t("shiplog.admin.areas.empty", default: "No areas yet. Detect areas to propose some from your entries.") %></p>
+  <% else %>
+    <table class="shiplog-admin-table">
+      <thead>
+        <tr>
+          <th scope="col"><%= t("shiplog.admin.areas.columns.name", default: "Name") %></th>
+          <th scope="col"><%= t("shiplog.admin.areas.columns.entries", default: "Entries") %></th>
+          <th scope="col"><%= t("shiplog.admin.areas.columns.order", default: "Order") %></th>
+          <th scope="col"><%= t("shiplog.admin.areas.columns.merge", default: "Merge into") %></th>
+          <th scope="col"><%= t("shiplog.admin.entries.columns.actions") %></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @areas.each_with_index do |area, index| %>
+          <tr class="shiplog-area-row" id="shiplog-area-<%= area.id %>">
+            <td>
+              <%= form_with model: area, url: area_path(area), method: :patch, class: "shiplog-admin-inline-form" do |form| %>
+                <%= form.label :name, t("shiplog.admin.areas.name_label", default: "Name"), class: "shiplog-admin__visually-hidden" %>
+                <%= form.text_field :name, maxlength: Shiplog::Area::NAME_MAX_LENGTH %>
+                <%= form.submit t("shiplog.admin.areas.rename", default: "Rename"), class: "shiplog-button" %>
+              <% end %>
+              <span class="shiplog-admin__muted"><%= area.slug %></span>
+            </td>
+            <td class="shiplog-area-row__count"><%= @counts.fetch(area.id, 0) %></td>
+            <td class="shiplog-admin-table__actions">
+              <%= button_to t("shiplog.admin.areas.move_up", default: "Move up"), area_move_path(area), params: { direction: "up" }, class: "shiplog-button", disabled: index.zero? %>
+              <%= button_to t("shiplog.admin.areas.move_down", default: "Move down"), area_move_path(area), params: { direction: "down" }, class: "shiplog-button", disabled: index == @areas.size - 1 %>
+            </td>
+            <td>
+              <% if @areas.size > 1 %>
+                <%= form_with url: area_merge_path(area), class: "shiplog-admin-inline-form" do |form| %>
+                  <%= form.label :target_id, t("shiplog.admin.areas.merge_into", default: "Merge into"), class: "shiplog-admin__visually-hidden" %>
+                  <%= form.select :target_id, (@areas - [ area ]).map { |other| [ other.name, other.id ] } %>
+                  <%= form.submit t("shiplog.admin.areas.merge", default: "Merge"), class: "shiplog-button" %>
+                <% end %>
+              <% end %>
+            </td>
+            <td class="shiplog-admin-table__actions">
+              <%= button_to t("shiplog.admin.areas.delete", default: "Delete"), area_path(area), method: :delete, class: "shiplog-button" %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+    <p class="shiplog-admin__muted"><%= t("shiplog.admin.areas.merge_help", default: "Merging moves the entries to the other area and deletes this one. Deleting an area leaves its entries without one.") %></p>
+  <% end %>
+<% end %>

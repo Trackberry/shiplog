@@ -25,6 +25,23 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
     assert_equal 4, config.roadmap_shipped_count
     assert_equal true, config.changelog_search
     assert_nil config.feedback_path
+    assert_equal 8, config.max_areas
+  end
+
+  test "max_areas accepts non-negative Integers only" do
+    config = Shiplog::Configuration.new
+    config.max_areas = 0
+    assert_equal 0, config.max_areas
+    config.max_areas = 12
+    assert_equal 12, config.max_areas
+    [ -1, "8", nil, 2.5 ].each do |value|
+      assert_raises(ArgumentError, value.inspect) { config.max_areas = value }
+    end
+    assert_equal 12, config.max_areas
+  end
+
+  test "max_areas is not part of the render digest: the markup depends on the areas themselves, which the ETag carries" do
+    assert_equal digest_config.render_digest, digest_config(max_areas: 3).render_digest
   end
 
   test "extra_pages accepts Strings and callables for label and path, and string keys" do

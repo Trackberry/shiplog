@@ -64,7 +64,7 @@ module Shiplog
         title = sanitize(title).squish.truncate(MAX_TITLE_CHARS, separator: " ", omission: "…")
         return if title.blank?
 
-        { title:, body: limit_body(sanitize(body.to_s).strip), customer_facing: }
+        { title:, body: limit_body(sanitize(body.to_s).strip), customer_facing:, area: data["area"].then { |area| area.squish.presence if area.is_a?(String) } }
       end
 
       def limit_body(body)
@@ -93,7 +93,16 @@ module Shiplog
           rewrite_error: nil, source_digest: Entry.digest_for(@entry.subject))
         @entry.assign_attributes(status: "draft", approved_at: nil, approved_by: nil) if @entry.approved?
         @entry.assign_attributes(status: "discarded", discard_reason: NOT_CUSTOMER_FACING) if discard
+        assign_area(result[:area]) unless discard
         @entry.save!
+      end
+
+      # A name the reply gave: an existing area, or a new one while below config.max_areas; an unusable name clears
+      # the area. No area in the reply keeps the entry's area, and one an admin chose is never changed.
+      def assign_area(name)
+        return if name.nil? || @entry.area_set_by_admin?
+
+        @entry.area = Area.resolve_or_create(name)
       end
 
       def fail_with(message)

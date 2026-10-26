@@ -9,6 +9,10 @@
 - `Shiplog.unseen_count(since:)` (approved features and changes approved after `since`, all of them when nil, at most 99), the `Shiplog::UnseenHelper#shiplog_unseen_count(since)` view helper, and `config.on_changelog_seen = ->(controller) { ... }`, called after each changelog index or permalink view that answered 200 or 304, to stamp a "last seen" time. Shiplog doesn't know your users, so the host supplies and stores the time.
 - `bin/rails shiplog:backfill_slugs`, which gives entries approved before 0.3.0 their permalink slug. Entries without one also get it the first time they are listed.
 - New `config.classes` keys: `permalink`, `permalink_back`, `permalink_nav`, `permalink_nav_link`. The Atom link reuses `footnote` and `footnote_link` (`shiplog-footnote__link--feed`).
+- Product areas, detected by AI. The rewriter's reply may include `"area"`: an existing area (matched ignoring case, then by slug) or a new name of 1-3 words, created while fewer than `config.max_areas` (default 8) exist and the name is valid (at most 40 characters; letters, digits, spaces, `&`, `-`). The prompt lists the existing areas; a reply without `area` behaves as before. An area an admin chose on the entry edit page (`area_set_by_admin`) is never changed by a rewrite or by detection.
+- An admin Areas page (in the nav): areas with their entry counts, rename (the slug follows), move up/down, merge (moves the entries, deletes the source) and delete (entries get no area), and a "Detect areas" button that enqueues `Shiplog::DetectAreasJob`. With no areas the job asks your `config.rewriter` to propose up to `max_areas` from up to 200 approved titles, then classifies the entries without an area in batches of 50 titles (at most 20 batches a run, idempotent, logged). The entry edit page gets an Area select (with "None") and the inbox shows an area badge.
+- On the public changelog, an area filter (`?area=slug`, an "All" link) when at least 2 areas have published entries; it combines with search and pagination and is part of the ETag. An unknown slug answers 404. Entries show their area as a tag (list and permalink), and the Atom feed adds `<category term="slug" label="Name"/>` and honours `?area=`.
+- New `config.classes` keys: `areas`, `area_link` (with a `--current` modifier) and `entry_area`; new `config.max_areas`.
 
 ### Changed
 
@@ -16,10 +20,14 @@
 
 ### Upgrade notes
 
-- Copy and run the new migration: `bin/rails shiplog:install:migrations`, then `bin/rails db:migrate`. It adds `shiplog_entries.slug` (unique index on non-null values) and an index on `shiplog_entries (status, approved_at)`. Then run `bin/rails shiplog:backfill_slugs` (optional: entries get a slug when first listed).
+- Copy and run the new migration: `bin/rails shiplog:install:migrations`, then `bin/rails db:migrate`. It adds `shiplog_entries.slug` (unique index on non-null values), an index on `shiplog_entries (status, approved_at)`, the `shiplog_areas` table and `shiplog_entries.area_id` (nullable foreign key, `ON DELETE SET NULL`, indexed) and `shiplog_entries.area_set_by_admin` (boolean, default false). Then run `bin/rails shiplog:backfill_slugs` (optional: entries get a slug when first listed).
 - If you override `shiplog/changelogs/_entry.html.erb`, titles are not links in your copy; render `shiplog/changelogs/_entry_content` (locals `entry:`, `heading:`, `linked: true`) or link `changelog_entry_path(entry.slug)` yourself.
 - If your `config.public_layout` is your own layout, render `content_for(:shiplog_og)`, `content_for(:shiplog_feed)` and the `:shiplog_description` meta tag in its `<head>` to get Open Graph tags and feed discovery on the permalink pages.
 - New I18n keys, all with English defaults: `shiplog.permalink.title`, `.back`, `.nav_label`, `.newer`, `.older` (with `title`); `shiplog.feed.title_with_product` (with `product`), `.link_title`, `.subscribe`.
+- Areas appear as you rewrite entries. To fill in existing ones, open the admin's Areas page and click "Detect areas" (it needs `config.rewriter`). Set `config.max_areas` to change the cap of 8 (`0` stops the AI creating areas).
+- If you use a custom `config.prompt_builder`, ask your model for `"area"` in its JSON reply, or entries get no area from rewrites.
+- If you override `shiplog/changelogs/_entry_content.html.erb` or `show.html.erb`, add the area tag (`entry.area`, class `entry_area`) and render `shiplog/changelogs/_areas` (locals `areas:`, `current:`, `query:`) to get the tag and the filter. The search partial also takes `area:`.
+- New I18n keys, all with English defaults: `shiplog.changelog.areas.label` and `.all`; `shiplog.admin.areas.*`, `shiplog.admin.nav.areas`, `shiplog.admin.entries.no_area` and `shiplog.admin.entries.fields.area`.
 - Style the permalink page with the new class keys above if you use `config.classes` with `config.stylesheet = false`.
 - If your layout shows the unseen count, it renders per-user content: declare `etag { current_user&.changelog_seen_at }` on your `public_parent_controller`.
 

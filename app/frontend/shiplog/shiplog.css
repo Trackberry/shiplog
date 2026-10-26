@@ -285,6 +285,27 @@
   .shiplog-permalink__back:focus-visible,
   .shiplog-permalink__nav-link:focus-visible { outline: 2px solid var(--sl-accent); outline-offset: 2px; }
 
+  .shiplog-entry__area {
+    color: var(--sl-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  .shiplog-areas { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: var(--sl-space) 0; }
+  .shiplog-areas__link {
+    border: 1px solid var(--sl-border);
+    border-radius: 1rem;
+    color: var(--sl-fg);
+    font-size: 0.875rem;
+    padding: 0.125rem 0.75rem;
+    text-decoration: none;
+  }
+  .shiplog-areas__link:hover { border-color: var(--sl-accent); }
+  .shiplog-areas__link:focus-visible { outline: 2px solid var(--sl-accent); outline-offset: 2px; }
+  .shiplog-areas__link--current { background: var(--sl-accent); border-color: var(--sl-accent); color: #fff; }
+
   .shiplog-search { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: var(--sl-space) 0; }
   .shiplog-search__input {
     flex: 1 1 14rem;

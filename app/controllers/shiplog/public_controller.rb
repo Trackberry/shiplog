@@ -26,6 +26,22 @@ module Shiplog
       Rails.logger.error("[shiplog] on_changelog_seen failed: #{error.class}: #{error.message}")
     end
 
+    # Sets @area from ?area=<slug>. A blank or non-string value is ignored; a slug no area has is a 404 (a
+    # renamed or deleted area has no page to show, rather than the unfiltered list under a filtered URL).
+    def set_area
+      slug = params[:area]
+      return unless slug.is_a?(String) && slug.present?
+
+      @area = Area.find_by(slug:)
+      head(:not_found) unless @area
+    end
+
+    # What the markup shows of the areas: names, slugs and order of every area (the tags and the filter), which
+    # entries' updated_at don't reflect when an area is renamed or entries are moved in bulk.
+    def shiplog_area_etag_parts
+      [ @area&.id, Area.ordered.pluck(:id, :name, :slug, :position) ]
+    end
+
     # What the rendered markup depends on besides the data: the locale, the gem version and the styling
     # config. Host parent controllers rendering per-user layout content should declare `etag { current_user&.id }`.
     def shiplog_etag_parts
