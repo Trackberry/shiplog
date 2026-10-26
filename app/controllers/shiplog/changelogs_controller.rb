@@ -5,7 +5,6 @@ module Shiplog
     MIN_FILTER_AREAS = 2
 
     before_action :set_area, only: :show
-    after_action :notify_changelog_seen, only: :show
 
     def show
       @page = page_number
@@ -17,6 +16,7 @@ module Shiplog
       records = scope.includes(:area).offset((@page - 1) * PER_PAGE).limit(PER_PAGE + 1).to_a
       return head(:not_found) if @page > 1 && records.empty?
 
+      notify_changelog_seen
       @older = records.size > PER_PAGE
       @months = records.first(PER_PAGE).group_by { |entry| entry.released_on.beginning_of_month }
       @result_count = scope.count if @query

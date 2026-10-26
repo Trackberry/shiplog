@@ -114,7 +114,7 @@ All settings live in `config/initializers/shiplog.rb`:
 | `cache_version` | `nil` | A String added to the public pages' ETag. Callables (`extra_pages`, `repository_labels`, `feedback_path`) cannot be fingerprinted, so bump it when the output of a callable you configured changes. |
 | `feedback_path` | `nil` | Target of the roadmap's "Suggest a feature" link, a String or a callable evaluated in the view. No link while `nil`. |
 | `changelog_search` | `true` | Search box on the public changelog and `?q=` filtering. `false` hides the form and ignores `q`. See [Changelog search](#changelog-search). |
-| `on_changelog_seen` | `nil` | `->(controller) { ... }` called on each changelog index or permalink view (a 200, or a 304 for a revisit), to stamp a visitor's "last seen" time. See [What's new](#whats-new-the-unseen-count). Anything but `nil` or a callable raises `ArgumentError`. |
+| `on_changelog_seen` | `nil` | `->(controller) { ... }` called before each changelog index or permalink view renders (also for a 304 revisit), to stamp a visitor's "last seen" time. See [What's new](#whats-new-the-unseen-count). Anything but `nil` or a callable raises `ArgumentError`. |
 | `max_areas` | `8` | How many [product areas](#product-areas) the AI may create. Past it, entries can only join existing areas. A non-negative Integer; `0` stops the AI creating areas. |
 
 Example:
@@ -375,7 +375,11 @@ Shiplog doesn't know your users, so you supply the "last seen" time:
 
 ```ruby
 # config/initializers/shiplog.rb
-config.on_changelog_seen = ->(controller) { controller.current_user&.update_column(:changelog_seen_at, Time.current) }
+config.on_changelog_seen = lambda do |controller|
+  user = controller.send(:current_user) # current_user is often private; a Current attribute (Current.user) works too
+  # Write only when something is new: the callback runs on every visit, before the page renders.
+  user.update_column(:changelog_seen_at, Time.current) if user && Shiplog.unseen_count(since: user.changelog_seen_at).positive?
+end
 ```
 
 ```ruby
@@ -393,9 +397,9 @@ end
 <%= shiplog_unseen_count(current_user.changelog_seen_at) %>
 ```
 
-The count is one `COUNT` query over the `(status, approved_at)` index.
+The count is one `COUNT` query over the `(status, approved_at)` index. It filters on `approved_at` (when the entry was approved), not on the release date the list is ordered by: "new since you last looked" is about when an entry appeared, so an entry approved today with an earlier `released_on` still counts as new.
 
-`on_changelog_seen` runs as an `after_action` of the changelog index and the permalink pages, for answers with status 200 or 304 (a visitor whose browser revalidates its cached page has still seen the changelog). It does not run for 404s, the feed, the roadmap or non-HTML formats. The response is not sent yet, so the callback can still set a cookie. An exception in the callback is logged, never shown. A host layout that shows the unseen count renders per-user content, so declare `etag { current_user&.changelog_seen_at }` on your `public_parent_controller`, or a cached page keeps showing the old count.
+`on_changelog_seen` runs **before the page renders**, on the changelog index and on permalink pages whose entry exists, for 200 and 304 answers alike (a visitor whose browser revalidates its cached page has still seen the changelog). Running first means a navbar badge rendered in the same response shows the count after your update. It does not run for 404s (an unknown permalink, a page past the last one), the feed, the roadmap or non-HTML formats. Because it runs on every visit and **may write**, keep it cheap: write only when the stored time is older than the newest entry, as in the example above (one `COUNT`, and a write only when there is something new). The response is not sent yet, so the callback can still set a cookie. An exception in the callback is logged with its class, message and the first five backtrace lines, never shown. A host layout that shows the unseen count renders per-user content, so declare `etag { current_user&.changelog_seen_at }` on your `public_parent_controller`, or a cached page keeps showing the old count.
 
 ## Styling
 

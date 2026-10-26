@@ -23,7 +23,9 @@ module Shiplog
     # Whether the public changelog has a search box and honours ?q= (default true).
     attr_accessor :changelog_search
     # Called with the controller on each changelog index or permalink view (200 or 304 answers), e.g. to stamp
-    # the visitor's "last seen" time. Nil by default. Not part of the ETag: it doesn't change the markup.
+    # the visitor's "last seen" time. It runs BEFORE the page renders (so a badge in the same response is
+    # current), on every visit, and may write: keep it cheap, e.g. write only when the stored time is older than
+    # the newest entry. Nil by default. Not part of the ETag: it doesn't change the markup.
     attr_reader :on_changelog_seen
     # Bump it when the output of a callable you configured changes (extra_pages, repository_labels, feedback_path):
     # callables cannot be part of the ETag, so this is how cached public pages learn about it.

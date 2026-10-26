@@ -45,7 +45,9 @@ module Shiplog
     scope :newest_first, -> { order(released_on: :desc, approved_at: :desc, id: :desc) }
 
     # The number of approved features and changes approved after `since` (all of them while it is nil), capped
-    # at 99. One COUNT over the (status, approved_at) index.
+    # at 99. One COUNT over the (status, approved_at) index. It filters on approved_at, not on released_on (the
+    # list's order): "new since you last looked" is about when an entry appeared, so an entry approved today
+    # with an earlier release date still counts as new.
     def self.unseen_count(since: nil)
       scope = approved.where(kind: CHANGELOG_KINDS)
       scope = scope.where("#{table_name}.approved_at > ?", since) if since

@@ -40,7 +40,10 @@ class Shiplog::Generators::InstallGeneratorTest < Rails::Generators::TestCase
     run_generator_without_rake
 
     assert_file "config/initializers/shiplog.rb" do |content|
-      assert_match(/^  # config\.on_changelog_seen = ->\(controller\) \{ .*changelog_seen_at/, content)
+      assert_match(/^  # config\.on_changelog_seen = lambda do \|controller\|$/, content)
+      assert_includes content, "controller.send(:current_user)"
+      assert_includes content, "BEFORE the page renders"
+      assert_match(/changelog_seen_at, Time\.current\) if user && Shiplog\.unseen_count/, content)
       assert_includes content, "Shiplog.unseen_count"
       assert_includes content, "shiplog:backfill_slugs"
       assert_includes content, "content_for :shiplog_og"

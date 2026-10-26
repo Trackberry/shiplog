@@ -13,17 +13,19 @@ module Shiplog
 
     private
 
-    # after_action of the changelog index and the permalink pages: calls config.on_changelog_seen for a visit
-    # that got the page (200) or was told it is unchanged (304, a revisit is a visit). Not for 404s or the feed.
+    # Calls config.on_changelog_seen for a visit to the changelog index or a permalink page. It runs before
+    # the page renders (the actions call it once they know the page exists, ahead of fresh_when and the
+    # implicit render), so a host navbar badge in the same response shows the count the callback just stored,
+    # also when the answer ends up a 304 (a revisit is a visit). Not called for 404s or the feed.
     # The response is not sent yet, so the callback can still set cookies or headers. A failing callback is
     # logged and never breaks the page.
     def notify_changelog_seen
       callback = Shiplog.config.on_changelog_seen
-      return unless callback && [ 200, 304 ].include?(response.status) && request.format.html?
+      return unless callback && request.format.html?
 
       callback.call(self)
     rescue StandardError => error
-      Rails.logger.error("[shiplog] on_changelog_seen failed: #{error.class}: #{error.message}")
+      Rails.logger.error("[shiplog] on_changelog_seen failed: #{error.class}: #{error.message}\n#{error.backtrace&.first(5)&.join("\n")}")
     end
 
     # Sets @area from ?area=<slug>. A blank or non-string value is ignored; a slug no area has is a 404 (a

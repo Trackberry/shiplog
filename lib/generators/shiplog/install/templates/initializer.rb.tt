@@ -118,10 +118,15 @@ Shiplog.configure do |config|
   # config.changelog_search = true
 
   # "What's new". Shiplog doesn't know your users, so you supply the "last seen" time. This is called with the
-  # controller on every changelog index or permalink view (a 200, or a 304 for a revisit); stamp it here, and show
-  # `Shiplog.unseen_count(since: current_user.changelog_seen_at)` (at most 99; `helper Shiplog::UnseenHelper` and
-  # `shiplog_unseen_count(since)` in views) next to your Changelog link.
-  # config.on_changelog_seen = ->(controller) { controller.current_user&.update_column(:changelog_seen_at, Time.current) }
+  # controller on every changelog index or permalink view, BEFORE the page renders (a 304 revisit included), so a
+  # navbar badge in the same response is current. It may write and runs on every visit: keep it cheap, and write
+  # only when something is new. Show `Shiplog.unseen_count(since: user.changelog_seen_at)` (at most 99, counted on
+  # approved_at; `helper Shiplog::UnseenHelper` and `shiplog_unseen_count(since)` in views) next to your Changelog
+  # link. current_user is often private, hence controller.send (or read a Current attribute).
+  # config.on_changelog_seen = lambda do |controller|
+  #   user = controller.send(:current_user)
+  #   user.update_column(:changelog_seen_at, Time.current) if user && Shiplog.unseen_count(since: user.changelog_seen_at).positive?
+  # end
 
   # The 0.3.0 migration gives entries approved so far their permalink slug. The public pages never write (a GET
   # may hit a read replica), so an entry approved by older code during a deploy window has no permalink until

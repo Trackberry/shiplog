@@ -167,12 +167,12 @@ class Shiplog::ChangelogEntriesControllerTest < ActionDispatch::IntegrationTest
 
   test "on_changelog_seen is called on a 304 (a revisit is a visit) but not on a 404" do
     seen = []
-    Shiplog.config.on_changelog_seen = ->(controller) { seen << controller.response.status }
+    Shiplog.config.on_changelog_seen = ->(controller) { seen << controller.action_name }
     get "/changelog/dark-mode"
     etag = response.headers["ETag"]
     get "/changelog/dark-mode", headers: { "If-None-Match" => etag }
     assert_response :not_modified
     get "/changelog/nope"
-    assert_equal [ 200, 304 ], seen
+    assert_equal %w[show show], seen
   end
 end

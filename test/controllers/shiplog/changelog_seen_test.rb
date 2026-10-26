@@ -16,12 +16,48 @@ class Shiplog::ChangelogSeenTest < ActionDispatch::IntegrationTest
   end
 
   test "a revisit answered with 304 still counts as seen" do
-    seen = []
-    Shiplog.config.on_changelog_seen = ->(controller) { seen << controller.response.status }
+    seen = 0
+    Shiplog.config.on_changelog_seen = ->(_controller) { seen += 1 }
     get "/changelog"
     get "/changelog", headers: { "If-None-Match" => response.headers["ETag"] }
     assert_response :not_modified
-    assert_equal [ 200, 304 ], seen
+    assert_equal 2, seen
+  end
+
+  test "a revisit of a permalink answered with 304 still counts as seen" do
+    seen = 0
+    Shiplog.config.on_changelog_seen = ->(_controller) { seen += 1 }
+    get "/changelog/dark-mode"
+    get "/changelog/dark-mode", headers: { "If-None-Match" => response.headers["ETag"] }
+    assert_response :not_modified
+    assert_equal 2, seen
+  end
+
+  test "it runs before the layout renders, so a navbar badge in the same response sees what it set" do
+    Shiplog.config.public_layout = "seen_badge"
+    Shiplog.config.on_changelog_seen = ->(controller) { controller.instance_variable_set(:@seen_badge, "badge-after-callback") }
+
+    get "/changelog"
+    assert_select "#host-badge", text: "badge-after-callback"
+
+    get "/changelog/dark-mode"
+    assert_select "#host-badge", text: "badge-after-callback"
+  end
+
+  test "it does not run for an unknown permalink, a past-the-end page or the feed" do
+    called = 0
+    Shiplog.config.on_changelog_seen = ->(_controller) { called += 1 }
+    get "/changelog/nope"
+    get "/changelog.atom"
+    get "/changelog", params: { page: 99 }
+    assert_equal 0, called
+  end
+
+  test "it runs on a permalink page" do
+    seen = []
+    Shiplog.config.on_changelog_seen = ->(controller) { seen << controller.class }
+    get "/changelog/dark-mode"
+    assert_equal [ Shiplog::ChangelogEntriesController ], seen
   end
 
   test "a page past the last one (404) does not count" do
@@ -52,7 +88,8 @@ class Shiplog::ChangelogSeenTest < ActionDispatch::IntegrationTest
     Rails.logger = ActiveSupport::Logger.new(log)
     get "/changelog"
     assert_response :ok
-    assert_match(/on_changelog_seen.*boom/, log.string)
+    assert_match(/on_changelog_seen failed: RuntimeError: boom/, log.string)
+    assert_match(/changelog_seen_test\.rb:\d+/, log.string, "the first lines of the backtrace are logged")
   ensure
     Rails.logger = original
   end
