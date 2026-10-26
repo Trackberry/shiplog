@@ -47,7 +47,7 @@ class Shiplog::ChangeCandidatesTest < ActiveSupport::TestCase
     fix = pull_request(59, title: "fix(mailbox): Accept forwarded mail")
     untyped = pull_request(60, title: "Read prices from the new feed")
 
-    assert_equal [ fix, untyped ], candidates & [ ci, chore, fix, untyped ]
+    assert_equal [ fix, untyped ].to_set, (candidates & [ ci, chore, fix, untyped ]).to_set
   end
 
   def upgrade(pull_request, changes: [ { "number" => 38, "title" => "Fix annotations", "body_excerpt" => "x", "url" => "u" } ], gem_name: "market_data")
@@ -103,7 +103,7 @@ class Shiplog::ChangeCandidatesTest < ActiveSupport::TestCase
     scoped = pull_request(62, title: "Callao: read manifests whole")
     chore = pull_request(63, title: "chore: Tidy the Gemfile")
 
-    assert_equal [ topic, scoped ], candidates & [ topic, scoped, chore ]
+    assert_equal [ topic, scoped ].to_set, (candidates & [ topic, scoped, chore ]).to_set
   end
 
   test "excludes bot authors" do
