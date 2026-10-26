@@ -85,6 +85,15 @@ class Shiplog::ChangelogFeedsControllerTest < ActionDispatch::IntegrationTest
     assert_equal before, xpath(feed, "/a:feed/a:entry/a:id").map(&:text)
   end
 
+  test "the feed has an author, as RFC 4287 requires when entries have none" do
+    get "/changelog.atom"
+    assert_equal "Changelog", xpath(feed, "/a:feed/a:author/a:name").first.text
+
+    Shiplog.config.product_name = "Acme"
+    get "/changelog.atom"
+    assert_equal "Acme", xpath(feed, "/a:feed/a:author/a:name").first.text
+  end
+
   test "the product name titles the feed" do
     Shiplog.config.product_name = "Acme"
     get "/changelog.atom"

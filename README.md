@@ -367,7 +367,7 @@ Every approved feature and change has its own page at `GET /changelog/:slug` (un
 
 `GET /changelog.atom` serves the latest 50 approved features and changes (newest first) as an Atom feed. An entry has a stable id (a tag URI built from the permalink path, so a title edit does not change it), its permalink, `published` (the release date), `updated`, and its body as HTML. All URLs are absolute. The feed is cached with an ETag like the pages and answers 304 on a match; it does not call `on_changelog_seen`.
 
-The changelog and permalink pages advertise it with a `<link rel="alternate" type="application/atom+xml">` (`content_for :shiplog_feed`, rendered by Shiplog's layout; render it in a host layout too, see above) and the changelog shows a visible "Subscribe (Atom)" link (the `footnote_link` key). The feed is titled "Changelog", or "<product_name> changelog" when `config.product_name` is set, and follows the request locale. Texts: `shiplog.feed.title_with_product`, `.link_title` and `.subscribe`.
+The changelog and permalink pages advertise it with a `<link rel="alternate" type="application/atom+xml">` (`content_for :shiplog_feed`, rendered by Shiplog's layout; render it in a host layout too, see above) and the changelog shows a visible "Subscribe (Atom)" link (the `footnote_link` key). The feed has an `<author>` (the product name, or "Changelog"), which RFC 4287 requires when entries carry none. The feed is titled "Changelog", or "<product_name> changelog" when `config.product_name` is set, and follows the request locale. Texts: `shiplog.feed.title_with_product`, `.link_title` and `.subscribe`.
 
 ## What's new: the unseen count
 

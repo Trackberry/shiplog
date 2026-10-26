@@ -4,6 +4,7 @@ title = Shiplog.config.product_name.present? ? t("shiplog.feed.title_with_produc
 
 atom_feed(language: I18n.locale.to_s, url: changelog_feed_url, root_url: changelog_url) do |feed|
   feed.title(title)
+  feed.author { |author| author.name(Shiplog.config.product_name.presence || "Changelog") } # RFC 4287 4.1.1: the feed or each entry needs one
   feed.updated(@entries.map(&:updated_at).max || Time.current)
 
   @entries.each do |entry|
