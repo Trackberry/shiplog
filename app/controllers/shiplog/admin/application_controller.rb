@@ -3,6 +3,8 @@ module Shiplog
     # Parent controller of the admin. The parent class is resolved when this file loads, so
     # `config.admin_parent_controller` must be set in an initializer (config/initializers/shiplog.rb).
     class ApplicationController < Shiplog.config.admin_parent_controller.constantize
+      include InboxFilters
+
       protect_from_forgery with: :exception
 
       helper Shiplog::FrontendHelper
@@ -15,7 +17,7 @@ module Shiplog
       before_action :authorize_admin
 
       rescue_from Shiplog::Entry::InvalidTransition do
-        redirect_to edit_entry_path(params[:entry_id]), alert: t("shiplog.admin.entries.invalid_transition")
+        respond_inline_error(t("shiplog.admin.entries.invalid_transition"), edit_entry_path(params[:entry_id], inbox_filter_params))
       end
 
       private

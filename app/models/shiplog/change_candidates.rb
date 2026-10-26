@@ -1,6 +1,8 @@
 module Shiplog
   class ChangeCandidates
     COMMIT_TYPE = /\A(\w+)(\([^)]*\))?!?:/
+    # The Conventional Commits types; "Importers: ..." is a topic prefix, not a type.
+    CONVENTIONAL_TYPES = %w[feat fix perf refactor chore docs test ci build style revert deps].freeze
 
     def initialize(repository:, since:, before:)
       @repository = repository
@@ -30,8 +32,8 @@ module Shiplog
 
       # Untyped PR titles stay in; the rewriter decides whether customers would notice.
       def excluded_type?(pull_request)
-        type = pull_request.title[COMMIT_TYPE, 1]
-        type.present? && !Shiplog.config.commit_types.include?(type)
+        type = pull_request.title[COMMIT_TYPE, 1]&.downcase
+        CONVENTIONAL_TYPES.include?(type) && !Shiplog.config.commit_types.include?(type)
       end
 
       def eligible_commit?(commit)

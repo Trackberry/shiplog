@@ -5,7 +5,7 @@ module Shiplog
         def create
           entry = Entry.find(params[:entry_id])
           RewriteEntryJob.perform_later(entry.id, force: true)
-          redirect_to edit_entry_path(entry), notice: t("shiplog.admin.entries.rewrite_queued")
+          redirect_to edit_entry_path(entry, inbox_filter_params), notice: t("shiplog.admin.entries.rewrite_queued")
         end
       end
     end

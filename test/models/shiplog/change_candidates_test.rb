@@ -50,6 +50,14 @@ class Shiplog::ChangeCandidatesTest < ActiveSupport::TestCase
     assert_equal [ fix, untyped ], candidates & [ ci, chore, fix, untyped ]
   end
 
+  test "keeps PR titles that only start with a topic, not a conventional type" do
+    topic = pull_request(61, title: "Importers: merge keys across exporters")
+    scoped = pull_request(62, title: "Callao: read manifests whole")
+    chore = pull_request(63, title: "chore: Tidy the Gemfile")
+
+    assert_equal [ topic, scoped ], candidates & [ topic, scoped, chore ]
+  end
+
   test "excludes bot authors" do
     assert_not_includes candidates, pull_request(55, author_login: "dependabot[bot]")
   end
@@ -132,5 +140,13 @@ class Shiplog::ChangeCandidatesTest < ActiveSupport::TestCase
     ActiveSupport::Notifications.subscribed(callback, "sql.active_record") { candidates }
 
     assert_operator count, :<=, 10
+  end
+
+  test "a PR whose entry was switched to a feature is not proposed again" do
+    pr = pull_request(51)
+    entry = Shiplog::Entry.create!(kind: "change", subject: pr, title: "Switched")
+    entry.update!(changelog_kind: "feature")
+
+    assert_not_includes candidates, pr
   end
 end

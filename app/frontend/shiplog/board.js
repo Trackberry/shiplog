@@ -1,6 +1,9 @@
-const board = document.querySelector("[data-board-url]")
+// Idempotent: runs now and again on turbo:load (inert without Turbo), binding each board once.
+const init = () => {
+  const board = document.querySelector("[data-board-url]")
+  if (!board || board.dataset.shiplogBound) return
+  board.dataset.shiplogBound = "true"
 
-if (board) {
   // Host layouts may not render csrf_meta_tags, so the board element carries the token as a fallback.
   const csrfToken = document.querySelector("meta[name=csrf-token]")?.content ?? board.dataset.csrfToken
   let dragged = null
@@ -75,3 +78,6 @@ if (board) {
     save(list, dragged).catch(() => window.location.reload())
   })
 }
+
+init()
+document.addEventListener("turbo:load", init)

@@ -18,6 +18,8 @@
     </ul>
   </nav>
 
+  <div data-shiplog-inbox data-empty-text="<%= t("shiplog.admin.entries.empty") %>" data-csrf-token="<%= form_authenticity_token %>">
+  <p class="shiplog-admin__live" role="status" aria-live="polite" data-shiplog-status hidden></p>
   <% if @entries.empty? %>
     <p class="shiplog-admin__empty"><%= t("shiplog.admin.entries.empty") %></p>
   <% else %>
@@ -35,6 +37,8 @@
       </tbody>
     </table>
   <% end %>
+  </div>
+  <%= shiplog_javascript_tag "inbox" %>
 
   <nav class="shiplog-admin-pagination" aria-label="<%= t("shiplog.admin.entries.pagination") %>">
     <% if @page > 1 %>

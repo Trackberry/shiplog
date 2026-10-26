@@ -4,7 +4,8 @@ module Shiplog
     ASSETS = {
       "shiplog.css" => { path: ASSET_DIRECTORY.join("shiplog.css"), type: "text/css" },
       "admin.css" => { path: ASSET_DIRECTORY.join("admin.css"), type: "text/css" },
-      "board.js" => { path: ASSET_DIRECTORY.join("board.js"), type: "text/javascript" }
+      "board.js" => { path: ASSET_DIRECTORY.join("board.js"), type: "text/javascript" },
+      "inbox.js" => { path: ASSET_DIRECTORY.join("inbox.js"), type: "text/javascript" }
     }.freeze
 
     # The version segment busts caches; stale versions are 404 so they are never cached as the current file.

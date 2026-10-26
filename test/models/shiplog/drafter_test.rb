@@ -43,6 +43,18 @@ class Shiplog::DrafterTest < ActiveJob::TestCase
     assert_equal Date.new(2026, 10, 11), entry.released_on
   end
 
+  test "does not draft a feature again after its entry was switched to a change" do
+    issue = shiplog_issues(:bulk_upload)
+    issue.update!(state: "closed", state_reason: "completed", closed_at: Time.utc(2026, 10, 12))
+    Shiplog::Drafter.call
+    issue.entries.find_by!(kind: "feature").update!(changelog_kind: "change")
+
+    assert_no_difference -> { Shiplog::Entry.count } do
+      Shiplog::Drafter.call
+    end
+    assert_equal [ "change" ], issue.entries.where(kind: %w[feature change]).pluck(:kind)
+  end
+
   test "released_on is the newest merged_at across the tree" do
     issue = shiplog_issues(:bulk_upload)
     issue.update!(state: "closed", state_reason: "completed", closed_at: Time.utc(2026, 10, 12))

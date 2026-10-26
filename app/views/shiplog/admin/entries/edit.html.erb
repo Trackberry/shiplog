@@ -8,7 +8,7 @@
   <div class="shiplog-admin-split">
     <section class="shiplog-admin-panel">
       <h2><%= t("shiplog.admin.entries.public_text") %></h2>
-      <%= form_with model: @entry, url: entry_path(@entry), method: :patch, class: "shiplog-admin-form" do |form| %>
+      <%= form_with model: @entry, url: entry_path(@entry, inbox_filter_params), method: :patch, class: "shiplog-admin-form" do |form| %>
         <% if @entry.errors.any? %>
           <div class="shiplog-admin__flash shiplog-admin__flash--alert" role="alert">
             <%= @entry.errors.full_messages.to_sentence %>
@@ -22,6 +22,12 @@
           <%= form.label :body, t("shiplog.admin.entries.fields.body") %>
           <%= form.text_area :body, rows: 8 %>
         </p>
+        <% if Shiplog::Entry::CHANGELOG_KINDS.include?(@entry.kind) %>
+          <p>
+            <%= form.label :changelog_kind, t("shiplog.admin.entries.fields.category") %>
+            <%= form.select :changelog_kind, Shiplog::Entry::CHANGELOG_KINDS.map { |kind| [ t("shiplog.admin.entries.category_options.#{kind}"), kind ] } %>
+          </p>
+        <% end %>
         <p>
           <%= form.label :released_on, t("shiplog.admin.entries.fields.released_on") %>
           <%= form.date_field :released_on %>
@@ -31,16 +37,16 @@
 
       <div class="shiplog-admin-actions">
         <% if @entry.draft? %>
-          <%= button_to t("shiplog.admin.entries.approve"), entry_approval_path(@entry), class: "shiplog-button shiplog-button--primary" %>
-          <%= form_with url: entry_discard_path(@entry), class: "shiplog-admin-inline-form" do |form| %>
+          <%= button_to t("shiplog.admin.entries.approve"), entry_approval_path(@entry, inbox_filter_params), class: "shiplog-button shiplog-button--primary" %>
+          <%= form_with url: entry_discard_path(@entry, inbox_filter_params), class: "shiplog-admin-inline-form" do |form| %>
             <%= form.label :reason, t("shiplog.admin.entries.fields.reason") %>
             <%= form.text_field :reason %>
             <%= form.submit t("shiplog.admin.entries.discard"), class: "shiplog-button" %>
           <% end %>
         <% elsif @entry.discarded? %>
-          <%= button_to t("shiplog.admin.entries.restore"), entry_discard_path(@entry), method: :delete, class: "shiplog-button" %>
+          <%= button_to t("shiplog.admin.entries.restore"), entry_discard_path(@entry, inbox_filter_params), method: :delete, class: "shiplog-button" %>
         <% end %>
-        <%= button_to t("shiplog.admin.entries.regenerate"), entry_rewrite_path(@entry), class: "shiplog-button" %>
+        <%= button_to t("shiplog.admin.entries.regenerate"), entry_rewrite_path(@entry, inbox_filter_params), class: "shiplog-button" %>
         <% if @entry.approved? %>
           <p class="shiplog-admin__muted"><%= t("shiplog.admin.entries.regenerate_warning") %></p>
         <% end %>
@@ -57,5 +63,5 @@
     </aside>
   </div>
 
-  <p><%= link_to t("shiplog.admin.entries.back"), root_path %></p>
+  <p><%= link_to t("shiplog.admin.entries.back"), entries_filter_path(**inbox_filter_params) %></p>
 <% end %>

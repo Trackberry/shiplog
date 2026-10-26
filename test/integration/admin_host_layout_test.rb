@@ -29,6 +29,16 @@ class AdminHostLayoutTest < ActionDispatch::IntegrationTest
     assert_select "title", text: "Host admin"
   end
 
+  test "records routed by a host mapping resolve through main_app in the admin" do
+    get "#{ADMIN}/", params: { avatar: 1 }
+    assert_response :ok
+    assert_select "#host-avatar-image[src=?]", "http://www.example.com/avatars/7"
+    assert_select "#host-avatar-link[href=?]", "/avatars/7"
+    assert_select "#host-avatar-url-for", text: "/avatars/7"
+    assert_select "#host-avatar-polymorphic-path", text: "/avatars/7"
+    assert_select "#host-avatar-polymorphic-url", text: "http://www.example.com/avatars/7"
+  end
+
   test "every admin page works inside the host layout" do
     entry = shiplog_entries(:csv_change_draft)
     [ "#{ADMIN}/", "#{ADMIN}/entries/#{entry.id}/edit", "#{ADMIN}/board", "#{ADMIN}/sync" ].each do |path|

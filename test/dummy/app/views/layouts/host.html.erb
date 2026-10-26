@@ -12,6 +12,15 @@
       <a id="host-about-url" href="<%= about_url %>">About (absolute)</a>
       <a id="engine-roadmap" href="<%= roadmap_path %>">Roadmap</a>
     </nav>
+    <% if params[:avatar] %>
+      <div id="host-avatar">
+        <%= image_tag(HostAvatar.new, id: "host-avatar-image") %>
+        <%= link_to("Avatar", HostAvatar.new, id: "host-avatar-link") %>
+        <span id="host-avatar-url-for"><%= url_for(HostAvatar.new) %></span>
+        <span id="host-avatar-polymorphic-path"><%= polymorphic_path(HostAvatar.new) %></span>
+        <span id="host-avatar-polymorphic-url"><%= polymorphic_url(HostAvatar.new) %></span>
+      </div>
+    <% end %>
     <%= yield %>
   </body>
 </html>

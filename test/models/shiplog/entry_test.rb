@@ -90,4 +90,42 @@ class Shiplog::EntryTest < ActiveSupport::TestCase
     draft = shiplog_entries(:csv_change_draft)
     assert draft.valid?
   end
+
+  test "a change can become a feature and back, keeping its status" do
+    entry = shiplog_entries(:csv_change_draft)
+    entry.update!(changelog_kind: "feature")
+    assert_equal [ "feature", "draft" ], [ entry.reload.kind, entry.status ]
+    entry.update!(changelog_kind: "change")
+    assert_equal "change", entry.reload.kind
+  end
+
+  test "changelog_kind= ignores roadmap and unknown values" do
+    entry = shiplog_entries(:csv_change_draft)
+    [ "roadmap", "bogus", "", nil, 3 ].each do |value|
+      entry.changelog_kind = value
+      assert_equal "change", entry.kind, value.inspect
+    end
+  end
+
+  test "a roadmap entry cannot change kind" do
+    entry = shiplog_entries(:bulk_upload_roadmap)
+    entry.changelog_kind = "feature"
+    assert_equal "roadmap", entry.kind
+    entry.kind = "feature"
+    assert_not entry.valid?
+    assert entry.errors.of_kind?(:kind, :invalid)
+  end
+
+  test "a feature or change entry cannot become a roadmap entry" do
+    entry = shiplog_entries(:csv_change_draft)
+    entry.kind = "roadmap"
+    assert_not entry.valid?
+  end
+
+  test "switching to a kind the subject already has is a validation error, not a database error" do
+    entry = shiplog_entries(:csv_change_draft)
+    Shiplog::Entry.create!(kind: "feature", subject: entry.subject, title: "Other")
+    assert_not entry.update(changelog_kind: "feature")
+    assert entry.errors.of_kind?(:changelog_kind, :taken)
+  end
 end

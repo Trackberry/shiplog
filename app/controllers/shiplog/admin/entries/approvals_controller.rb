@@ -5,9 +5,9 @@ module Shiplog
         def create
           entry = Entry.find(params[:entry_id])
           entry.approve!(by: current_admin_name)
-          redirect_to root_path, notice: t("shiplog.admin.entries.approved")
+          respond_inline(entry, :approved)
         rescue ActiveRecord::RecordInvalid => error
-          redirect_to edit_entry_path(entry), alert: error.record.errors.full_messages.to_sentence
+          respond_inline_error(error.record.errors.full_messages.to_sentence, edit_entry_path(entry, inbox_filter_params))
         end
       end
     end

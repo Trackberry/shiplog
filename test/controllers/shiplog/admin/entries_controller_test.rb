@@ -149,4 +149,80 @@ class Shiplog::Admin::EntriesControllerTest < ActionDispatch::IntegrationTest
     get "/admin/shiplog/entries/0/edit"
     assert_response :not_found
   end
+
+  test "update switches a change to a feature and keeps the status" do
+    entry = shiplog_entries(:csv_change_draft)
+    patch "/admin/shiplog/entries/#{entry.id}", params: { entry: { title: entry.title, changelog_kind: "feature" } }
+    assert_redirected_to "/admin/shiplog/"
+    assert_equal [ "feature", "draft" ], [ entry.reload.kind, entry.status ]
+  end
+
+  test "update switches a feature back to a change" do
+    entry = shiplog_entries(:dark_mode_feature)
+    patch "/admin/shiplog/entries/#{entry.id}", params: { entry: { changelog_kind: "change" } }
+    assert_equal [ "change", "approved" ], [ entry.reload.kind, entry.status ]
+  end
+
+  test "update ignores a roadmap kind, for roadmap entries and as a value" do
+    roadmap = shiplog_entries(:bulk_upload_roadmap)
+    patch "/admin/shiplog/entries/#{roadmap.id}", params: { entry: { title: "T", changelog_kind: "feature", kind: "feature" } }
+    assert_redirected_to "/admin/shiplog/"
+    assert_equal "roadmap", roadmap.reload.kind
+
+    change = shiplog_entries(:csv_change_draft)
+    patch "/admin/shiplog/entries/#{change.id}", params: { entry: { changelog_kind: "roadmap", kind: "roadmap" } }
+    assert_equal "change", change.reload.kind
+  end
+
+  test "update ignores an invalid category value" do
+    entry = shiplog_entries(:csv_change_draft)
+    patch "/admin/shiplog/entries/#{entry.id}", params: { entry: { changelog_kind: "bogus" } }
+    assert_redirected_to "/admin/shiplog/"
+    assert_equal "change", entry.reload.kind
+  end
+
+  test "update shows an error when the subject already has an entry of the target kind" do
+    entry = shiplog_entries(:csv_change_draft)
+    Shiplog::Entry.create!(kind: "feature", subject: entry.subject, title: "Other")
+    patch "/admin/shiplog/entries/#{entry.id}", params: { entry: { changelog_kind: "feature" } }
+    assert_response :unprocessable_content
+    assert_select "[role=alert]", text: /Category has already been taken/
+    assert_equal "change", entry.reload.kind
+  end
+
+  test "update shows the same error when the database unique index is hit by a race" do
+    entry = shiplog_entries(:csv_change_draft)
+    racer = Module.new { def save(*) = raise(ActiveRecord::RecordNotUnique, "UNIQUE constraint failed") }
+    Shiplog::Entry.prepend(racer)
+    patch "/admin/shiplog/entries/#{entry.id}", params: { entry: { changelog_kind: "feature" } }
+    assert_response :unprocessable_content
+    assert_select "[role=alert]", text: /Category has already been taken/
+    assert_select ".field_with_errors select[name='entry[changelog_kind]']"
+  ensure
+    racer.send(:remove_method, :save)
+  end
+
+  test "the edit page offers the category only for features and changes" do
+    get "/admin/shiplog/entries/#{shiplog_entries(:csv_change_draft).id}/edit"
+    assert_select "select[name='entry[changelog_kind]']" do
+      assert_select "option[value=feature]", text: "New feature"
+      assert_select "option[value=change][selected]", text: "Improvement"
+      assert_select "option", 2
+    end
+    get "/admin/shiplog/entries/#{shiplog_entries(:dark_mode_feature).id}/edit"
+    assert_select "select[name='entry[changelog_kind]'] option[value=feature][selected]"
+    get "/admin/shiplog/entries/#{shiplog_entries(:bulk_upload_roadmap).id}/edit"
+    assert_select "select[name='entry[changelog_kind]']", count: 0
+  end
+
+  test "the public changelog shows the New pill after switching" do
+    entry = shiplog_entries(:csv_change_draft)
+    entry.approve!(by: "a")
+    get "/changelog"
+    assert_select "li.shiplog-entry--change", text: /Better CSV validation/
+    patch "/admin/shiplog/entries/#{entry.id}", params: { entry: { changelog_kind: "feature" } }
+    get "/changelog"
+    assert_select "li.shiplog-entry--feature .shiplog-entry__category", text: "New"
+    assert_select "li.shiplog-entry--feature", text: /Better CSV validation/
+  end
 end

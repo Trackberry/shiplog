@@ -1,0 +1,90 @@
+require "application_system_test_case"
+
+class InboxTest < ApplicationSystemTestCase
+  test "approving on the drafts list removes the row without a reload" do
+    entry = shiplog_entries(:csv_change_draft)
+    visit "/admin/shiplog/?status=draft"
+    page.execute_script("window.shiplogNotReloaded = true")
+
+    within("#shiplog-entry-#{entry.id}") { click_button I18n.t("shiplog.admin.entries.approve") }
+
+    assert_no_selector "#shiplog-entry-#{entry.id}"
+    assert_selector "[data-shiplog-inbox] [role=status]", text: I18n.t("shiplog.admin.entries.approved")
+    assert_selector "[data-shiplog-inbox] [role=status]", text: entry.title
+    assert page.evaluate_script("window.shiplogNotReloaded"), "the inbox was reloaded"
+    assert_equal "approved", entry.reload.status
+  end
+
+  test "a row that still matches the filter is replaced rather than removed" do
+    entry = shiplog_entries(:csv_change_draft)
+    visit "/admin/shiplog/?status=draft&kind=change"
+    page.execute_script("window.shiplogNotReloaded = true")
+    # Approve is only offered on draft rows, so point the form at an approved-list filter to see the
+    # response for an entry that stays in the list.
+    page.execute_script(<<~JS)
+      const form = document.querySelector("#shiplog-entry-#{entry.id} form[data-shiplog-inline]")
+      form.action = form.action.replace("status=draft", "status=approved")
+    JS
+
+    within("#shiplog-entry-#{entry.id}") { click_button I18n.t("shiplog.admin.entries.approve") }
+
+    assert_selector "#shiplog-entry-#{entry.id}", text: entry.title
+    assert_no_button I18n.t("shiplog.admin.entries.approve")
+    assert_selector "[role=status]", text: I18n.t("shiplog.admin.entries.approved")
+    assert page.evaluate_script("window.shiplogNotReloaded")
+  end
+
+  test "restoring on the discarded list removes the row" do
+    entry = shiplog_entries(:typo_change_discarded)
+    visit "/admin/shiplog/?status=discarded"
+    page.execute_script("window.shiplogNotReloaded = true")
+
+    within("#shiplog-entry-#{entry.id}") { click_button I18n.t("shiplog.admin.entries.restore") }
+
+    assert_no_selector "#shiplog-entry-#{entry.id}"
+    assert_selector "[role=status]", text: I18n.t("shiplog.admin.entries.restored")
+    assert_text I18n.t("shiplog.admin.entries.empty")
+    assert page.evaluate_script("window.shiplogNotReloaded")
+    assert_equal "draft", entry.reload.status
+  end
+
+  # Turbo replaces the body on navigation, so the container is a fresh, unbound element and the module
+  # script does not run again; the script re-initialises on turbo:load.
+  RENEW = <<~JS.freeze
+    const inbox = document.querySelector("[data-shiplog-inbox]")
+    const fresh = inbox.cloneNode(true)
+    fresh.removeAttribute("data-shiplog-bound") // as parsed from server HTML, not copied from the old element
+    inbox.replaceWith(fresh)
+    document.dispatchEvent(new Event("turbo:load"))
+  JS
+
+  test "the inbox keeps working inline after a Turbo-style page swap" do
+    entry = shiplog_entries(:csv_change_draft)
+    visit "/admin/shiplog/?status=draft"
+    page.execute_script("window.shiplogNotReloaded = true")
+    page.execute_script(RENEW)
+
+    within("#shiplog-entry-#{entry.id}") { click_button I18n.t("shiplog.admin.entries.approve") }
+
+    assert_no_selector "#shiplog-entry-#{entry.id}"
+    assert_selector "[role=status]", text: I18n.t("shiplog.admin.entries.approved")
+    assert page.evaluate_script("window.shiplogNotReloaded"), "the inbox was reloaded"
+  end
+
+  test "initialising twice sends exactly one request per click" do
+    entry = shiplog_entries(:csv_change_draft)
+    visit "/admin/shiplog/?status=draft"
+    page.execute_script(<<~JS)
+      window.shiplogRequests = 0
+      const original = window.fetch
+      window.fetch = (...args) => { window.shiplogRequests += 1; return original(...args) }
+      document.dispatchEvent(new Event("turbo:load"))
+      document.dispatchEvent(new Event("turbo:load"))
+    JS
+
+    within("#shiplog-entry-#{entry.id}") { click_button I18n.t("shiplog.admin.entries.approve") }
+
+    assert_no_selector "#shiplog-entry-#{entry.id}"
+    assert_equal 1, page.evaluate_script("window.shiplogRequests")
+  end
+end
