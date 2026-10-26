@@ -141,7 +141,7 @@ es:
           upload: Subir imágenes
           upload_label: Imágenes (PNG, JPEG, GIF o WebP, hasta 5 MB cada una)
           none_selected: Elige al menos una imagen.
-          rejected: "No se añadieron; solo se aceptan imágenes PNG, JPEG, GIF y WebP de hasta 5 MB: %{names}"
+          rejected: "No se añadieron; solo se aceptan imágenes PNG, JPEG, GIF y WebP de hasta 5 MB y 10.000 píxeles por lado: %{names}"
           added:
             one: Imagen añadida.
             other: "%{count} imágenes añadidas."

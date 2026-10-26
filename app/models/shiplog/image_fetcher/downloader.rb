@@ -5,11 +5,12 @@ module Shiplog
     # Downloads one allowed image URL: five seconds to connect and five to read, at most three redirects (each
     # hop is checked against the allowlist again), at most 5 MB (counted while streaming, the download stops
     # past it). The GitHub token is sent to github.com only, never to another host. Returns a Download, or nil
-    # (logged) when anything goes wrong or the bytes aren't a PNG, JPEG, GIF or WebP.
+    # (logged) when anything goes wrong or the bytes aren't a PNG, JPEG, GIF or WebP
+    # of at most 10,000 pixels a side and 40 megapixels (see ImageType).
     class Downloader
       TIMEOUT = 5
       MAX_REDIRECTS = 3
-      Download = Data.define(:body, :content_type)
+      Download = Data.define(:body, :content_type, :width, :height)
       Rejected = Class.new(StandardError)
 
       def initialize(token: nil)
@@ -18,10 +19,9 @@ module Shiplog
 
       def call(url)
         body = fetch(Sources.parse(url), MAX_REDIRECTS)
-        content_type = ImageType.detect(body.byteslice(0, ImageType::SNIFF_LENGTH))
-        raise Rejected, "not a PNG, JPEG, GIF or WebP image" unless content_type
+        info = ImageType.analyze(body) # type by magic bytes, size from the header, both limits enforced
 
-        Download.new(body:, content_type:)
+        Download.new(body:, content_type: info.content_type, width: info.width, height: info.height)
       rescue StandardError => error
         Rails.logger&.warn("[shiplog] Skipped image #{safe(url)}: #{error.class}: #{error.message}")
         nil

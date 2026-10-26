@@ -137,7 +137,7 @@ en:
           upload: Upload images
           upload_label: Images (PNG, JPEG, GIF or WebP, up to 5 MB each)
           none_selected: Choose at least one image.
-          rejected: "Not added, only PNG, JPEG, GIF and WebP images up to 5 MB are accepted: %{names}"
+          rejected: "Not added, only PNG, JPEG, GIF and WebP images up to 5 MB and 10,000 pixels a side are accepted: %{names}"
           added:
             one: Image added.
             other: "%{count} images added."

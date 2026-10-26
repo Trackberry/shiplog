@@ -20,7 +20,7 @@ module Shiplog
       downloader = Downloader.new(token: Shiplog.config.resolved_github_token)
       files = urls.each_with_index.filter_map do |url, index|
         download = downloader.call(url)
-        download && { io: StringIO.new(download.body), filename: "screenshot-#{index + 1}.#{ImageType::EXTENSIONS.fetch(download.content_type)}", content_type: download.content_type }
+        download && { io: StringIO.new(download.body), filename: "screenshot-#{index + 1}.#{ImageType::EXTENSIONS.fetch(download.content_type)}", content_type: download.content_type, metadata: { width: download.width, height: download.height } }
       end
       files.empty? ? 0 : attach(files)
     rescue StandardError => error

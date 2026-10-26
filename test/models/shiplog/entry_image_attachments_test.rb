@@ -107,6 +107,15 @@ class Shiplog::EntryImageAttachmentsTest < ActiveJob::TestCase
     assert_equal [ b, a ], @entry.reload.ordered_images.map(&:blob_id)
   end
 
+  test "the ETag parts include each image's size, so analysis finishing later changes them" do
+    image, = @entry.add_images([ file(:png) ])
+    assert_equal [ [ image.blob_id, "Dark mode", nil, nil ] ], @entry.image_etag_parts
+
+    blob = image.blob
+    blob.update!(metadata: blob.metadata.merge(width: 640, height: 480))
+    assert_equal [ [ image.blob_id, "Dark mode", 640, 480 ] ], @entry.reload.image_etag_parts
+  end
+
   test "changing the images bumps updated_at" do
     travel_to 1.hour.from_now do
       assert_changes -> { @entry.reload.updated_at } do

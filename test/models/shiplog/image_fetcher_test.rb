@@ -17,6 +17,8 @@ class Shiplog::ImageFetcherTest < ActiveJob::TestCase
 
   def stub_image(url, body = image_bytes(:png), **options) = stub_request(:get, url).to_return(status: 200, body:, **options)
 
+  def png_header(width, height) = "\x89PNG\r\n\x1A\n".b + [ 13 ].pack("N") + "IHDR" + [ width, height ].pack("NN") + "\x08\x06\x00\x00\x00".b
+
   def fetch = Shiplog::ImageFetcher.call(@entry)
 
   test "attaches an image from the body, in order, with its type taken from its bytes" do
@@ -128,6 +130,35 @@ class Shiplog::ImageFetcherTest < ActiveJob::TestCase
     stub_image(SIGNED, image_bytes(:png) + ("a" * Shiplog::ImageType::MAX_BYTES))
     assert_equal 0, fetch
     assert_not @entry.reload.images.attached?
+  end
+
+  test "an image declaring more than 10,000 pixels a side or 40 megapixels is dropped before any processing" do
+    urls = %w[wide.png tall.png big.png ok.png].map { |name| "https://user-images.githubusercontent.com/#{name}" }
+    stub_body(urls.map { |url| img(url) }.join)
+    stub_image(urls[0], png_header(10_001, 10))
+    stub_image(urls[1], png_header(10, 10_001))
+    stub_image(urls[2], png_header(8_001, 5_000))
+    stub_image(urls[3], png_header(8_000, 5_000))
+
+    assert_equal 1, fetch
+    blob = @entry.reload.images.first.blob
+    assert_equal [ 8_000, 5_000 ], [ blob.metadata[:width], blob.metadata[:height] ]
+  end
+
+  test "a download whose dimensions can't be read is dropped" do
+    stub_body(img(SIGNED))
+    stub_image(SIGNED, image_bytes(:png).byteslice(0, 20))
+    assert_equal 0, fetch
+  end
+
+  test "the parsed width and height are stored in the blob's metadata, without waiting for analysis" do
+    stub_body(img(SIGNED))
+    stub_image(SIGNED)
+    assert_equal 1, fetch
+
+    blob = @entry.reload.images.first.blob
+    assert_equal [ 1, 1 ], [ blob.metadata[:width], blob.metadata[:height] ]
+    assert_not blob.analyzed?
   end
 
   test "an image of exactly 5 MB is kept" do

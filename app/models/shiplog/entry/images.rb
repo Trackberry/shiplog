@@ -33,9 +33,10 @@ module Shiplog::Entry::Images
     custom_image_alt(attachment) || display_title.to_s
   end
 
-  # What public pages depend on, for ETags: each image's blob id and alt text, in order.
+  # What public pages depend on, for ETags: each image's blob id, alt text and size (the width and height
+  # attributes of the markup), in order.
   def image_etag_parts
-    ordered_images.map { |attachment| [ attachment.blob_id, image_alt(attachment) ] }
+    ordered_images.map { |attachment| [ attachment.blob_id, image_alt(attachment), attachment.blob.metadata[:width], attachment.blob.metadata[:height] ] }
   end
 
   # Blob ids are compared as strings: they may be integers or UUIDs, in the column, in the URL and in the table.

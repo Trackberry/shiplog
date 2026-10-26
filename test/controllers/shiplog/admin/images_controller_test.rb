@@ -101,6 +101,26 @@ class Shiplog::Admin::ImagesControllerTest < ActionDispatch::IntegrationTest
     assert_equal 0, @entry.reload.images.count
   end
 
+  test "rejects an image whose declared size is over the limits or can't be read, adding nothing" do
+    header = ->(width, height) { "\x89PNG\r\n\x1A\n".b + [ 13 ].pack("N") + "IHDR" + [ width, height ].pack("NN") + "\x08\x06\x00\x00\x00".b }
+    { "bomb.png" => header.(40_000, 40_000), "wide.png" => header.(10_001, 1), "megapixels.png" => header.(8_000, 5_001),
+      "cut.png" => image_bytes(:png).byteslice(0, 20), "zero.png" => header.(0, 1) }.each do |name, bytes|
+      post "#{@base}/images", params: { images: [ image_upload(:png), image_upload(:png, bytes:, name:) ] }
+      assert_redirected_to "#{@base}/edit"
+      assert_match name, flash[:alert]
+      assert_match "10,000 pixels", flash[:alert]
+      assert_equal 0, @entry.reload.images.count, name
+    end
+  end
+
+  test "accepts an image within the limits and stores its dimensions in the blob metadata" do
+    bytes = "\x89PNG\r\n\x1A\n".b + [ 13 ].pack("N") + "IHDR" + [ 8_000, 5_000 ].pack("NN") + "\x08\x06\x00\x00\x00".b
+    post "#{@base}/images", params: { images: [ image_upload(:png, bytes:, name: "large.png"), image_upload(:jpg) ] }
+
+    blobs = @entry.reload.ordered_images.map(&:blob)
+    assert_equal [ [ 8_000, 5_000 ], [ 1, 1 ] ], blobs.map { |blob| [ blob.metadata[:width], blob.metadata[:height] ] }
+  end
+
   test "an upload without files, or with a plain string, says so" do
     post "#{@base}/images"
     assert_equal "Choose at least one image.", flash[:alert]

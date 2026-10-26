@@ -11,13 +11,14 @@ module Shiplog
           files = uploads
           return back(alert: t("shiplog.admin.entries.images.none_selected", default: "Choose at least one image.")) if files.empty?
 
-          rejected = files.reject { |file| acceptable?(file) }
+          checked = files.index_with { |file| inspect_upload(file) }
+          rejected = checked.select { |_file, info| info.nil? }.keys
           if rejected.any?
             names = rejected.map { |file| file.original_filename.to_s.scrub.first(100) }.to_sentence
-            return back(alert: t("shiplog.admin.entries.images.rejected", names:, default: "Not added, only PNG, JPEG, GIF and WebP images up to 5 MB are accepted: %{names}"))
+            return back(alert: t("shiplog.admin.entries.images.rejected", names:, default: "Not added, only PNG, JPEG, GIF and WebP images up to 5 MB and 10,000 pixels a side are accepted: %{names}"))
           end
 
-          @entry.add_images(files.map { |file| attachable(file) }) # uploads first, locks only to attach
+          @entry.add_images(checked.map { |file, info| attachable(file, info) }) # uploads first, locks only to attach
           back(notice: t("shiplog.admin.entries.images.added", count: files.size, default: { one: "Image added.", other: "%{count} images added." }))
         end
 
@@ -53,21 +54,21 @@ module Shiplog
           Array(params[:images]).select { |file| file.is_a?(ActionDispatch::Http::UploadedFile) }
         end
 
-        # Decided by the file's first bytes and size, never by the declared name or content type.
-        def acceptable?(file)
-          return false unless file.size.between?(1, ImageType::MAX_BYTES)
+        # Decided by the file's bytes and size, never by the declared name or content type: the type, and the
+        # pixel size read from the header, which must be within the limits (see ImageType). Nil when refused.
+        def inspect_upload(file)
+          return unless file.size.between?(1, ImageType::MAX_BYTES)
 
           file.rewind
-          head = file.read(ImageType::SNIFF_LENGTH)
+          ImageType.analyze(file.read(ImageType::MAX_BYTES + 1))
+        rescue ImageType::Invalid
+          nil
+        ensure
           file.rewind
-          ImageType.detect(head).present?
         end
 
-        def attachable(file)
-          file.rewind
-          content_type = ImageType.detect(file.read(ImageType::SNIFF_LENGTH))
-          file.rewind
-          { io: file.tempfile, filename: file.original_filename.to_s.scrub.presence || "image", content_type: }
+        def attachable(file, info)
+          { io: file.tempfile, filename: file.original_filename.to_s.scrub.presence || "image", content_type: info.content_type, metadata: { width: info.width, height: info.height } }
         end
       end
     end
