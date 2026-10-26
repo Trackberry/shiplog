@@ -1,9 +1,10 @@
-<%# locals: (query: nil, count: nil, area: nil) %>
+<%# locals: (query: nil, count: nil) %>
+<%# the selected area is read from @area, not a local: a copy of this partial from 0.2.0 declares only query and count %>
 <%# the changelog search form (GET, works without JavaScript); with a query, also the result summary and a link back to the changelog (of the same area, when one is selected) %>
 <% label = t("shiplog.changelog.search.label", default: "Search the changelog") %>
 <form class="<%= shiplog_class(:search) %>" role="search" action="<%= changelog_path %>" method="get">
   <input class="<%= shiplog_class(:search_input) %>" type="search" name="q" value="<%= query %>" aria-label="<%= label %>" placeholder="<%= label %>" maxlength="<%= Shiplog::Entry::SEARCH_MAX_LENGTH %>">
-  <% if area %><input type="hidden" name="area" value="<%= area.slug %>"><% end %>
+  <% if @area %><input type="hidden" name="area" value="<%= @area.slug %>"><% end %>
   <button class="<%= shiplog_class(:search_button) %>" type="submit"><%= t("shiplog.changelog.search.submit", default: "Search") %></button>
 </form>
 <% if query %>
@@ -12,6 +13,6 @@
     <% if count.to_i.positive? %>
       <%= t("shiplog.changelog.search.summary", count: count, query: query, default: { one: "%{count} result for “%{query}”", other: "%{count} results for “%{query}”" }) %>
     <% end %>
-    <%= link_to t("shiplog.changelog.search.clear", default: "Clear search"), changelog_path(area: area&.slug), class: shiplog_class(:search_clear) %>
+    <%= link_to t("shiplog.changelog.search.clear", default: "Clear search"), changelog_path(area: @area&.slug), class: shiplog_class(:search_clear) %>
   </p>
 <% end %>

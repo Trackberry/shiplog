@@ -6,7 +6,7 @@
     <% content_for :shiplog_robots, "noindex" %>
   <% end %>
   <% if Shiplog.config.changelog_search %>
-    <%= render "shiplog/changelogs/search", query: @query, count: @result_count, area: @area %>
+    <%= render "shiplog/changelogs/search", query: @query, count: @result_count %>
   <% end %>
   <% if @areas.any? %>
     <%= render "shiplog/changelogs/areas", areas: @areas, current: @area, query: @query %>
