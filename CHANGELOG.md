@@ -5,6 +5,7 @@
 ### Added
 
 - Approve, discard and restore update the inbox in place, without a reload. Without JavaScript they still redirect back to the same filtered list.
+- Admins can switch a changelog entry between New feature and Improvement.
 
 ### Fixed
 

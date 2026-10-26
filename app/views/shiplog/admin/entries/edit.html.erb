@@ -22,6 +22,12 @@
           <%= form.label :body, t("shiplog.admin.entries.fields.body") %>
           <%= form.text_area :body, rows: 8 %>
         </p>
+        <% if Shiplog::Entry::CHANGELOG_KINDS.include?(@entry.kind) %>
+          <p>
+            <%= form.label :changelog_kind, t("shiplog.admin.entries.fields.category") %>
+            <%= form.select :changelog_kind, Shiplog::Entry::CHANGELOG_KINDS.map { |kind| [ t("shiplog.admin.entries.category_options.#{kind}"), kind ] } %>
+          </p>
+        <% end %>
         <p>
           <%= form.label :released_on, t("shiplog.admin.entries.fields.released_on") %>
           <%= form.date_field :released_on %>

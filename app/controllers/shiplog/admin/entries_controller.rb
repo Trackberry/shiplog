@@ -44,7 +44,7 @@ module Shiplog
       end
 
       def entry_params
-        params.expect(entry: %i[title body released_on])
+        params.expect(entry: %i[title body released_on changelog_kind])
       end
 
       def page_number

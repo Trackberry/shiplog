@@ -56,6 +56,9 @@ en:
         public_text: Public text
         source: GitHub source
         back: Back to drafts
+        category_options:
+          feature: New feature
+          change: Improvement
         statuses:
           draft: Drafts
           approved: Approved
@@ -73,6 +76,7 @@ en:
           title: Title
           body: Text
           released_on: Released on
+          category: Category
           reason: Reason
       board:
         title: Roadmap board

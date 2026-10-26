@@ -133,4 +133,12 @@ class Shiplog::ChangeCandidatesTest < ActiveSupport::TestCase
 
     assert_operator count, :<=, 10
   end
+
+  test "a PR whose entry was switched to a feature is not proposed again" do
+    pr = pull_request(51)
+    entry = Shiplog::Entry.create!(kind: "change", subject: pr, title: "Switched")
+    entry.update!(changelog_kind: "feature")
+
+    assert_not_includes candidates, pr
+  end
 end
