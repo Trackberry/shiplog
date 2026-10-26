@@ -85,13 +85,16 @@ module Shiplog
     end
 
     # The slug of a published changelog entry, generated and stored when it has none (entries approved before
-    # 0.3.0). Nil for entries without a permalink: drafts, discarded and roadmap entries.
+    # 0.3.0). Nil for entries without a permalink: drafts, discarded and roadmap entries. The write only happens
+    # while the slug is still null in the database, so a concurrent writer's slug is never overwritten; the
+    # entry is reloaded to return whichever slug won. Not used by the public pages (they must not write, a GET
+    # may hit a read replica): approve! and `rake shiplog:backfill_slugs` create slugs.
     def ensure_slug!
       return slug if slug.present?
       return unless approved? && permalinked?
 
-      retrying_on_slug_conflict { update_columns(slug: generate_slug) }
-      slug
+      retrying_on_slug_conflict { self.class.where(id:, slug: nil).update_all(slug: generate_slug) }
+      reload.slug
     end
 
     # The entries right after and before this one in the changelog's order, among the published ones.

@@ -123,8 +123,9 @@ Shiplog.configure do |config|
   # `shiplog_unseen_count(since)` in views) next to your Changelog link.
   # config.on_changelog_seen = ->(controller) { controller.current_user&.update_column(:changelog_seen_at, Time.current) }
 
-  # Entries approved before 0.3.0 have no permalink until they are listed or visited. Fill them all at once with
-  # `bin/rails shiplog:backfill_slugs`. Permalink pages set `content_for :shiplog_og` (Open Graph tags),
+  # The 0.3.0 migration gives entries approved so far their permalink slug. The public pages never write (a GET
+  # may hit a read replica), so an entry approved by older code during a deploy window has no permalink until
+  # `bin/rails shiplog:backfill_slugs` runs. Permalink pages set `content_for :shiplog_og` (Open Graph tags),
   # `content_for :shiplog_description` and `content_for :shiplog_feed` (the Atom discovery link); Shiplog's own
   # layout renders them, so emit them in your layout's <head> when you set `config.public_layout`.
 

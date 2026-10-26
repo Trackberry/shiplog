@@ -47,5 +47,13 @@ class ActiveSupport::TestCase
     count
   end
 
+  # The SQL statements issued inside the block (schema and transaction bookkeeping left out).
+  def sql_statements
+    statements = []
+    collector = ->(_name, _start, _finish, _id, payload) { statements << payload[:sql] unless %w[SCHEMA TRANSACTION].include?(payload[:name]) }
+    ActiveSupport::Notifications.subscribed(collector, "sql.active_record") { yield }
+    statements
+  end
+
   def github_fixture(name) = file_fixture("github/#{name}.json").read
 end

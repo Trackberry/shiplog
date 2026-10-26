@@ -85,12 +85,6 @@ class Shiplog::ChangelogFeedsControllerTest < ActionDispatch::IntegrationTest
     assert_equal before, xpath(feed, "/a:feed/a:entry/a:id").map(&:text)
   end
 
-  test "entries without a slug get one" do
-    shiplog_entries(:dark_mode_feature).update_columns(slug: nil)
-    get "/changelog.atom"
-    assert_equal "http://www.example.com/changelog/dark-mode", xpath(feed, "/a:feed/a:entry/a:link").first.attributes["href"]
-  end
-
   test "the product name titles the feed" do
     Shiplog.config.product_name = "Acme"
     get "/changelog.atom"

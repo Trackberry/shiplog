@@ -9,7 +9,6 @@ module Shiplog
 
       @newer = @entry.newer_changelog_entry
       @older = @entry.older_changelog_entry
-      [ @newer, @older ].each { |neighbour| neighbour&.ensure_slug! } # approved before 0.3.0: no permalink yet
       fresh_when etag: [ *shiplog_etag_parts, *shiplog_area_etag_parts, [ @entry, @newer, @older ].map { |entry| [ entry&.id, entry&.updated_at, entry&.area_id ] } ]
     end
   end

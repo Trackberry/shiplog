@@ -17,7 +17,6 @@ module Shiplog
       records = scope.includes(:area).offset((@page - 1) * PER_PAGE).limit(PER_PAGE + 1).to_a
       return head(:not_found) if @page > 1 && records.empty?
 
-      records.each(&:ensure_slug!) # entries approved before 0.3.0 get their permalink on first listing
       @older = records.size > PER_PAGE
       @months = records.first(PER_PAGE).group_by { |entry| entry.released_on.beginning_of_month }
       @result_count = scope.count if @query

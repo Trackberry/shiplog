@@ -114,6 +114,16 @@ class Shiplog::EntrySlugTest < ActiveSupport::TestCase
     assert_nil shiplog_entries(:bulk_upload_roadmap).ensure_slug!
   end
 
+  test "ensure_slug! never overwrites a slug another process wrote in the meantime" do
+    entry = shiplog_entries(:dark_mode_feature)
+    entry.update_columns(slug: nil)
+    stale = Shiplog::Entry.find(entry.id)
+    entry.update_columns(slug: "written-elsewhere")
+
+    assert_equal "written-elsewhere", stale.ensure_slug!
+    assert_equal "written-elsewhere", entry.reload.slug
+  end
+
   test "backfill_slugs gives approved changelog entries without a slug one, oldest first" do
     older = draft(title: "Dark mode")
     older.update_columns(status: "approved", released_on: Date.new(2026, 8, 1), approved_at: Time.current)
@@ -122,8 +132,8 @@ class Shiplog::EntrySlugTest < ActiveSupport::TestCase
 
     assert_equal 2, Shiplog::Entry.backfill_slugs
 
-    assert_equal "dark-mode", shiplog_entries(:dark_mode_feature).reload.slug.sub(/-2\z/, "")
-    assert_not_nil older.reload.slug
+    assert_equal "dark-mode", older.reload.slug, "the oldest entry gets the plain slug"
+    assert_equal "dark-mode-2", shiplog_entries(:dark_mode_feature).reload.slug
     assert_nil shiplog_entries(:csv_change_draft).reload.slug
     assert_nil shiplog_entries(:bulk_upload_roadmap).reload.slug
     assert_equal 0, Shiplog::Entry.backfill_slugs

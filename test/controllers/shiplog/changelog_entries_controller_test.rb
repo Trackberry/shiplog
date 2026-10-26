@@ -84,13 +84,6 @@ class Shiplog::ChangelogEntriesControllerTest < ActionDispatch::IntegrationTest
     assert_select "h3.shiplog-entry__title a[href=?]", "/changelog/dark-mode", text: "Dark mode"
   end
 
-  test "approved entries without a slug get one when the list renders" do
-    shiplog_entries(:dark_mode_feature).update_columns(slug: nil)
-    get "/changelog"
-    assert_select "h3.shiplog-entry__title a[href=?]", "/changelog/dark-mode"
-    assert_equal "dark-mode", shiplog_entries(:dark_mode_feature).reload.slug
-  end
-
   test "the ETag is stable, answers 304, and changes with the entry or a neighbour" do
     neighbour = publish("Older thing", Date.new(2026, 9, 1))
     get "/changelog/dark-mode"
