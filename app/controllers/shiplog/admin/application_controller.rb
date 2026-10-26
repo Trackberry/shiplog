@@ -17,7 +17,7 @@ module Shiplog
       before_action :authorize_admin
 
       rescue_from Shiplog::Entry::InvalidTransition do
-        redirect_to edit_entry_path(params[:entry_id], inbox_filter_params), alert: t("shiplog.admin.entries.invalid_transition")
+        respond_inline_error(t("shiplog.admin.entries.invalid_transition"), edit_entry_path(params[:entry_id], inbox_filter_params))
       end
 
       private

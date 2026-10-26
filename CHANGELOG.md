@@ -2,6 +2,10 @@
 
 ## 0.1.1 (2026-10-26)
 
+### Added
+
+- Approve, discard and restore update the inbox in place, without a reload. Without JavaScript they still redirect back to the same filtered list.
+
 ### Fixed
 
 - Roadmap drafts are written in the future tense ("You'll be able to…") instead of as if the feature had already shipped, and no longer turn implementation details from the issue into promises such as dates, prices, refunds or limits.

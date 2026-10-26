@@ -1,4 +1,4 @@
-<tr class="shiplog-entry-row">
+<tr class="shiplog-entry-row" id="shiplog-entry-<%= entry.id %>">
   <td>
     <%= link_to entry_heading(entry), edit_entry_path(entry, inbox_filter_params) %>
     <%= render "shiplog/admin/entries/badges", entry: %>
@@ -13,9 +13,9 @@
   <td class="shiplog-admin-table__actions">
     <%= link_to t("shiplog.admin.entries.edit"), edit_entry_path(entry, inbox_filter_params), class: "shiplog-button" %>
     <% if entry.draft? %>
-      <%= button_to t("shiplog.admin.entries.approve"), entry_approval_path(entry, inbox_filter_params), class: "shiplog-button shiplog-button--primary" %>
+      <%= button_to t("shiplog.admin.entries.approve"), entry_approval_path(entry, inbox_filter_params), class: "shiplog-button shiplog-button--primary", form: { data: { shiplog_inline: true } } %>
     <% elsif entry.discarded? %>
-      <%= button_to t("shiplog.admin.entries.restore"), entry_discard_path(entry, inbox_filter_params), method: :delete, class: "shiplog-button" %>
+      <%= button_to t("shiplog.admin.entries.restore"), entry_discard_path(entry, inbox_filter_params), method: :delete, class: "shiplog-button", form: { data: { shiplog_inline: true } } %>
     <% end %>
   </td>
 </tr>

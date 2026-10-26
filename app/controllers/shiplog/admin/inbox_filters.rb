@@ -18,6 +18,30 @@ module Shiplog
       end
 
       private
+        # Inline (script) requests get the re-rendered row; plain requests redirect back to the filtered list.
+        def respond_inline(entry, message_key)
+          message = t("shiplog.admin.entries.#{message_key}")
+          return redirect_to(root_path(inbox_filter_params), notice: message) unless request.format.json?
+
+          render json: { row: render_inbox_row(entry), matches_filter: inbox_match?(entry), message: message }
+        end
+
+        def respond_inline_error(message, fallback)
+          return render(json: { error: message }, status: :unprocessable_content) if request.format.json?
+
+          redirect_to fallback, alert: message
+        end
+
+        def render_inbox_row(entry)
+          render_to_string(partial: "shiplog/admin/entries/entry_row", formats: :html, locals: { entry: })
+        end
+
+        # Mirrors EntriesController#index: drafts unless a status was given, any kind unless one was.
+        def inbox_match?(entry)
+          entry.status == (inbox_filter_params[:status] || "draft") &&
+            (inbox_filter_params[:kind].nil? || entry.kind == inbox_filter_params[:kind])
+        end
+
         def inbox_status = Entry.statuses.key(params[:status].to_s) && params[:status].to_s
 
         def inbox_kind = Entry.kinds.key(params[:kind].to_s) && params[:kind].to_s
