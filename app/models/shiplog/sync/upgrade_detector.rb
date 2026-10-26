@@ -9,6 +9,7 @@ module Shiplog
       # The most pull requests inspected per call, so a first backfill does not fetch thousands of lockfiles;
       # the rest are picked up by the following syncs (newest first).
       MAX_PER_CALL = 50
+      MAX_CHECK_ATTEMPTS = 3
       MAX_CHANGES = 50
       EXCERPT_CHARS = 300
       COMMIT_BATCH = 100
@@ -60,13 +61,25 @@ module Shiplog
           upgrades.each { |upgrade| store(pull_request, upgrade) }
           pull_request.update!(upgrades_checked_at: Time.current)
         end
-      rescue Github::RateLimited, Github::Transient
+      rescue Github::RateLimited
         raise
-      rescue Github::Error, Bundler::BundlerError => error
-        # Marked as checked anyway: a permanent failure (including a malformed or conflicted lockfile) must not
-        # keep taking one of the limited slots, nor make every later sync fail.
-        Rails.logger.warn("[shiplog] Could not inspect #{@repository.full_name}##{pull_request.number} for gem upgrades: #{error.message}")
-        pull_request.update!(upgrades_checked_at: Time.current)
+      rescue Github::Transient => error
+        # Retried on a later sync, but not forever: after MAX_CHECK_ATTEMPTS it is given up like a permanent failure.
+        attempts = pull_request.upgrade_check_attempts + 1
+        if attempts >= MAX_CHECK_ATTEMPTS
+          give_up(pull_request, "#{error.message} (#{attempts} attempts)", attempts:)
+        else
+          pull_request.update_columns(upgrade_check_attempts: attempts)
+        end
+      rescue StandardError => error
+        # Marked as checked anyway: a permanent failure (a malformed or conflicted lockfile, unexpected data, a
+        # database error) must not keep taking one of the limited slots, nor stop the pull requests after it.
+        give_up(pull_request, "#{error.class}: #{error.message}")
+      end
+
+      def give_up(pull_request, reason, attempts: pull_request.upgrade_check_attempts)
+        Rails.logger.warn("[shiplog] Could not inspect #{@repository.full_name}##{pull_request.number} for gem upgrades: #{reason}")
+        pull_request.update_columns(upgrade_check_attempts: attempts, upgrades_checked_at: Time.current)
       end
 
       def detect(pull_request)

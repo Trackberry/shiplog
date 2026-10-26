@@ -408,4 +408,72 @@ class Shiplog::Sync::UpgradeDetectorTest < ActiveSupport::TestCase
     assert_raises(Shiplog::Github::RateLimited) { @detector.call }
     assert_nil @pull_request.reload.upgrades_checked_at
   end
+
+  def stub_blob_status(oid, status)
+    stub_request(:post, GRAPHQL).with { |req| JSON.parse(req.body).dig("variables", "expression") == "#{oid}:Gemfile.lock" }.to_return(status:)
+  end
+
+  test "a transient failure counts an attempt, leaves the pull request pending and goes on to the next" do
+    other = make_pull_request(number: 1953, merged_at: Time.utc(2026, 10, 19, 12) + 1.day, base_oid: "okbase", merge_oid: "okmerge")
+    stub_blob_status(BASE, 502)
+    stub_blob("okbase", lockfile)
+    stub_blob("okmerge", lockfile)
+
+    assert_nothing_raised { @detector.call }
+
+    assert_equal 1, @pull_request.reload.upgrade_check_attempts
+    assert_nil @pull_request.upgrades_checked_at
+    assert other.reload.upgrades_checked_at
+  end
+
+  test "the third transient failure marks the pull request checked and warns" do
+    stub_blob_status(BASE, 502)
+
+    log = capture_log { 3.times { @detector.call } }
+
+    assert_equal 3, @pull_request.reload.upgrade_check_attempts
+    assert @pull_request.upgrades_checked_at
+    assert_match(/Could not inspect Trackberry\/trackberry#1952.*3 attempts/, log)
+  end
+
+  test "a KeyError marks the pull request checked with a warning and does not stop the batch" do
+    other = make_pull_request(number: 1953, merged_at: Time.utc(2026, 10, 22), base_oid: "okbase", merge_oid: "okmerge")
+    stub_blob(BASE, lockfile)
+    stub_blob(MERGE, lockfile(market_data: "0.2.2"))
+    stub_request(:get, /#{Regexp.escape(COMPARE)}/).to_return(body: {}.to_json)
+    stub_blob("okbase", lockfile)
+    stub_blob("okmerge", lockfile)
+
+    log = capture_log { @detector.call }
+
+    assert @pull_request.reload.upgrades_checked_at
+    assert other.reload.upgrades_checked_at
+    assert_match(/Could not inspect Trackberry\/trackberry#1952/, log)
+  end
+
+  test "an Active Record error marks the pull request checked with a warning and does not stop the batch" do
+    other = make_pull_request(number: 1953, merged_at: Time.utc(2026, 10, 22), base_oid: "okbase", merge_oid: "okmerge")
+    stub_blob(BASE, lockfile)
+    stub_blob(MERGE, lockfile(market_data: "0.2.2"))
+    stub_request(:get, /#{Regexp.escape(COMPARE)}/).to_return(body: { commits: [] }.to_json)
+    stub_blob("okbase", lockfile)
+    stub_blob("okmerge", lockfile)
+    @detector.define_singleton_method(:store) { |*| raise ActiveRecord::StatementInvalid, "boom" }
+
+    log = capture_log { @detector.call }
+
+    assert @pull_request.reload.upgrades_checked_at
+    assert_equal 0, @pull_request.upgrade_check_attempts
+    assert other.reload.upgrades_checked_at
+    assert_match(/Could not inspect Trackberry\/trackberry#1952.*boom/, log)
+  end
+
+  test "a rate limit leaves the pull request pending without counting an attempt" do
+    stub_request(:post, GRAPHQL).to_return(status: 429, headers: { "retry-after" => "30" })
+
+    assert_raises(Shiplog::Github::RateLimited) { @detector.call }
+
+    assert_equal 0, @pull_request.reload.upgrade_check_attempts
+    assert_nil @pull_request.upgrades_checked_at
+  end
 end

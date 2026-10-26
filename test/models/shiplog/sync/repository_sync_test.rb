@@ -82,14 +82,16 @@ class Shiplog::Sync::RepositorySyncTest < ActiveSupport::TestCase
     assert_match(/boom/, io.string)
   end
 
-  test "a transient detector error is re-raised only after the cursor is saved" do
+  test "a transient detector error does not fail the sync: the pull request stays pending with an attempt counted" do
     stub_failing_detection(Net::ReadTimeout)
 
-    assert_raises(Shiplog::Github::Transient) { sync.call }
+    assert_nothing_raised { sync.call }
 
     @repository.reload
     assert @repository.sync_cursor
     assert @repository.synced_at
+    pending = @repository.pull_requests.awaiting_upgrade_check
+    assert_equal [ 1 ], pending.map(&:upgrade_check_attempts)
   end
 
   test "a rate-limited detector is re-raised only after the cursor is saved" do

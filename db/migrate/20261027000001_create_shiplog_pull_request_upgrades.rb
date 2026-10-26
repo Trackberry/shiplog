@@ -7,6 +7,8 @@ class CreateShiplogPullRequestUpgrades < ActiveRecord::Migration[8.1]
       t.string :merge_oid
       t.boolean :lockfile_changed, null: false, default: false
       t.datetime :upgrades_checked_at
+      # Transient failures while inspecting it; the detector gives up (marks it checked) after a few.
+      t.integer :upgrade_check_attempts, null: false, default: 0
     end
 
     create_table :shiplog_pull_request_upgrades do |t|

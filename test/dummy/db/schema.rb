@@ -112,6 +112,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_27_000001) do
     t.string "merge_oid"
     t.boolean "lockfile_changed", default: false, null: false
     t.datetime "upgrades_checked_at"
+    t.integer "upgrade_check_attempts", default: 0, null: false
     t.index ["node_id"], name: "index_shiplog_pull_requests_on_node_id", unique: true
     t.index ["repository_id"], name: "index_shiplog_pull_requests_on_repository_id"
   end
