@@ -1,0 +1,17 @@
+<%= render layout: "shiplog/admin/page" do %>
+  <h1 class="shiplog-admin__title"><%= t("shiplog.admin.board.title") %></h1>
+  <p class="shiplog-admin__muted"><%= t("shiplog.admin.board.help") %></p>
+
+  <div class="shiplog-board" data-board-url="<%= board_path %>" data-csrf-token="<%= form_authenticity_token %>">
+    <% @columns.each do |column, items| %>
+      <section class="shiplog-board__column" aria-labelledby="shiplog-board-<%= column %>">
+        <h2 id="shiplog-board-<%= column %>" class="shiplog-board__title"><%= t("shiplog.columns.#{column}") %></h2>
+        <div class="shiplog-board__cards" data-column="<%= column %>">
+          <%= render partial: "shiplog/admin/boards/card", collection: items, as: :item %>
+        </div>
+      </section>
+    <% end %>
+  </div>
+
+  <%= shiplog_javascript_tag "board" %>
+<% end %>

@@ -1,0 +1,16 @@
+<% content_for :title, t("shiplog.changelog.title") %>
+<%= render layout: "shiplog/page", locals: { name: "changelog" } do %>
+  <%= render "shiplog/page_header", title: t("shiplog.changelog.title"), lede: t("shiplog.changelog.lede") %>
+  <% if @months.empty? %>
+    <%= render "shiplog/empty" %>
+  <% else %>
+    <div class="<%= shiplog_class(:months) %>">
+      <% @months.each do |month, entries| %>
+        <%= render "shiplog/changelogs/month", month:, entries: %>
+      <% end %>
+    </div>
+  <% end %>
+  <%= render "shiplog/pagination",
+        newer_path: (changelog_path(page: (@page - 1 if @page > 2)) if @page > 1),
+        older_path: (changelog_path(page: @page + 1) if @older) %>
+<% end %>

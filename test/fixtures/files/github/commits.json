@@ -1,0 +1,58 @@
+{
+  "data": {
+    "repository": {
+      "defaultBranchRef": {
+        "target": {
+          "history": {
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": "abc 1"
+            },
+            "nodes": [
+              {
+                "oid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "message": "fix: direct push\n\nDetails here",
+                "committedDate": "2026-10-12T08:00:00Z",
+                "url": "https://github.com/Acme/widgets/commit/aaaaaaa",
+                "author": {
+                  "user": {
+                    "login": "octocat"
+                  }
+                },
+                "associatedPullRequests": {
+                  "totalCount": 0
+                }
+              },
+              {
+                "oid": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "message": "feat: via pull request (#12)",
+                "committedDate": "2026-10-12T08:00:00Z",
+                "url": "https://github.com/Acme/widgets/commit/bbbbbbb",
+                "author": {
+                  "user": {
+                    "login": "octocat"
+                  }
+                },
+                "associatedPullRequests": {
+                  "totalCount": 1
+                }
+              },
+              {
+                "oid": "cccccccccccccccccccccccccccccccccccccccc",
+                "message": "chore: bump",
+                "committedDate": "2026-10-12T08:00:00Z",
+                "url": "https://github.com/Acme/widgets/commit/ccccccc",
+                "author": {
+                  "user": null
+                },
+                "associatedPullRequests": {
+                  "totalCount": 0
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,8 @@
+<%# locals: (entry:) %>
+<%# one changelog entry: category pill ("New" for features, "Improved" for changes), date, title and body %>
+<li class="<%= token_list(shiplog_class(:entry, entry.kind), (shiplog_class(:entry_feature) if entry.feature?)) %>">
+  <span class="<%= shiplog_class(:entry_category) %>"><%= t("shiplog.categories.#{entry.kind}") %></span>
+  <time class="<%= shiplog_class(:entry_date) %>" datetime="<%= entry.released_on.iso8601 %>"><%= l(entry.released_on, format: t("shiplog.date_format", default: "%-d %B %Y")) %></time>
+  <h3 class="<%= shiplog_class(:entry_title) %>"><%= entry.title %></h3>
+  <div class="<%= shiplog_class(:entry_body) %>"><%= simple_format(h(entry.body)) %></div>
+</li>

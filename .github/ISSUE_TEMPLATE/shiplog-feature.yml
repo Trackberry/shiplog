@@ -1,0 +1,23 @@
+name: Customer-facing feature
+description: A feature or improvement your customers will see on the public roadmap and changelog.
+labels: ["public"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What can customers not do today, or what is painful? Write it in plain language.
+    validations:
+      required: true
+  - type: textarea
+    id: before
+    attributes:
+      label: Before
+      description: How do customers work around the problem today?
+  - type: textarea
+    id: after
+    attributes:
+      label: After
+      description: What will customers be able to do once this ships?
+    validations:
+      required: true

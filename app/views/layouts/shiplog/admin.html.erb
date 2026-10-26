@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="<%= I18n.locale %>">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title><%= content_for(:title).presence || t("shiplog.admin.title") %></title>
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <%= render "shiplog/admin/custom_head" %>
+  </head>
+  <body class="shiplog-admin-body">
+    <main>
+      <%= yield %>
+    </main>
+  </body>
+</html>

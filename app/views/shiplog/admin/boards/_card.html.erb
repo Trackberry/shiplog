@@ -1,0 +1,22 @@
+<% issue = item.issue %>
+<article class="shiplog-card" draggable="true" data-issue-id="<%= issue.id %>">
+  <h3 class="shiplog-card__title"><%= item.entry&.title.presence || issue.title %></h3>
+  <p class="shiplog-card__meta">
+    <%= shiplog_github_link("#{issue.repository.full_name}##{issue.number}", issue.url) %>
+    <% unless item.entry&.approved? %>
+      <span class="shiplog-badge shiplog-badge--warning"><%= t("shiplog.admin.board.not_approved") %></span>
+    <% end %>
+    <% if issue.pinned_column %>
+      <span class="shiplog-badge"><%= t("shiplog.admin.board.pinned") %></span>
+    <% end %>
+  </p>
+  <%= form_with url: board_path, method: :patch, class: "shiplog-card__form" do |form| %>
+    <%= form.hidden_field :issue_id, value: issue.id, id: nil %>
+    <%= form.label :column, t("shiplog.admin.board.move_to"), for: "column-#{issue.id}", class: "shiplog-card__label" %>
+    <%= form.select :column, Shiplog::Issue::COLUMNS.map { |column| [ t("shiplog.columns.#{column}"), column ] }, { selected: item.column }, id: "column-#{issue.id}" %>
+    <%= form.submit t("shiplog.admin.board.move"), class: "shiplog-button", data: { disable_with: false } %>
+  <% end %>
+  <% if issue.pinned_column %>
+    <%= button_to t("shiplog.admin.board.unpin"), board_path, method: :patch, params: { issue_id: issue.id, unpin: "1" }, class: "shiplog-button" %>
+  <% end %>
+</article>

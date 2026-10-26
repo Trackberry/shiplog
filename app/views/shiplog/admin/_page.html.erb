@@ -1,0 +1,14 @@
+<%# locals: () %>
+<%# rendered with `render layout:`; wraps an admin page in the scoped .shiplog-admin container with its assets, nav and flash %>
+<% hosted = shiplog_admin_hosted? %>
+<%= render "shiplog/admin/assets" %>
+<div class="shiplog-admin<%= " shiplog-admin--standalone" unless hosted %>">
+  <%= render "shiplog/admin/nav", hosted: %>
+  <div class="shiplog-admin__main">
+    <% if !hosted || Shiplog.config.admin_flash %>
+      <% if notice %><p class="shiplog-admin__flash shiplog-admin__flash--notice" role="status"><%= notice %></p><% end %>
+      <% if alert %><p class="shiplog-admin__flash shiplog-admin__flash--alert" role="alert"><%= alert %></p><% end %>
+    <% end %>
+    <%= yield %>
+  </div>
+</div>

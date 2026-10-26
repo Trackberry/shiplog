@@ -1,0 +1,61 @@
+<%= render layout: "shiplog/admin/page" do %>
+  <h1 class="shiplog-admin__title"><%= t("shiplog.admin.entries.edit_title", kind: t("shiplog.admin.entries.kinds.#{@entry.kind}")) %></h1>
+  <p>
+    <span class="shiplog-badge"><%= t("shiplog.admin.entries.statuses.#{@entry.status}") %></span>
+    <%= render "shiplog/admin/entries/badges", entry: @entry %>
+  </p>
+
+  <div class="shiplog-admin-split">
+    <section class="shiplog-admin-panel">
+      <h2><%= t("shiplog.admin.entries.public_text") %></h2>
+      <%= form_with model: @entry, url: entry_path(@entry), method: :patch, class: "shiplog-admin-form" do |form| %>
+        <% if @entry.errors.any? %>
+          <div class="shiplog-admin__flash shiplog-admin__flash--alert" role="alert">
+            <%= @entry.errors.full_messages.to_sentence %>
+          </div>
+        <% end %>
+        <p>
+          <%= form.label :title, t("shiplog.admin.entries.fields.title") %>
+          <%= form.text_field :title %>
+        </p>
+        <p>
+          <%= form.label :body, t("shiplog.admin.entries.fields.body") %>
+          <%= form.text_area :body, rows: 8 %>
+        </p>
+        <p>
+          <%= form.label :released_on, t("shiplog.admin.entries.fields.released_on") %>
+          <%= form.date_field :released_on %>
+        </p>
+        <%= form.submit t("shiplog.admin.entries.save"), class: "shiplog-button shiplog-button--primary" %>
+      <% end %>
+
+      <div class="shiplog-admin-actions">
+        <% if @entry.draft? %>
+          <%= button_to t("shiplog.admin.entries.approve"), entry_approval_path(@entry), class: "shiplog-button shiplog-button--primary" %>
+          <%= form_with url: entry_discard_path(@entry), class: "shiplog-admin-inline-form" do |form| %>
+            <%= form.label :reason, t("shiplog.admin.entries.fields.reason") %>
+            <%= form.text_field :reason %>
+            <%= form.submit t("shiplog.admin.entries.discard"), class: "shiplog-button" %>
+          <% end %>
+        <% elsif @entry.discarded? %>
+          <%= button_to t("shiplog.admin.entries.restore"), entry_discard_path(@entry), method: :delete, class: "shiplog-button" %>
+        <% end %>
+        <%= button_to t("shiplog.admin.entries.regenerate"), entry_rewrite_path(@entry), class: "shiplog-button" %>
+        <% if @entry.approved? %>
+          <p class="shiplog-admin__muted"><%= t("shiplog.admin.entries.regenerate_warning") %></p>
+        <% end %>
+      </div>
+    </section>
+
+    <aside class="shiplog-admin-panel">
+      <h2><%= t("shiplog.admin.entries.source") %></h2>
+      <p>
+        <strong><%= source_title(@entry.subject) %></strong><br>
+        <%= shiplog_github_link(source_reference(@entry.subject), @entry.subject.url) %>
+      </p>
+      <pre class="shiplog-admin-source"><%= source_body(@entry.subject) %></pre>
+    </aside>
+  </div>
+
+  <p><%= link_to t("shiplog.admin.entries.back"), root_path %></p>
+<% end %>

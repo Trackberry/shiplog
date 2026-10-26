@@ -1,0 +1,54 @@
+{
+  "data": {
+    "repository": {
+      "issue": {
+        "__typename": "Issue",
+        "id": "I_kwDOSync001",
+        "number": 1,
+        "title": "Issue 1 title",
+        "body": "Issue 1 body",
+        "state": "OPEN",
+        "stateReason": null,
+        "url": "https://github.com/Acme/widgets/issues/1",
+        "createdAt": "2026-09-01T09:00:00Z",
+        "updatedAt": "2026-10-05T10:00:00Z",
+        "closedAt": null,
+        "labels": {
+          "nodes": [
+            {
+              "name": "public"
+            }
+          ]
+        },
+        "milestone": null,
+        "assignees": {
+          "totalCount": 0
+        },
+        "parent": null,
+        "closedByPullRequestsReferences": {
+          "nodes": [
+            {
+              "id": "PR_kwDOSync103",
+              "number": 12,
+              "title": "PR 12 title",
+              "body": "PR 12 body",
+              "state": "MERGED",
+              "mergedAt": "2026-10-20T10:00:00Z",
+              "url": "https://github.com/Acme/widgets/pull/12",
+              "updatedAt": "2026-10-20T10:00:00Z",
+              "author": {
+                "login": "octocat"
+              },
+              "repository": {
+                "nameWithOwner": "Acme/widgets"
+              },
+              "labels": {
+                "nodes": []
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

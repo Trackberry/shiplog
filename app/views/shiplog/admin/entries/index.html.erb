@@ -1,0 +1,47 @@
+<%= render layout: "shiplog/admin/page" do %>
+  <h1 class="shiplog-admin__title"><%= t("shiplog.admin.entries.title") %></h1>
+
+  <nav class="shiplog-admin-filters" aria-label="<%= t("shiplog.admin.entries.filters") %>">
+    <ul class="shiplog-admin-filters__list">
+      <% Shiplog::Entry.statuses.each_key do |status| %>
+        <li><%= link_to t("shiplog.admin.entries.statuses.#{status}"), entries_filter_path(status:, kind: @kind),
+              class: "shiplog-admin-filters__link", "aria-current": (status == @status ? "true" : nil) %></li>
+      <% end %>
+    </ul>
+    <ul class="shiplog-admin-filters__list">
+      <li><%= link_to t("shiplog.admin.entries.all_kinds"), entries_filter_path(status: @status),
+            class: "shiplog-admin-filters__link", "aria-current": (@kind.nil? ? "true" : nil) %></li>
+      <% Shiplog::Entry.kinds.each_key do |kind| %>
+        <li><%= link_to t("shiplog.admin.entries.kinds.#{kind}"), entries_filter_path(status: @status, kind:),
+              class: "shiplog-admin-filters__link", "aria-current": (kind == @kind ? "true" : nil) %></li>
+      <% end %>
+    </ul>
+  </nav>
+
+  <% if @entries.empty? %>
+    <p class="shiplog-admin__empty"><%= t("shiplog.admin.entries.empty") %></p>
+  <% else %>
+    <table class="shiplog-admin-table">
+      <thead>
+        <tr>
+          <th scope="col"><%= t("shiplog.admin.entries.columns.entry") %></th>
+          <th scope="col"><%= t("shiplog.admin.entries.columns.kind") %></th>
+          <th scope="col"><%= t("shiplog.admin.entries.columns.source") %></th>
+          <th scope="col"><%= t("shiplog.admin.entries.columns.actions") %></th>
+        </tr>
+      </thead>
+      <tbody>
+        <%= render partial: "shiplog/admin/entries/entry_row", collection: @entries, as: :entry %>
+      </tbody>
+    </table>
+  <% end %>
+
+  <nav class="shiplog-admin-pagination" aria-label="<%= t("shiplog.admin.entries.pagination") %>">
+    <% if @page > 1 %>
+      <%= link_to t("shiplog.admin.entries.newer"), entries_filter_path(status: @status, kind: @kind, page: (@page - 1 if @page > 2)), class: "shiplog-admin-pagination__prev" %>
+    <% end %>
+    <% if @more %>
+      <%= link_to t("shiplog.admin.entries.older"), entries_filter_path(status: @status, kind: @kind, page: @page + 1), class: "shiplog-admin-pagination__next" %>
+    <% end %>
+  </nav>
+<% end %>

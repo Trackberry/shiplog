@@ -1,0 +1,60 @@
+csv_import:
+  repository: ios
+  node_id: PR_csv_import
+  number: 10
+  title: Import bundles from CSV
+  body: Adds CSV import.
+  state: open
+  author_login: edouard
+  labels: []
+  url: https://github.com/Trackberry/trackberry-ios/pull/10
+  github_updated_at: 2026-10-12 09:00:00
+
+validation_fix:
+  repository: app
+  node_id: PR_validation_fix
+  number: 11
+  title: Validate CSV headers
+  body: Rejects files with unknown headers.
+  state: merged
+  merged_at: 2026-10-11 10:00:00
+  author_login: edouard
+  labels: []
+  url: https://github.com/Trackberry/trackberry/pull/11
+  github_updated_at: 2026-10-11 10:00:00
+
+export_pr:
+  repository: app
+  node_id: PR_export_pr
+  number: 12
+  title: Export report as PDF
+  state: open
+  author_login: edouard
+  labels: []
+  url: https://github.com/Trackberry/trackberry/pull/12
+  github_updated_at: 2026-10-12 09:00:00
+
+dark_mode_pr:
+  repository: app
+  node_id: PR_dark_mode_pr
+  number: 13
+  title: Add dark theme
+  state: merged
+  merged_at: 2026-10-09 15:00:00
+  author_login: edouard
+  labels: []
+  url: https://github.com/Trackberry/trackberry/pull/13
+  github_updated_at: 2026-10-09 15:00:00
+
+typo_fix:
+  repository: app
+  node_id: PR_typo_fix
+  number: 14
+  title: Fix typo in invoice email
+  body: Corrects a misspelling.
+  state: merged
+  merged_at: 2026-10-08 10:00:00
+  author_login: edouard
+  labels: []
+  url: https://github.com/Trackberry/trackberry/pull/14
+  github_updated_at: 2026-10-08 10:00:00

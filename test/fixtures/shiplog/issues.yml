@@ -1,0 +1,175 @@
+bulk_upload:
+  repository: app
+  node_id: I_bulk_upload
+  number: 1
+  title: Bulk upload
+  body: Body of bulk upload
+  state: open
+  labels: ["public"]
+  assignees_count: 0
+  url: https://github.com/Trackberry/trackberry/issues/1
+  github_created_at: 2026-10-01 09:00:00
+  github_updated_at: 2026-10-02 09:00:00
+
+bulk_upload_csv:
+  repository: ios
+  node_id: I_bulk_upload_csv
+  number: 2
+  title: CSV import
+  body: Body of csv import
+  state: open
+  labels: ["public"]
+  assignees_count: 0
+  parent_node_id: I_bulk_upload
+  url: https://github.com/Trackberry/trackberry-ios/issues/2
+  github_created_at: 2026-10-01 09:00:00
+  github_updated_at: 2026-10-03 09:00:00
+
+bulk_upload_csv_validation:
+  repository: app
+  node_id: I_bulk_upload_csv_validation
+  number: 3
+  title: CSV validation
+  body: Body of csv validation
+  state: open
+  labels: ["public"]
+  assignees_count: 0
+  parent_node_id: I_bulk_upload_csv
+  url: https://github.com/Trackberry/trackberry/issues/3
+  github_created_at: 2026-10-01 09:00:00
+  github_updated_at: 2026-10-04 09:00:00
+
+refactor_db:
+  repository: app
+  node_id: I_refactor_db
+  number: 4
+  title: Refactor database layer
+  body: Body of refactor database layer
+  state: open
+  labels: ["internal"]
+  assignees_count: 0
+  url: https://github.com/Trackberry/trackberry/issues/4
+  github_created_at: 2026-10-01 09:00:00
+  github_updated_at: 2026-10-05 09:00:00
+
+export_report:
+  repository: app
+  node_id: I_export_report
+  number: 5
+  title: Export report
+  body: Body of export report
+  state: open
+  labels: ["public"]
+  assignees_count: 0
+  url: https://github.com/Trackberry/trackberry/issues/5
+  github_created_at: 2026-10-01 09:00:00
+  github_updated_at: 2026-10-06 09:00:00
+
+assigned_task:
+  repository: app
+  node_id: I_assigned_task
+  number: 6
+  title: Assigned task
+  body: Body of assigned task
+  state: open
+  labels: ["public"]
+  assignees_count: 1
+  url: https://github.com/Trackberry/trackberry/issues/6
+  github_created_at: 2026-10-01 09:00:00
+  github_updated_at: 2026-10-07 09:00:00
+
+milestone_item:
+  repository: app
+  node_id: I_milestone_item
+  number: 7
+  title: Milestone item
+  body: Body of milestone item
+  state: open
+  labels: ["public"]
+  milestone_title: Q4
+  assignees_count: 0
+  url: https://github.com/Trackberry/trackberry/issues/7
+  github_created_at: 2026-10-01 09:00:00
+  github_updated_at: 2026-10-08 09:00:00
+
+soon_item:
+  repository: app
+  node_id: I_soon_item
+  number: 8
+  title: Soon item
+  body: Body of soon item
+  state: open
+  labels: ["public", "soon"]
+  assignees_count: 0
+  url: https://github.com/Trackberry/trackberry/issues/8
+  github_created_at: 2026-10-01 09:00:00
+  github_updated_at: 2026-10-09 09:00:00
+
+later_item:
+  repository: app
+  node_id: I_later_item
+  number: 9
+  title: Later item
+  body: Body of later item
+  state: open
+  labels: ["public"]
+  assignees_count: 0
+  url: https://github.com/Trackberry/trackberry/issues/9
+  github_created_at: 2026-10-01 09:00:00
+  github_updated_at: 2026-10-10 09:00:00
+
+pinned_item:
+  repository: app
+  node_id: I_pinned_item
+  number: 10
+  title: Pinned item
+  body: Body of pinned item
+  state: open
+  labels: ["public"]
+  assignees_count: 1
+  pinned_column: later
+  url: https://github.com/Trackberry/trackberry/issues/10
+  github_created_at: 2026-10-01 09:00:00
+  github_updated_at: 2026-10-11 09:00:00
+
+dark_mode:
+  repository: app
+  node_id: I_dark_mode
+  number: 11
+  title: Dark mode
+  body: Body of dark mode
+  state: closed
+  state_reason: completed
+  closed_at: 2026-10-10 12:00:00
+  labels: ["public"]
+  assignees_count: 0
+  url: https://github.com/Trackberry/trackberry/issues/11
+  github_created_at: 2026-10-01 09:00:00
+  github_updated_at: 2026-10-12 09:00:00
+
+private_parent:
+  repository: app
+  node_id: I_private_parent
+  number: 12
+  title: Private parent
+  body: Body of private parent
+  state: open
+  labels: []
+  assignees_count: 0
+  url: https://github.com/Trackberry/trackberry/issues/12
+  github_created_at: 2026-10-01 09:00:00
+  github_updated_at: 2026-10-13 09:00:00
+
+public_child_of_private:
+  repository: app
+  node_id: I_public_child_of_private
+  number: 13
+  title: Public child of private
+  body: Body of public child of private
+  state: open
+  labels: ["public"]
+  assignees_count: 0
+  parent_node_id: I_private_parent
+  url: https://github.com/Trackberry/trackberry/issues/13
+  github_created_at: 2026-10-01 09:00:00
+  github_updated_at: 2026-10-14 09:00:00

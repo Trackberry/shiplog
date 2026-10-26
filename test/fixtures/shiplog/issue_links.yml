@@ -1,0 +1,15 @@
+csv_import_closes_csv:
+  issue_node_id: I_bulk_upload_csv
+  pull_request_node_id: PR_csv_import
+
+validation_fix_closes_validation:
+  issue_node_id: I_bulk_upload_csv_validation
+  pull_request_node_id: PR_validation_fix
+
+export_pr_closes_export:
+  issue_node_id: I_export_report
+  pull_request_node_id: PR_export_pr
+
+dark_mode_pr_closes_dark_mode:
+  issue_node_id: I_dark_mode
+  pull_request_node_id: PR_dark_mode_pr
