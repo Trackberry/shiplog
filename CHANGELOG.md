@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.1 (2026-10-26)
+
+### Fixed
+
+- Roadmap drafts are written in the future tense ("You'll be able to…") instead of as if the feature had already shipped, and no longer turn implementation details from the issue into promises such as dates, prices, refunds or limits.
+- Host layouts can render records that the host app routes, such as Active Storage avatars passed to `image_tag`, `link_to` or `url_for`, inside Shiplog's public and admin pages instead of raising `Can't resolve image into URL`.
+- Admin actions return to the filtered list they started from: approving, discarding, restoring or saving an entry keeps the status, kind and page of the inbox.
+
 ## 0.1.0 (2026-10-26)
 
 Initial release.
