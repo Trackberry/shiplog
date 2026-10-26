@@ -39,10 +39,13 @@ class ActiveSupport::TestCase
     I18n.backend.reload!
   end
 
-  # Counts statements issued, including ones served by the query cache (which still indicate N+1 patterns).
-  def count_queries
+  # Counts statements issued, including ones served by the query cache (which still indicate N+1 patterns),
+  # unless ignore_cache: true (then only statements that reached the database count).
+  def count_queries(ignore_cache: false)
     count = 0
-    counter = ->(_name, _start, _finish, _id, payload) { count += 1 unless %w[SCHEMA TRANSACTION].include?(payload[:name]) }
+    counter = lambda do |_name, _start, _finish, _id, payload|
+      count += 1 unless %w[SCHEMA TRANSACTION].include?(payload[:name]) || (ignore_cache && (payload[:cached] || payload[:name] == "CACHE"))
+    end
     ActiveSupport::Notifications.subscribed(counter, "sql.active_record") { yield }
     count
   end

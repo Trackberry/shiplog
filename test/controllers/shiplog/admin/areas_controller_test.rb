@@ -219,12 +219,22 @@ class Shiplog::Admin::AreasControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "the inbox does not load areas per row" do
-    shiplog_entries(:soon_item_roadmap).update!(area: @reports)
-    few = count_queries { get "#{ADMIN}/?status=approved" }
-    Shiplog::Entry.where.not(area_id: nil).update_all(area_id: @empty.id)
-    same = count_queries { get "#{ADMIN}/?status=approved" }
+    extra = lambda do |count, offset|
+      count.times do |i|
+        n = 2000 + offset + i
+        commit = Shiplog::Commit.create!(repository: shiplog_repositories(:app), sha: "ab#{n}".ljust(40, "0"), message: "m #{n}")
+        area = Shiplog::Area.create!(name: "Area #{n.to_s.tr('0-9', 'a-j')}")
+        Shiplog::Entry.create!(subject: commit, kind: "change", status: "approved", title: "Extra #{n}", area:, released_on: Date.new(2026, 10, 1), approved_at: Time.current)
+      end
+    end
 
-    assert_equal few, same
+    extra.call(1, 0)
+    few = count_queries(ignore_cache: true) { get "#{ADMIN}/?status=approved" }
+    extra.call(5, 10) # five more rows, each with an area of its own
+    many = count_queries(ignore_cache: true) { get "#{ADMIN}/?status=approved" }
+
+    assert_select "tr.shiplog-entry-row .shiplog-badge--area", minimum: 7
+    assert_equal few, many, "few=#{few} many=#{many}"
   end
 
   test "the inline row response carries the badge, and the filters stay on the edit save" do
