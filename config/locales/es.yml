@@ -28,22 +28,22 @@ es:
         other: Incluye %{count} partes
       shipped_heading: Lanzado recientemente
       shipped_date_format: "%-d de %B"
-      full_changelog: Ver todas las novedades
+      full_changelog: Ver el registro de cambios completo
       footnote: ""
       suggest: Sugerir una función
     switcher:
-      label: Novedades del producto
+      label: Actualizaciones del producto
       roadmap: Hoja de ruta
-      changelog: Novedades
+      changelog: Registro de cambios
     changelog:
-      title: Novedades
+      title: Registro de cambios
       lede: Nuevas funciones y mejoras, a medida que se lanzan.
       pagination:
         label: Paginación
         older: Anteriores
         newer: Más recientes
       search:
-        label: Buscar en las novedades
+        label: Buscar en el registro de cambios
         submit: Buscar
         summary:
           one: "%{count} resultado para “%{query}”"
@@ -55,13 +55,13 @@ es:
         all: Todas
     permalink:
       title: "%{title} · %{changelog}"
-      back: "← Volver a las novedades"
-      nav_label: Más novedades
+      back: "← Volver al registro de cambios"
+      nav_label: Más cambios
       newer: "← Más reciente: %{title}"
       older: "Anterior: %{title} →"
     feed:
-      title_with_product: "Novedades de %{product}"
-      link_title: Novedades (Atom)
+      title_with_product: "Registro de cambios de %{product}"
+      link_title: Registro de cambios (Atom)
       subscribe: Suscribirse (Atom)
     admin:
       title: Administración de Shiplog
@@ -72,7 +72,7 @@ es:
         areas: Áreas
       areas:
         title: Áreas del producto
-        help: La IA agrupa las entradas en áreas (como máximo %{max}) mientras las reescribe. Los visitantes pueden filtrar las novedades por área cuando hay dos áreas con entradas publicadas.
+        help: La IA agrupa las entradas en áreas (como máximo %{max}) mientras las reescribe. Los visitantes pueden filtrar el registro de cambios por área cuando hay dos áreas con entradas publicadas.
         detect: Detectar áreas
         recheck: Revisar de nuevo las entradas sin área
         recheck_help: Vuelve a preguntar a la IA por las entradas que dejó sin área, por ejemplo después de renombrar, fusionar o añadir áreas.
@@ -130,7 +130,7 @@ es:
         back: Volver a los borradores
         images:
           title: Capturas de pantalla
-          help: Se muestran bajo el texto en las novedades (la primera en la lista, todas en la página de la entrada). Se toman de la incidencia o del pull request de GitHub al escribir el borrador; también puedes subir las tuyas.
+          help: Se muestran bajo el texto en el registro de cambios (la primera en la lista, todas en la página de la entrada). Se toman de la incidencia o del pull request de GitHub al escribir el borrador; también puedes subir las tuyas.
           empty: Todavía no hay capturas.
           alt: Texto alternativo
           alt_placeholder: Describe la imagen (por defecto, el título)

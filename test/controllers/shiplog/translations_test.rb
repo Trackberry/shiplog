@@ -59,7 +59,7 @@ class Shiplog::TranslationsTest < ActionDispatch::IntegrationTest
 
     assert_select ".shiplog-entry__title", text: "Modo oscuro"
     assert_select ".shiplog-entry__body", text: "Cambia a un tema oscuro."
-    assert_select "title", text: "Modo oscuro · Novedades"
+    assert_select "title", text: "Modo oscuro · Registro de cambios"
     assert_select "meta[name=description][content=?]", "Cambia a un tema oscuro."
     assert_select "meta[property='og:title'][content=?]", "Modo oscuro"
     assert_select "meta[property='og:description'][content=?]", "Cambia a un tema oscuro."
