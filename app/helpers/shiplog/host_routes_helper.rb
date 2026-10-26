@@ -4,9 +4,9 @@ module Shiplog
   # any unknown *_path / *_url call to main_app when the host app defines it. Helpers the engine
   # defines itself (roadmap_path, board_path, ...) are real methods and always win.
   module HostRoutesHelper
-    def method_missing(name, *arguments, &block)
+    def method_missing(name, ...)
       if shiplog_host_route?(name)
-        main_app.public_send(name, *arguments, &block)
+        main_app.public_send(name, ...)
       else
         super
       end

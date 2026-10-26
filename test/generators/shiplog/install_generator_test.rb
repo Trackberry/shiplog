@@ -112,6 +112,14 @@ class Shiplog::Generators::InstallGeneratorTest < Rails::Generators::TestCase
     assert_equal "@import \"tailwindcss\";\n@source \"../../../config/initializers/shiplog.rb\";\n", css
   end
 
+  test "--tailwind starts the @source line on its own line when the stylesheet lacks a trailing newline" do
+    write_tailwind_css("@import \"tailwindcss\";")
+    run_generator_without_rake(tailwind: true)
+
+    css = File.read(File.join(destination_root, "app/assets/tailwind/application.css"))
+    assert_equal "@import \"tailwindcss\";\n@source \"../../../config/initializers/shiplog.rb\";\n", css
+  end
+
   test "the @source path resolves to the initializer from the tailwind stylesheet" do
     write_tailwind_css
     run_generator_without_rake(tailwind: true)

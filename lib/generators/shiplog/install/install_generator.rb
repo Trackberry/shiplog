@@ -50,11 +50,14 @@ module Shiplog
       def add_tailwind_source
         return unless options[:tailwind]
 
-        if File.exist?(File.join(destination_root, TAILWIND_STYLESHEET))
-          if File.read(File.join(destination_root, TAILWIND_STYLESHEET)).include?(TAILWIND_SOURCE)
+        path = File.join(destination_root, TAILWIND_STYLESHEET)
+        if File.exist?(path)
+          css = File.read(path)
+          if css.include?(TAILWIND_SOURCE)
             say_status :identical, TAILWIND_STYLESHEET
           else
-            append_to_file TAILWIND_STYLESHEET, "#{TAILWIND_SOURCE}\n"
+            separator = css.empty? || css.end_with?("\n") ? "" : "\n"
+            append_to_file TAILWIND_STYLESHEET, "#{separator}#{TAILWIND_SOURCE}\n"
           end
         else
           say "Add this line to your Tailwind stylesheet so Tailwind compiles the Shiplog classes:\n  #{TAILWIND_SOURCE}"

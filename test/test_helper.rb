@@ -28,14 +28,15 @@ end
 class ActiveSupport::TestCase
   teardown { Shiplog.reset_config! }
 
+  # Runs the block with an extra, otherwise empty locale (a host locale that lacks Rails' date formats).
+  # The I18n backend state is restored afterwards.
   def with_extra_locale(locale)
     available = I18n.available_locales
     I18n.available_locales = available + [ locale ]
-    # An app locale normally gets its date formats from rails-i18n; the dummy has none.
-    I18n.backend.store_translations(locale, date: { formats: { long: "%d %B %Y" } })
     I18n.with_locale(locale) { yield }
   ensure
     I18n.available_locales = available
+    I18n.backend.reload!
   end
 
   # Counts statements issued, including ones served by the query cache (which still indicate N+1 patterns).

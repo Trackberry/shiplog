@@ -43,7 +43,7 @@ class Shiplog::ChangelogsControllerTest < ActionDispatch::IntegrationTest
       assert_select "h3.shiplog-entry__title", text: "Dark mode"
       assert_select ".shiplog-entry__body"
     end
-    assert_select "time.shiplog-entry__date", text: I18n.l(shiplog_entries(:dark_mode_feature).released_on, format: :long)
+    assert_select "time.shiplog-entry__date", text: I18n.l(shiplog_entries(:dark_mode_feature).released_on, format: I18n.t("shiplog.date_format"))
   end
 
   test "change entries are labelled Improved" do
@@ -144,6 +144,35 @@ class Shiplog::ChangelogsControllerTest < ActionDispatch::IntegrationTest
     ensure
       silence_warnings { Shiplog.const_set(:VERSION, original) }
     end
+  end
+
+  test "the entry date uses the engine's own date format, not date.formats.long" do
+    shiplog_entries(:dark_mode_feature).update!(released_on: Date.new(2026, 10, 5))
+    get "/changelog"
+    assert_select "time.shiplog-entry__date", text: "5 October 2026"
+  end
+
+  test "a host locale without date.formats.long still renders the changelog" do
+    with_extra_locale(:fr) do
+      I18n.backend.store_translations(:fr, shiplog: { date_format: "%d/%m/%Y" })
+      get "/changelog"
+      assert_response :ok
+      assert_select "time.shiplog-entry__date", text: /\d\d\/\d\d\/2026/
+    end
+  end
+
+  test "a host locale without any shiplog translations falls back to the default date format" do
+    with_extra_locale(:fr) do
+      get "/changelog"
+      assert_response :ok
+    end
+  end
+
+  test "with_extra_locale restores the I18n backend" do
+    with_extra_locale(:fr) { I18n.backend.store_translations(:fr, shiplog: { date_format: "%d" }) }
+    assert_not_includes I18n.available_locales, :fr
+    with_extra_locale(:fr) { assert_equal "unset", I18n.t("shiplog.date_format", default: "unset") }
+    assert_equal "%-d %B %Y", I18n.t("shiplog.date_format")
   end
 
   test "ETag differs per locale" do

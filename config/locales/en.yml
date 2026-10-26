@@ -11,6 +11,7 @@ en:
       feature: New
       change: Improved
     empty: Nothing here yet
+    date_format: "%-d %B %Y"
     roadmap:
       title: Roadmap
       lede: What we're working on and what comes next.

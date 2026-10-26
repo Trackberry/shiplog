@@ -95,9 +95,9 @@ All settings live in `config/initializers/shiplog.rb`:
 | `audience` | `nil` | Who your customers are, used in the prompts. |
 | `tone` | `"Friendly, concise, no jargon. Address the customer as 'you'."` | Writing style used in the prompts. |
 | `prompt_builder` | `nil` | Optional `->(kind:, context:) { String }` replacing the built-in prompts. `kind` is `"roadmap"`, `"feature"` or `"change"`. |
-| `public_parent_controller` | `"ActionController::Base"` | Parent class of the public controllers. Read once when they load, so set it in the initializer. |
+| `public_parent_controller` | `"ActionController::Base"` | Parent class of the public controllers. Read once when they load, so set it in the initializer; assigning it after the controllers loaded raises `ArgumentError`. |
 | `public_layout` | `"shiplog/application"` | Layout of the public pages. |
-| `admin_parent_controller` | `"ActionController::Base"` | Parent class of the admin controllers. Read once when they load, so set it in the initializer. |
+| `admin_parent_controller` | `"ActionController::Base"` | Parent class of the admin controllers. Read once when they load, so set it in the initializer; assigning it after the controllers loaded raises `ArgumentError`. |
 | `admin_layout` | `"shiplog/admin"` | Layout of the admin pages. |
 | `admin_chrome` | `:standalone` | `:standalone` wraps the admin in Shiplog's own page chrome (nav bar, flash, background). `:hosted` is for an `admin_layout` of your own: Shiplog renders only a compact sub-nav inside your content. Anything else raises `ArgumentError`. The layout name is never inspected. |
 | `admin_flash` | `true` | In `:hosted` mode, render Shiplog's flash messages inside the admin content. Set to `false` if your layout already shows the flash. Standalone always shows it. |
@@ -325,7 +325,7 @@ Without it, `shiplog` is first seen when `shiplog.css` loads, which can put it a
 | `pagination_link` | `shiplog-pagination__link` (+ `--newer` / `--older`) | Newer/older links |
 | `empty` | `shiplog-empty` | "Nothing here yet" notice |
 
-Values may be strings or arrays. The list is `Shiplog::Classes::KEYS`; in development and test, `shiplog_class` raises `ArgumentError` for any other key. Texts come from I18n (`shiplog.roadmap.title`, `shiplog.roadmap.lede`, `shiplog.changelog.*`, `shiplog.categories.feature` / `change`, `shiplog.columns.<column>_description`), so override them in your locale files.
+Values may be strings or arrays. The list is `Shiplog::Classes::KEYS`; assigning `config.classes` raises `ArgumentError` (listing the valid keys) for any other key, in every environment. String keys are accepted and normalised to symbols, and the hash is stored frozen. Texts come from I18n (`shiplog.roadmap.title`, `shiplog.roadmap.lede`, `shiplog.changelog.*`, `shiplog.categories.feature` / `change`, `shiplog.date_format` (default `%-d %B %Y`, used for entry dates), `shiplog.columns.<column>_description`), so override them in your locale files.
 
 ### 4. Override the partials
 

@@ -58,4 +58,37 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
     assert_includes error.message, ":hosted"
     assert_raises(ArgumentError) { Shiplog::Configuration.new.admin_chrome = nil }
   end
+
+  test "classes= normalises string keys to symbols and stores a frozen copy" do
+    config = Shiplog::Configuration.new
+    input = { "card" => "rounded", entry: "p-4" }
+    config.classes = input
+
+    assert_equal({ card: "rounded", entry: "p-4" }, config.classes)
+    assert config.classes.frozen?
+    assert_not input.frozen?
+    input[:page] = "x"
+    assert_not config.classes.key?(:page)
+  end
+
+  test "classes= raises for unknown keys and lists the valid ones" do
+    error = assert_raises(ArgumentError) { Shiplog::Configuration.new.classes = { cards: "grid", "bogus" => "x" } }
+    assert_includes error.message, ":bogus"
+    Shiplog::Classes::KEYS.each { |key| assert_includes error.message, key.to_s }
+  end
+
+  test "classes= accepts nil as empty" do
+    config = Shiplog::Configuration.new
+    config.classes = nil
+    assert_equal({}, config.classes)
+  end
+
+  test "parent controller setters raise once the engine controllers are loaded" do
+    Shiplog::PublicController
+    Shiplog::Admin::ApplicationController
+
+    error = assert_raises(ArgumentError) { Shiplog::Configuration.new.public_parent_controller = "ApplicationController" }
+    assert_includes error.message, "config/initializers"
+    assert_raises(ArgumentError) { Shiplog::Configuration.new.admin_parent_controller = "Admin::BaseController" }
+  end
 end

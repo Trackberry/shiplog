@@ -32,6 +32,11 @@ class HostLayoutTest < ActionDispatch::IntegrationTest
     assert_select "#host-nav ~ link[rel=stylesheet]"
   end
 
+  test "arguments are forwarded to main_app" do
+    get "/roadmap"
+    assert_select "#host-about-args[href=?]", "/about?page=2#top"
+  end
+
   test "names that are not routes still raise" do
     view = ApplicationController.new.view_context
     view.extend(Shiplog::HostRoutesHelper)

@@ -1,11 +1,9 @@
 <%# locals: (month:, entries:) %>
 <%# one month of the changelog (month is its first day) and its entries, newest first %>
-<% dom_id = "shiplog-month-#{month.strftime("%Y-%m")}" %>
-<section class="<%= shiplog_class(:month) %>" aria-labelledby="<%= dom_id %>">
-  <h2 class="<%= shiplog_class(:month_title) %>" id="<%= dom_id %>"><%= l(month, format: "%B %Y") %></h2>
+<% heading_id = "shiplog-month-#{month.strftime("%Y-%m")}" %>
+<section class="<%= shiplog_class(:month) %>" aria-labelledby="<%= heading_id %>">
+  <h2 class="<%= shiplog_class(:month_title) %>" id="<%= heading_id %>"><%= l(month, format: "%B %Y") %></h2>
   <ul class="<%= shiplog_class(:entries) %>">
-    <% entries.each do |entry| %>
-      <%= render "shiplog/changelogs/entry", entry: %>
-    <% end %>
+    <%= render partial: "shiplog/changelogs/entry", collection: entries, as: :entry %>
   </ul>
 </section>
