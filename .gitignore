@@ -1,0 +1,12 @@
+/.bundle/
+/log/*
+/tmp/*
+!/log/.keep
+!/tmp/.keep
+/test/dummy/log/*
+/test/dummy/tmp/*
+/test/dummy/db/*.sqlite3
+/test/dummy/storage/
+*.gem
+/pkg/
+.DS_Store

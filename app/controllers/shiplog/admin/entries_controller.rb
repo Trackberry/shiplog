@@ -1,0 +1,7 @@
+module Shiplog
+  module Admin
+    class EntriesController < ActionController::Base
+      def index = head(:ok)
+    end
+  end
+end
