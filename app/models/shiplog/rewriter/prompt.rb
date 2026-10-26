@@ -7,7 +7,7 @@ module Shiplog
         You write release notes for %<product_name>s, used by %<audience>s.
         Tone: %<tone>s
         Rewrite the following %<kind_label>s for customers who are not developers.
-        Explain what changes for them, not how it was built. Never mention code, tables, refactors, gems, or internal names.
+        Explain what changes for them, not how it was built. Never mention code, tables, refactors, gems, or internal names.%<kind_rules>s
         Title: at most 8 words. Body: 1–3 short sentences (features may use up to 2 short paragraphs).
         Reply with JSON only: {"title": "...", "body": "...", "customer_facing": true|false}
         Set customer_facing to false if a customer would not notice this change.
@@ -16,6 +16,16 @@ module Shiplog
         %<context>s
         </source>
       PROMPT
+
+      KIND_RULES = {
+        "roadmap" => <<~RULES.squish.freeze,
+          This is NOT available yet: it is planned work that has not been built. Write in the future tense ("You'll be able to…", "We're working on…").
+          Never use "now", "is available", "has been added" or "you can now".
+          Describe the outcome for the customer, not specifics that could change: no dates, prices, refunds, guarantees or exact limits, and do not turn implementation details from the source into promises.
+        RULES
+        "feature" => 'This feature has already shipped: present or past tense is right ("You can now…").',
+        "change" => ""
+      }.freeze
 
       MAX_BODY_CHARS = 4_000
       MAX_ITEM_CHARS = 200
@@ -33,7 +43,7 @@ module Shiplog
 
         config = Shiplog.config
         format(TEMPLATE, product_name: config.product_name, audience: config.audience, tone: config.tone,
-          kind_label: KIND_LABELS.fetch(@entry.kind), context: render_context)
+          kind_label: KIND_LABELS.fetch(@entry.kind), kind_rules: KIND_RULES.fetch(@entry.kind).then { |rules| rules.empty? ? rules : "\n#{rules}" }, context: render_context)
       end
 
       private
