@@ -59,4 +59,31 @@ class ActiveSupport::TestCase
   end
 
   def github_fixture(name) = file_fixture("github/#{name}.json").read
+
+  # The bytes of a tiny real image fixture: :png, :jpg, :gif, :webp, or the refused :svg and :html.
+  def image_bytes(type) = file_fixture(image_fixture_name(type)).binread
+
+  def image_fixture_name(type) = "images/#{{ svg: "drawing.svg", html: "page.html" }.fetch(type) { "pixel.#{type}" }}"
+
+  # Runs the block as a host without Active Storage would see Shiplog.
+  def without_active_storage
+    original = Shiplog.method(:active_storage?)
+    Shiplog.define_singleton_method(:active_storage?) { false }
+    yield
+  ensure
+    Shiplog.define_singleton_method(:active_storage?, original)
+  end
+
+  # An uploaded file for the admin's upload form: one of the image fixtures, or `bytes` with a declared type.
+  def image_upload(type, name: nil, bytes: nil, mime: nil)
+    extension = { svg: "svg", html: "html" }.fetch(type, type.to_s)
+    mime ||= { png: "image/png", jpg: "image/jpeg", gif: "image/gif", webp: "image/webp", svg: "image/svg+xml", html: "text/html" }.fetch(type)
+    path = if bytes
+      (@upload_tempfiles ||= []) << Tempfile.new([ "upload", ".#{extension}" ], binmode: true).tap { |file| file.write(bytes) && file.flush }
+      @upload_tempfiles.last.path
+    else
+      file_fixture(image_fixture_name(type)).to_s
+    end
+    Rack::Test::UploadedFile.new(path, mime, true, original_filename: name || "shot.#{extension}")
+  end
 end

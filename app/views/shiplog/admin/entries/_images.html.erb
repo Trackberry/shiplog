@@ -1,0 +1,41 @@
+<%# locals: (entry:) %>
+<section class="shiplog-admin-panel shiplog-admin-images">
+  <h2><%= t("shiplog.admin.entries.images.title", default: "Screenshots") %></h2>
+  <p class="shiplog-admin__muted"><%= t("shiplog.admin.entries.images.help", default: "Shown under the text on the changelog (the first one in the list, all of them on the entry's page). Taken from the GitHub issue or pull request when the draft is written; you can also upload your own.") %></p>
+  <% images = entry.ordered_images %>
+  <% if images.empty? %>
+    <p class="shiplog-admin__muted"><%= t("shiplog.admin.entries.images.empty", default: "No screenshots yet.") %></p>
+  <% else %>
+    <ol class="shiplog-admin-images__list">
+      <% images.each_with_index do |image, index| %>
+        <li class="shiplog-admin-images__item">
+          <% thumbnail = image_thumbnail_path(image) %>
+          <%= tag.img(src: thumbnail, alt: entry.image_alt(image), class: "shiplog-admin-images__thumb", loading: "lazy") if thumbnail %>
+          <div class="shiplog-admin-images__controls">
+            <%= form_with url: entry_image_path(entry, image.blob_id, inbox_filter_params), method: :patch, class: "shiplog-admin-inline-form" do |form| %>
+              <%= form.label :alt, t("shiplog.admin.entries.images.alt", default: "Alt text"), for: "alt_#{image.blob_id}" %>
+              <%= form.text_field :alt, id: "alt_#{image.blob_id}", value: entry.image_alts.to_h[image.blob_id.to_s], maxlength: Shiplog::Entry::Images::ALT_MAX_LENGTH, placeholder: t("shiplog.admin.entries.images.alt_placeholder", default: "Describe the image (defaults to the title)") %>
+              <%= form.submit t("shiplog.admin.entries.images.save_alt", default: "Save alt text"), class: "shiplog-button" %>
+            <% end %>
+            <div class="shiplog-admin-inline-form">
+              <% if index.positive? %>
+                <%= button_to t("shiplog.admin.entries.images.move_up", default: "Up"), entry_image_move_path(entry, image.blob_id, inbox_filter_params.merge(direction: "up")), class: "shiplog-button" %>
+              <% end %>
+              <% if index < images.size - 1 %>
+                <%= button_to t("shiplog.admin.entries.images.move_down", default: "Down"), entry_image_move_path(entry, image.blob_id, inbox_filter_params.merge(direction: "down")), class: "shiplog-button" %>
+              <% end %>
+              <%= button_to t("shiplog.admin.entries.images.remove", default: "Remove"), entry_image_path(entry, image.blob_id, inbox_filter_params), method: :delete, class: "shiplog-button" %>
+            </div>
+          </div>
+        </li>
+      <% end %>
+    </ol>
+  <% end %>
+  <%= form_with url: entry_images_path(entry, inbox_filter_params), multipart: true, class: "shiplog-admin-form" do |form| %>
+    <p>
+      <%= form.label :images, t("shiplog.admin.entries.images.upload_label", default: "Images (PNG, JPEG, GIF or WebP, up to 5 MB each)") %>
+      <%= form.file_field :images, multiple: true, name: "images[]", accept: Shiplog::ImageType::EXTENSIONS.keys.join(",") %>
+    </p>
+    <%= form.submit t("shiplog.admin.entries.images.upload", default: "Upload images"), class: "shiplog-button" %>
+  <% end %>
+</section>

@@ -2,6 +2,8 @@ module Shiplog
   class Entry < ApplicationRecord
     class InvalidTransition < StandardError; end
 
+    include Images
+
     belongs_to :subject, polymorphic: true
     belongs_to :area, class_name: "Shiplog::Area", optional: true
 

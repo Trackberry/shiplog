@@ -44,6 +44,12 @@ module Shiplog
       [ @area&.id, Area.ordered.pluck(:id, :name, :slug, :position) ]
     end
 
+    # What the markup shows of the entries' screenshots: their blob ids, order and alt texts. Nothing while
+    # screenshots are off. Load the entries with `Entry.with_images_loaded` to avoid a query per entry.
+    def shiplog_image_etag_parts(entries)
+      Shiplog.images? ? entries.compact.map { |entry| [ entry.id, entry.image_etag_parts ] } : []
+    end
+
     # What the rendered markup depends on besides the data: the locale, the gem version and the styling
     # config. Host parent controllers rendering per-user layout content should declare `etag { current_user&.id }`.
     def shiplog_etag_parts

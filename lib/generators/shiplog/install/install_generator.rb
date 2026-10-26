@@ -66,7 +66,9 @@ module Shiplog
         permalink_nav_link: "text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400",
         areas: "my-4 flex flex-wrap gap-2",
         area_link: "rounded-full border border-gray-300 px-3 py-0.5 text-sm hover:border-indigo-500 dark:border-gray-700 [&.shiplog-areas__link--current]:border-indigo-600 [&.shiplog-areas__link--current]:bg-indigo-600 [&.shiplog-areas__link--current]:text-white",
-        entry_area: "text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
+        entry_area: "text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400",
+        entry_images: "mt-3 grid w-full gap-3",
+        entry_image: "h-auto max-w-full rounded-lg border border-gray-200 dark:border-gray-800"
       }.freeze
 
       def copy_initializer

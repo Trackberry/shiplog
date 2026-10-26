@@ -124,6 +124,26 @@ en:
         public_text: Public text
         source: GitHub source
         back: Back to drafts
+        images:
+          title: Screenshots
+          help: Shown under the text on the changelog (the first one in the list, all of them on the entry's page). Taken from the GitHub issue or pull request when the draft is written; you can also upload your own.
+          empty: No screenshots yet.
+          alt: Alt text
+          alt_placeholder: Describe the image (defaults to the title)
+          save_alt: Save alt text
+          remove: Remove
+          move_up: Up
+          move_down: Down
+          upload: Upload images
+          upload_label: Images (PNG, JPEG, GIF or WebP, up to 5 MB each)
+          none_selected: Choose at least one image.
+          rejected: "Not added, only PNG, JPEG, GIF and WebP images up to 5 MB are accepted: %{names}"
+          added:
+            one: Image added.
+            other: "%{count} images added."
+          alt_saved: Alt text saved.
+          removed: Image removed.
+          moved: Image moved.
         category_options:
           feature: New feature
           change: Improvement

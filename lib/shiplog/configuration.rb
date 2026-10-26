@@ -46,6 +46,9 @@ module Shiplog
     # How many product areas the AI may create (default 8). Past it, entries can only join existing areas.
     # Not part of render_digest: the markup depends on the areas themselves, which the ETag carries.
     attr_reader :max_areas
+    # Screenshots in entries. `images` (default true) is effective only when Active Storage is loaded in the host
+    # (see Shiplog.images?). `max_images_per_entry` (default 4) caps the images fetched from GitHub per entry.
+    attr_reader :images, :max_images_per_entry
 
     EXTRA_PAGE_KEYS = %i[label path].freeze
 
@@ -66,7 +69,7 @@ module Shiplog
         stylesheet, roadmap_shipped_count, cache_version, product_name, canonical_url,
         extra_pages.map { |page| [ stable.(page[:label]), stable.(page[:path]) ] },
         repository_labels.sort_by { |name, _| name.to_s }.map { |name, label| [ name, stable.(label) ] },
-        stable.(feedback_path), changelog_search
+        stable.(feedback_path), changelog_search, images, max_images_per_entry
       ]
       Digest::SHA256.hexdigest(JSON.generate(data))
     end
@@ -115,6 +118,16 @@ module Shiplog
     def max_areas=(value)
       raise ArgumentError, "max_areas must be a non-negative Integer, got #{value.inspect}" unless value.is_a?(Integer) && value >= 0
       @max_areas = value
+    end
+
+    def images=(value)
+      raise ArgumentError, "images must be true or false, got #{value.inspect}" unless [ true, false ].include?(value)
+      @images = value
+    end
+
+    def max_images_per_entry=(value)
+      raise ArgumentError, "max_images_per_entry must be a non-negative Integer, got #{value.inspect}" unless value.is_a?(Integer) && value >= 0
+      @max_images_per_entry = value
     end
 
     def changelog_path=(value)
@@ -201,6 +214,8 @@ module Shiplog
       @roadmap_shipped_count = 4
       @changelog_search = true
       @max_areas = 8
+      @images = true
+      @max_images_per_entry = 4
     end
 
     def resolved_github_token

@@ -293,6 +293,9 @@
     text-transform: uppercase;
   }
 
+  .shiplog-entry__images { display: grid; flex-basis: 100%; gap: 0.75rem; margin-top: 0.5rem; }
+  .shiplog-entry__image { border: 1px solid var(--sl-border); border-radius: 0.5rem; display: block; height: auto; max-width: 100%; }
+
   .shiplog-areas { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: var(--sl-space) 0; }
   .shiplog-areas__link {
     border: 1px solid var(--sl-border);

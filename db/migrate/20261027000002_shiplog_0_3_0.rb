@@ -50,6 +50,12 @@ class Shiplog030 < ActiveRecord::Migration[8.1]
       t.timestamps
     end
     add_index :shiplog_settings, :key, unique: true
+
+    # --- Screenshots (needs Active Storage in the host; the columns are harmless without it) ---
+    # `image_order` is the ordered list of the entry's image blob ids, `image_alts` the alt text per blob id
+    # ({ "12" => "The dark theme" }); a missing alt text falls back to the entry's title.
+    add_column :shiplog_entries, :image_order, :jsonb, null: false, default: []
+    add_column :shiplog_entries, :image_alts, :jsonb, null: false, default: {}
   end
 
   # Gives every approved feature and change with a release date, and no slug, one: the title as [a-z0-9-] only

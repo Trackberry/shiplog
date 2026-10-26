@@ -2,13 +2,13 @@ module Shiplog
   # The permalink page of a published feature or change: /changelog/:slug.
   class ChangelogEntriesController < PublicController
     def show
-      @entry = Entry.published_changelog.find_by(slug: params[:slug])
+      @entry = Entry.published_changelog.with_images_loaded.find_by(slug: params[:slug])
       return pass_to_host_routes unless @entry
 
       notify_changelog_seen
       @newer = @entry.newer_changelog_entry
       @older = @entry.older_changelog_entry
-      fresh_when etag: [ *shiplog_etag_parts, *shiplog_area_etag_parts, [ @entry, @newer, @older ].map { |entry| [ entry&.id, entry&.updated_at, entry&.area_id ] } ]
+      fresh_when etag: [ *shiplog_etag_parts, *shiplog_area_etag_parts, [ @entry, @newer, @older ].map { |entry| [ entry&.id, entry&.updated_at, entry&.area_id ] }, shiplog_image_etag_parts([ @entry ]) ]
     end
 
     private

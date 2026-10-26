@@ -127,6 +127,11 @@
   .shiplog-admin .shiplog-admin-form textarea { box-sizing: border-box; font: inherit; width: 100%; }
   .shiplog-admin .shiplog-admin-actions { border-top: 1px solid var(--sa-border); display: grid; gap: 0.75rem; margin-top: 1rem; padding-top: 1rem; }
   .shiplog-admin .shiplog-admin-inline-form { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .shiplog-admin .shiplog-admin-images { margin-top: 1rem; }
+  .shiplog-admin .shiplog-admin-images__list { display: grid; gap: 1rem; list-style: none; margin: 0 0 1rem; padding: 0; }
+  .shiplog-admin .shiplog-admin-images__item { align-items: flex-start; border-bottom: 1px solid var(--sa-border); display: flex; flex-wrap: wrap; gap: 1rem; padding-bottom: 1rem; }
+  .shiplog-admin .shiplog-admin-images__thumb { border: 1px solid var(--sa-border); border-radius: 0.25rem; height: auto; max-height: 8rem; max-width: 12rem; object-fit: contain; }
+  .shiplog-admin .shiplog-admin-images__controls { display: grid; flex: 1; gap: 0.5rem; min-width: 16rem; }
   .shiplog-admin .shiplog-admin__visually-hidden { border: 0; clip-path: inset(50%); height: 1px; overflow: hidden; position: absolute; white-space: nowrap; width: 1px; }
   .shiplog-admin .shiplog-area-row__count { text-align: right; }
   .shiplog-admin .shiplog-admin-source { background: var(--sa-bg); overflow-x: auto; padding: 0.75rem; white-space: pre-wrap; word-break: break-word; }

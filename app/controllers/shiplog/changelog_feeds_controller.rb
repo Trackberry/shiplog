@@ -9,9 +9,9 @@ module Shiplog
     def show
       scope = Entry.published_changelog.newest_first
       scope = scope.where(area_id: @area.id) if @area
-      @entries = scope.includes(:area).limit(LIMIT).to_a
+      @entries = scope.includes(:area).with_images_loaded.limit(LIMIT).to_a
       @entries.select!(&:permalink?) # no slug (or an invalid one) means no stable id: left out
-      fresh_when etag: [ *shiplog_etag_parts, *shiplog_area_etag_parts, @entries.map { |entry| [ entry.id, entry.updated_at, entry.area_id ] } ]
+      fresh_when etag: [ *shiplog_etag_parts, *shiplog_area_etag_parts, @entries.map { |entry| [ entry.id, entry.updated_at, entry.area_id ] }, shiplog_image_etag_parts(@entries) ]
     end
   end
 end

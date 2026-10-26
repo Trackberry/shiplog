@@ -5,6 +5,9 @@ Shiplog::Admin::Engine.routes.draw do
       resource :approval, only: :create
       resource :discard, only: %i[create destroy]
       resource :rewrite, only: :create
+      resources :images, only: %i[create update destroy] do
+        resource :move, only: :create, module: :images
+      end
     end
   end
   resource :area_detection, only: :create, path: "areas/detection"

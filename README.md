@@ -12,6 +12,7 @@ A mountable Rails engine that turns your GitHub issues, pull requests and commit
 - Rails 8.1.4 or newer (< 9)
 - PostgreSQL (tables use `jsonb`)
 - A job backend for Active Job (GoodJob, Solid Queue, ...)
+- Active Storage, only for [screenshots in entries](#screenshots) (the rest works without it)
 
 ## Installation
 
@@ -116,6 +117,8 @@ All settings live in `config/initializers/shiplog.rb`:
 | `feedback_path` | `nil` | Target of the roadmap's "Suggest a feature" link, a String or a callable evaluated in the view. No link while `nil`. |
 | `changelog_search` | `true` | Search box on the public changelog and `?q=` filtering. `false` hides the form and ignores `q`. See [Changelog search](#changelog-search). |
 | `on_changelog_seen` | `nil` | `->(controller) { ... }` called before each changelog index or permalink view renders (also for a 304 revisit), to stamp a visitor's "last seen" time. See [What's new](#whats-new-the-unseen-count). Anything but `nil` or a callable raises `ArgumentError`. |
+| `images` | `true` | [Screenshots](#screenshots) in entries. Effective only when Active Storage is loaded in the host; `false` turns fetching, upload and rendering off. `true` or `false`, anything else raises `ArgumentError`. |
+| `max_images_per_entry` | `4` | How many images are fetched from the GitHub body of a draft. A non-negative Integer; `0` fetches none (admin uploads are not capped). |
 | `max_areas` | `8` | How many [product areas](#product-areas) the AI may create. Past it, entries can only join existing areas. A non-negative Integer; `0` stops the AI creating areas. |
 
 Example:
@@ -344,6 +347,18 @@ The rewriter groups entries into product areas ("Billing", "Reports"), and the c
 - **Texts:** `shiplog.changelog.areas.label` and `.all`, and `shiplog.admin.areas.*`, `shiplog.admin.nav.areas`, `shiplog.admin.entries.no_area` and `.fields.area`; all have English defaults.
 - **Schema:** the `shiplog_areas` table (`name`, `slug` unique, `position`) and `shiplog_entries.area_id` (nullable foreign key, `ON DELETE SET NULL`) and `area_set_by_admin`. The cap is checked, not locked: two rewrites racing for the last slot can create one area too many.
 
+## Screenshots
+
+Entries can show screenshots: the first one on the changelog list, all of them on the entry's permalink page, and in the Atom feed and the `og:image` tag.
+
+- **Needs Active Storage.** The host must load it (`require "active_storage/engine"` in `config/application.rb`, or `rails/all`) and have its tables (`bin/rails active_storage:install`, then `db:migrate`). Without it, screenshots are off: nothing is fetched, uploaded or rendered, nothing crashes, and Shiplog logs once at boot (`[shiplog] Screenshots are off: Active Storage is not loaded...`). `config.images = false` turns them off too. Shiplog declares `has_many_attached :images` on `Shiplog::Entry` only when Active Storage is loaded. Active Storage's routes belong to your app: Shiplog's views reach them through `main_app`.
+- **From GitHub.** When a draft is written (and when it is regenerated), the job fetches the issue's or pull request's rendered body (`bodyHTML`, one small GraphQL query per draft, so the sync payloads don't grow) and downloads the `<img>` images in it, at most `config.max_images_per_entry` (4). It only does so for a draft that has no images yet: images of an approved entry are never changed automatically, and nothing is fetched twice. Only these hosts are fetched, https only, exact host match: `private-user-images.githubusercontent.com`, `user-images.githubusercontent.com`, `camo.githubusercontent.com`, `raw.githubusercontent.com`, `objects.githubusercontent.com` and `github.com` for `/user-attachments/assets/` paths. Redirects are followed up to 3 times, each checked against the list again. Timeouts are 5 seconds (connect and read), the size limit is 5 MB (the download stops past it), and the type is decided by the file's first bytes: PNG, JPEG, GIF or WebP only (SVG and HTML are refused, whatever the extension says). The GitHub token is sent to `github.com` only, never to the other hosts; signed `private-user-images` URLs need none. Any failure is logged and skipped, and never fails the draft. The token needs no extra permission.
+- **Admin.** The entry edit page lists the images in order, each with an alt text field, "Remove" and "Up"/"Down" buttons, plus an upload form (several files; same type and size checks, done on the file's bytes on the server). Thumbnails are 200px variants when the `image_processing` gem is in your bundle, else the original, sized by CSS.
+- **Order and alt text.** Stored on the entry: `image_order` (jsonb, blob ids in order) and `image_alts` (jsonb, blob id => text). An image without alt text uses the entry's title. `Shiplog::Entry#ordered_images` returns the attachments in order.
+- **Public.** `<img loading="lazy">` with the alt text and, once Active Storage has analysed the image (it needs `image_processing` or `ruby-vips`), `width` and `height`. The URLs come from your routes (`url_for` on the attachment, so `resolve_model_to_route` applies). The `og:image` and the feed use the absolute URL (`config.canonical_url` when set). The ETags include the images' blob ids, order and alt texts.
+- **Texts:** `shiplog.admin.entries.images.*`, all with English defaults.
+- **Schema:** `shiplog_entries.image_order` and `.image_alts`, in the 0.3.0 migration, plus Active Storage's own tables.
+
 ## Entry permalinks
 
 Every approved feature and change has its own page at `GET /changelog/:slug` (under `config.changelog_path`). The changelog list links each title to it. Roadmap entries have no permalink.
@@ -538,6 +553,8 @@ Without it, `shiplog` is first seen when `shiplog.css` loads, which can put it a
 | `areas` | `shiplog-areas` | The area filter `nav` |
 | `area_link` | `shiplog-areas__link` (+ `--current`) | One filter link, "All" included |
 | `entry_area` | `shiplog-entry__area` | An entry's area tag |
+| `entry_images` | `shiplog-entry__images` | The container of an entry's screenshots |
+| `entry_image` | `shiplog-entry__image` | One screenshot (`img`) |
 
 Values may be strings or arrays. The list is `Shiplog::Classes::KEYS`; assigning `config.classes` raises `ArgumentError` (listing the valid keys) for any other key, in every environment. String keys are accepted and normalised to symbols, and the hash is stored frozen. Texts come from I18n (`shiplog.roadmap.title`, `shiplog.roadmap.lede`, `shiplog.roadmap.*` (`parts`, `shipped_heading`, `full_changelog`, `footnote`, `suggest`), `shiplog.switcher.*`, `shiplog.changelog.*`, `shiplog.categories.feature` / `change`, `shiplog.date_format` (default `%-d %B %Y`, used for entry dates), `shiplog.columns.<column>_description`), so override them in your locale files.
 

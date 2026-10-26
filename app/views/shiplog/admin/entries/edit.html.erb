@@ -67,5 +67,9 @@
     </aside>
   </div>
 
+  <% if Shiplog.images? %>
+    <%= render "shiplog/admin/entries/images", entry: @entry %>
+  <% end %>
+
   <p><%= link_to t("shiplog.admin.entries.back"), entries_filter_path(**inbox_filter_params) %></p>
 <% end %>

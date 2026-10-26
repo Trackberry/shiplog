@@ -56,7 +56,9 @@ module Shiplog
       permalink_nav_link: "shiplog-permalink__nav-link",
       areas: "shiplog-areas",
       area_link: "shiplog-areas__link",
-      entry_area: "shiplog-entry__area"
+      entry_area: "shiplog-entry__area",
+      entry_images: "shiplog-entry__images",
+      entry_image: "shiplog-entry__image"
     }.freeze
 
     KEYS = BEM.keys.freeze

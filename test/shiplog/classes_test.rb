@@ -14,6 +14,7 @@ class Shiplog::ClassesTest < ActiveSupport::TestCase
     search search_input search_button search_summary search_clear search_empty
     permalink permalink_back permalink_nav permalink_nav_link
     areas area_link entry_area
+    entry_images entry_image
   ].freeze
 
   test "KEYS is the frozen public list" do

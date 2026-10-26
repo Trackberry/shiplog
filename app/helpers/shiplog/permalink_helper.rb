@@ -1,6 +1,5 @@
 module Shiplog
-  # Markup helpers of the permalink pages and the Atom feed. The two hooks at the bottom are where later
-  # features add an entry's first image (Open Graph) and its images (feed content).
+  # Markup helpers of the permalink pages, the Atom feed and the entries' screenshots.
   module PermalinkHelper
     DESCRIPTION_LENGTH = 160
 
@@ -55,10 +54,60 @@ module Shiplog
       safe_join(tags.compact_blank.map { |property, content| tag.meta(property:, content:) }, "\n")
     end
 
-    # Hook: the absolute URL of the image to show when the page is shared, or nil.
-    def shiplog_entry_og_image(_entry) = nil
+    # The absolute URL of the image to show when the page is shared (the first image), or nil.
+    def shiplog_entry_og_image(entry)
+      image = shiplog_images(entry).first
+      shiplog_image_url(image) if image
+    end
 
-    # The HTML of an entry in the Atom feed. Hook: images are added here.
-    def shiplog_feed_content(entry) = simple_format(h(entry.body))
+    # The HTML of an entry in the Atom feed: its text, then its images with absolute URLs.
+    def shiplog_feed_content(entry)
+      images = shiplog_images(entry).filter_map do |image|
+        url = shiplog_image_url(image)
+        tag.p(tag.img(src: url, alt: entry.image_alt(image), **shiplog_image_size(image))) if url
+      end
+      safe_join([ simple_format(h(entry.body)), *images ], "\n")
+    end
+
+    # An entry's images in order, or none while screenshots are off.
+    def shiplog_images(entry)
+      Shiplog.images? ? entry.ordered_images : []
+    end
+
+    # The images of an entry under its body: `limit` of them (all by default). Nil when it has none to show.
+    def shiplog_entry_images(entry, limit: nil)
+      images = shiplog_images(entry)
+      images = images.first(limit) if limit
+      tags = images.filter_map do |image|
+        path = shiplog_image_path(image)
+        tag.img(src: path, alt: entry.image_alt(image), loading: "lazy", class: shiplog_class(:entry_image), **shiplog_image_size(image)) if path
+      end
+      tag.div(safe_join(tags), class: shiplog_class(:entry_images)) if tags.any?
+    end
+
+    # Active Storage's routes belong to the host: url_for reaches them through main_app (see HostRoutesHelper).
+    # Nil when the host can't build the route.
+    def shiplog_image_path(image)
+      polymorphic_path(image)
+    rescue ActionController::UrlGenerationError, NoMethodError, ArgumentError
+      nil
+    end
+
+    # The image's absolute URL: config.canonical_url plus its path when set, the request's origin otherwise.
+    def shiplog_image_url(image)
+      canonical = Shiplog.config.canonical_url
+      return polymorphic_url(image) unless canonical
+
+      path = shiplog_image_path(image)
+      "#{canonical}#{path}" if path
+    rescue ActionController::UrlGenerationError, NoMethodError, ArgumentError
+      nil
+    end
+
+    # width and height from the blob's analysis, when it has run and found them.
+    def shiplog_image_size(image)
+      metadata = image.blob.metadata
+      { width: metadata[:width], height: metadata[:height] }.select { |_, value| value.to_i.positive? }
+    end
   end
 end

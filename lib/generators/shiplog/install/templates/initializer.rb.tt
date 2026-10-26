@@ -146,6 +146,13 @@ Shiplog.configure do |config|
   # Entries you set by hand on the edit page are never changed by the AI.
   # config.max_areas = 8
 
+  # Screenshots in entries. They need Active Storage in your app (require "active_storage/engine", and its tables);
+  # without it they stay off and Shiplog logs that once at boot. When a draft is written, the images in the GitHub
+  # issue or pull request body are attached to the entry (GitHub image hosts only, 5 MB and PNG, JPEG, GIF or
+  # WebP at most; the token needs no extra permission). You can also upload images on the entry edit page.
+  # config.images = true
+  # config.max_images_per_entry = 4
+
   # Callables above cannot be part of the public pages' ETag. Bump this when the output of a callable you
   # configured changes (a new label, another path) so cached pages are refreshed.
   # config.cache_version = nil

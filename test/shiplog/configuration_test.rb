@@ -44,6 +44,30 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
     assert_equal digest_config.render_digest, digest_config(max_areas: 3).render_digest
   end
 
+  test "images defaults to true and accepts true or false only" do
+    config = Shiplog::Configuration.new
+    assert_equal true, config.images
+    config.images = false
+    assert_equal false, config.images
+    [ nil, "yes", 1, :true ].each { |value| assert_raises(ArgumentError, value.inspect) { config.images = value } }
+    assert_equal false, config.images
+  end
+
+  test "max_images_per_entry defaults to 4 and accepts non-negative Integers only" do
+    config = Shiplog::Configuration.new
+    assert_equal 4, config.max_images_per_entry
+    config.max_images_per_entry = 0
+    config.max_images_per_entry = 9
+    assert_equal 9, config.max_images_per_entry
+    [ -1, 2.5, "4", nil ].each { |value| assert_raises(ArgumentError, value.inspect) { config.max_images_per_entry = value } }
+    assert_equal 9, config.max_images_per_entry
+  end
+
+  test "images and max_images_per_entry are part of the render digest" do
+    assert_not_equal digest_config.render_digest, digest_config(images: false).render_digest
+    assert_not_equal digest_config.render_digest, digest_config(max_images_per_entry: 1).render_digest
+  end
+
   test "extra_pages accepts Strings and callables for label and path, and string keys" do
     config = Shiplog::Configuration.new
     config.extra_pages = [ { label: "News", path: "/learn/news" }, { "label" => -> { "Docs" }, "path" => -> { "/docs" } } ]
