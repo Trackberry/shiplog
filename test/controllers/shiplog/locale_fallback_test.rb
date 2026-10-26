@@ -67,4 +67,41 @@ class Shiplog::LocaleFallbackTest < ActionDispatch::IntegrationTest
   ensure
     I18n.backend.reload!
   end
+
+  # Every public page, under a locale whose backend is empty (but for Rails' month names): no translation-missing
+  # output anywhere, in the HTML or in the feed.
+  test "no public page or the feed shows a missing translation" do
+    now = Time.current
+    Shiplog::Entry.insert_all!(Array.new(35) do |i|
+      { kind: "change", status: "approved", subject_type: "Shiplog::Issue", subject_id: 50_000 + i, title: "Bulk #{i}", body: "Body #{i}",
+        slug: "bulk-#{i}", released_on: Date.new(2026, 9, 1) - i, approved_at: now, created_at: now, updated_at: now }
+    end)
+    first_area = Shiplog::Area.create!(name: "Billing", slug: "billing", position: 1)
+    Shiplog::Area.create!(name: "Search", slug: "search", position: 2)
+    Shiplog::Entry.where(slug: "bulk-1").update_all(area_id: first_area.id)
+    Shiplog::Entry.where(slug: "bulk-2").update_all(area_id: Shiplog::Area.find_by!(slug: "search").id)
+    Shiplog.config.product_name = "Acme"
+
+    in_french do
+      [ "/roadmap", "/changelog", "/changelog?page=2", "/changelog?q=bulk", "/changelog?area=billing", "/changelog?q=zzzz",
+        "/changelog/dark-mode", "/changelog/bulk-10", "/changelog.atom" ].each do |path|
+        get path
+        assert_response :ok, path
+        assert_no_match(/translation[_ ]missing/i, response.body, "#{path} shows a missing translation")
+      end
+    end
+  end
+
+  test "the roadmap's empty columns and the feed's default title fall back to English" do
+    Shiplog::Entry.roadmap.delete_all
+    in_french do
+      get "/roadmap"
+      assert_no_match(/translation[_ ]missing/i, response.body)
+      assert_select ".shiplog-column__empty", text: "Nothing here yet", minimum: 1
+      assert_select "h1", text: "Roadmap"
+
+      get "/changelog.atom"
+      assert_select "title", text: "Changelog"
+    end
+  end
 end

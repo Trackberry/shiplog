@@ -2,6 +2,15 @@ module Shiplog
   module RoadmapHelper
     include Shiplog::SwitcherHelper
 
+    # English texts of the roadmap columns, used when the host's locale has no shiplog.columns translations.
+    COLUMN_DEFAULTS = {
+      in_progress: { title: "In progress", description: "What we're building now" },
+      coming_soon: { title: "Coming soon", description: "Planned next" },
+      later: { title: "Later", description: "On our radar" }
+    }.freeze
+
+    def shiplog_column_defaults = COLUMN_DEFAULTS
+
     # The configured label of a repository (config.repository_labels, matched case-insensitively), or nil.
     def shiplog_repository_label(repository)
       labels = Shiplog.config.repository_labels

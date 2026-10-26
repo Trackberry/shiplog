@@ -3,12 +3,12 @@
 <% heading_id = "shiplog-column-#{column.dasherize}" %>
 <section class="<%= shiplog_class(:column, column) %>" aria-labelledby="<%= heading_id %>">
   <header class="<%= shiplog_class(:column_header) %>">
-    <h2 class="<%= shiplog_class(:column_title) %>" id="<%= heading_id %>"><span class="<%= shiplog_class(:column_marker, column) %>" aria-hidden="true"></span><%= t("shiplog.columns.#{column}") %></h2>
+    <h2 class="<%= shiplog_class(:column_title) %>" id="<%= heading_id %>"><span class="<%= shiplog_class(:column_marker, column) %>" aria-hidden="true"></span><%= t("shiplog.columns.#{column}", default: shiplog_column_defaults.fetch(column.to_sym, {})[:title] || column.humanize) %></h2>
     <span class="<%= shiplog_class(:column_count) %>"><%= entries.size %></span>
-    <p class="<%= shiplog_class(:column_description) %>"><%= t("shiplog.columns.#{column}_description") %></p>
+    <p class="<%= shiplog_class(:column_description) %>"><%= t("shiplog.columns.#{column}_description", default: shiplog_column_defaults.fetch(column.to_sym, {})[:description].to_s) %></p>
   </header>
   <% if entries.empty? %>
-    <p class="<%= shiplog_class(:column_empty) %>"><%= t("shiplog.empty") %></p>
+    <p class="<%= shiplog_class(:column_empty) %>"><%= t("shiplog.empty", default: "Nothing here yet") %></p>
   <% else %>
     <ol class="<%= shiplog_class(:cards) %>">
       <%= render partial: "shiplog/roadmaps/card", collection: entries, as: :entry %>

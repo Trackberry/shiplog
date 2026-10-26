@@ -32,6 +32,7 @@
 - If you use a custom `config.prompt_builder`, ask your model for `"area"` in its JSON reply, or entries get no area from rewrites.
 - If you override `shiplog/changelogs/_entry_content.html.erb` or `show.html.erb`, add the area tag (`entry.area`, class `entry_area`) and render `shiplog/changelogs/_areas` (locals `areas:`, `current:`, `query:`) to get the tag and the filter. The search partial also takes `area:`.
 - New I18n keys, all with English defaults: `shiplog.changelog.areas.label` and `.all`; `shiplog.admin.areas.*`, `shiplog.admin.nav.areas`, `shiplog.admin.entries.no_area` and `shiplog.admin.entries.fields.area`.
+- Every translation key of the public pages now has an English default (including `shiplog.roadmap.title` and `.lede`, `shiplog.changelog.title`, `.lede` and `.pagination.*`, `shiplog.columns.*`, `shiplog.empty`), so a host locale without Shiplog translations shows English instead of translation-missing spans.
 - Style the permalink page with the new class keys above if you use `config.classes` with `config.stylesheet = false`.
 - If your layout shows the unseen count, it renders per-user content: declare `etag { current_user&.changelog_seen_at }` on your `public_parent_controller`.
 
