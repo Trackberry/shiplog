@@ -152,7 +152,8 @@
   .shiplog-entries { display: grid; gap: 0.75rem; list-style: none; margin: 0; padding: 0; }
 
   .shiplog-card,
-  .shiplog-entry {
+  .shiplog-entry,
+  .shiplog-permalink {
     background: var(--sl-card);
     border: 1px solid var(--sl-border);
     border-radius: var(--sl-radius);
@@ -241,10 +242,14 @@
     width: 0.75rem;
   }
 
-  .shiplog-entry { align-items: center; display: flex; flex-wrap: wrap; gap: 0.25rem 0.625rem; }
+  .shiplog-entry,
+  .shiplog-permalink { align-items: center; display: flex; flex-wrap: wrap; gap: 0.25rem 0.625rem; }
   .shiplog-entry__title,
   .shiplog-entry__body { flex-basis: 100%; }
   .shiplog-entry__title { font-size: 1rem; margin: 0.25rem 0 0; }
+  .shiplog-entry__title a { color: inherit; text-decoration: none; }
+  .shiplog-entry__title a:hover { color: var(--sl-accent); text-decoration: underline; }
+  .shiplog-entry__title a:focus-visible { outline: 2px solid var(--sl-accent); outline-offset: 2px; }
   .shiplog-entry__body { color: var(--sl-muted); }
   .shiplog-entry__date { color: var(--sl-muted); font-size: 0.8125rem; }
 
@@ -256,6 +261,9 @@
     font-weight: 600;
     padding: 0 0.5rem;
   }
+  .shiplog-permalink .shiplog-entry__title { font-size: 1.5rem; }
+  .shiplog-permalink--feature { border-left: 4px solid var(--sl-accent); }
+  .shiplog-permalink--feature .shiplog-entry__category { background: var(--sl-accent); border-color: var(--sl-accent); color: #fff; }
   .shiplog-entry--feature { border-left: 4px solid var(--sl-accent); padding: var(--sl-space) calc(var(--sl-space) * 1.25); }
   .shiplog-entry--feature .shiplog-entry__title { font-size: 1.25rem; }
   .shiplog-entry--feature .shiplog-entry__category { background: var(--sl-accent); border-color: var(--sl-accent); color: #fff; }
@@ -263,6 +271,43 @@
   .shiplog-pagination { display: flex; flex-wrap: wrap; gap: var(--sl-space); justify-content: space-between; margin-top: calc(var(--sl-space) * 2); }
   .shiplog-pagination__link { color: var(--sl-accent); }
   .shiplog-pagination__link--older { margin-left: auto; }
+
+  .shiplog-permalink__back { color: var(--sl-accent); display: inline-block; margin-top: var(--sl-space); }
+  .shiplog-permalink__nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sl-space);
+    justify-content: space-between;
+    margin-top: calc(var(--sl-space) * 2);
+  }
+  .shiplog-permalink__nav-link { color: var(--sl-accent); }
+  .shiplog-permalink__nav-link--older { margin-left: auto; text-align: right; }
+  .shiplog-permalink__back:focus-visible,
+  .shiplog-permalink__nav-link:focus-visible { outline: 2px solid var(--sl-accent); outline-offset: 2px; }
+
+  .shiplog-entry__area {
+    color: var(--sl-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  .shiplog-entry__images { display: grid; flex-basis: 100%; gap: 0.75rem; margin-top: 0.5rem; }
+  .shiplog-entry__image { border: 1px solid var(--sl-border); border-radius: 0.5rem; display: block; height: auto; max-width: 100%; }
+
+  .shiplog-areas { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: var(--sl-space) 0; }
+  .shiplog-areas__link {
+    border: 1px solid var(--sl-border);
+    border-radius: 1rem;
+    color: var(--sl-fg);
+    font-size: 0.875rem;
+    padding: 0.125rem 0.75rem;
+    text-decoration: none;
+  }
+  .shiplog-areas__link:hover { border-color: var(--sl-accent); }
+  .shiplog-areas__link:focus-visible { outline: 2px solid var(--sl-accent); outline-offset: 2px; }
+  .shiplog-areas__link--current { background: var(--sl-accent); border-color: var(--sl-accent); color: #fff; }
 
   .shiplog-search { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: var(--sl-space) 0; }
   .shiplog-search__input {

@@ -1,9 +1,10 @@
 <%# locals: (hosted: false) %>
-<%# the Drafts / Roadmap board / Sync links; `hosted` renders the compact variant used inside a host layout %>
+<%# the Drafts / Roadmap board / Areas / Sync links; `hosted` renders the compact variant used inside a host layout %>
 <nav class="shiplog-admin-nav<%= " shiplog-admin-nav--sub" if hosted %>" aria-label="<%= t("shiplog.admin.title") %>">
   <ul class="shiplog-admin-nav__list">
     <li><%= link_to t("shiplog.admin.nav.drafts"), root_path, class: "shiplog-admin-nav__link" %></li>
     <li><%= link_to t("shiplog.admin.nav.board"), board_path, class: "shiplog-admin-nav__link" %></li>
+    <li><%= link_to t("shiplog.admin.nav.areas", default: "Areas"), areas_path, class: "shiplog-admin-nav__link" %></li>
     <li><%= link_to t("shiplog.admin.nav.sync"), sync_path, class: "shiplog-admin-nav__link" %></li>
   </ul>
 </nav>

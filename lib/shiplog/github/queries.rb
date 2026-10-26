@@ -133,7 +133,19 @@ module Shiplog
         }
       GRAPHQL
 
-      ALL = { ISSUES:, PULL_REQUESTS:, ISSUE:, PULL_REQUEST:, COMMITS:, BLOB_TEXT:, COMMIT_PULL_REQUESTS: }.freeze
+      # The rendered HTML of one issue or pull request body (`$id` is its node id). Kept out of the sync documents so
+      # their payloads don't grow: it is only asked for when a draft is written, to find screenshots. On private
+      # repositories its <img src> URLs are short-lived signed URLs.
+      BODY_HTML = <<~GRAPHQL.freeze
+        query($id: ID!) {
+          node(id: $id) {
+            ... on Issue { bodyHTML }
+            ... on PullRequest { bodyHTML }
+          }
+        }
+      GRAPHQL
+
+      ALL = { ISSUES:, PULL_REQUESTS:, ISSUE:, PULL_REQUEST:, COMMITS:, BLOB_TEXT:, COMMIT_PULL_REQUESTS:, BODY_HTML: }.freeze
     end
   end
 end

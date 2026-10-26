@@ -1,0 +1,10 @@
+<%# locals: (entry:, heading: "h3", linked: false, all_images: !linked) %>
+<%# what an entry shows: category pill ("New" for features, "Improved" for changes), date, title (a permalink link in the list) and body. The area tag (features and changes only) follows the category. The images follow the body: the first one in the list, all of them on the permalink page. %>
+<span class="<%= shiplog_class(:entry_category) %>"><%= t("shiplog.categories.#{entry.kind}", default: (entry.feature? ? "New" : "Improved")) %></span>
+<% if entry.area && Shiplog::Entry::CHANGELOG_KINDS.include?(entry.kind) %>
+  <span class="<%= shiplog_class(:entry_area) %>"><%= entry.area.display_name %></span>
+<% end %>
+<time class="<%= shiplog_class(:entry_date) %>" datetime="<%= entry.released_on.iso8601 %>"><%= l(entry.released_on, format: t("shiplog.date_format", default: "%-d %B %Y")) %></time>
+<%= content_tag heading, (linked && shiplog_entry_path(entry) ? link_to(entry.display_title, shiplog_entry_path(entry)) : entry.display_title), class: shiplog_class(:entry_title) %>
+<div class="<%= shiplog_class(:entry_body) %>"><%= simple_format(h(entry.display_body)) %></div>
+<%= shiplog_entry_images(entry, limit: (all_images ? nil : 1)) %>

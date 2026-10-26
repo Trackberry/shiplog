@@ -25,6 +25,47 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
     assert_equal 4, config.roadmap_shipped_count
     assert_equal true, config.changelog_search
     assert_nil config.feedback_path
+    assert_equal 8, config.max_areas
+  end
+
+  test "max_areas accepts non-negative Integers only" do
+    config = Shiplog::Configuration.new
+    config.max_areas = 0
+    assert_equal 0, config.max_areas
+    config.max_areas = 12
+    assert_equal 12, config.max_areas
+    [ -1, "8", nil, 2.5 ].each do |value|
+      assert_raises(ArgumentError, value.inspect) { config.max_areas = value }
+    end
+    assert_equal 12, config.max_areas
+  end
+
+  test "max_areas is not part of the render digest: the markup depends on the areas themselves, which the ETag carries" do
+    assert_equal digest_config.render_digest, digest_config(max_areas: 3).render_digest
+  end
+
+  test "images defaults to true and accepts true or false only" do
+    config = Shiplog::Configuration.new
+    assert_equal true, config.images
+    config.images = false
+    assert_equal false, config.images
+    [ nil, "yes", 1, :true ].each { |value| assert_raises(ArgumentError, value.inspect) { config.images = value } }
+    assert_equal false, config.images
+  end
+
+  test "max_images_per_entry defaults to 4 and accepts non-negative Integers only" do
+    config = Shiplog::Configuration.new
+    assert_equal 4, config.max_images_per_entry
+    config.max_images_per_entry = 0
+    config.max_images_per_entry = 9
+    assert_equal 9, config.max_images_per_entry
+    [ -1, 2.5, "4", nil ].each { |value| assert_raises(ArgumentError, value.inspect) { config.max_images_per_entry = value } }
+    assert_equal 9, config.max_images_per_entry
+  end
+
+  test "images and max_images_per_entry are part of the render digest" do
+    assert_not_equal digest_config.render_digest, digest_config(images: false).render_digest
+    assert_not_equal digest_config.render_digest, digest_config(max_images_per_entry: 1).render_digest
   end
 
   test "extra_pages accepts Strings and callables for label and path, and string keys" do
@@ -219,7 +260,8 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
     base = digest_config.render_digest
     [ { classes: { card: "other" } }, { stylesheet: false }, { roadmap_shipped_count: 2 }, { feedback_path: "/other" },
       { repository_labels: { "Acme/ios" => "iOS" } }, { extra_pages: [ { label: "News", path: "/n" } ] },
-      { cache_version: "2" }, { changelog_search: false } ].each do |change|
+      { cache_version: "2" }, { changelog_search: false }, { product_name: "Acme" },
+      { canonical_url: "https://trackberry.com" } ].each do |change|
       assert_not_equal base, digest_config(**change).render_digest, "expected #{change.inspect} to change the digest"
     end
   end
@@ -251,5 +293,94 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
     [ "/", "/news", "/news/archive?x=1#top", "https://example.com/news", "mailto:hi@example.com" ].each do |url|
       assert Shiplog::Configuration.safe_url?(url), url.inspect
     end
+  end
+
+  test "canonical_url defaults to nil" do
+    assert_nil Shiplog::Configuration.new.canonical_url
+  end
+
+  test "canonical_url accepts an http(s) origin, without a trailing slash" do
+    config = Shiplog::Configuration.new
+    {
+      "https://trackberry.com" => "https://trackberry.com",
+      "https://trackberry.com/" => "https://trackberry.com",
+      " http://localhost:3000 " => "http://localhost:3000",
+      "HTTPS://Track.Example.com" => "https://track.example.com"
+    }.each do |given, expected|
+      config.canonical_url = given
+      assert_equal expected, config.canonical_url, given
+    end
+    config.canonical_url = nil
+    assert_nil config.canonical_url
+    config.canonical_url = ""
+    assert_nil config.canonical_url
+  end
+
+  test "canonical_url rejects anything but an http(s) origin: no path, query, fragment or credentials" do
+    config = Shiplog::Configuration.new
+    [ "trackberry.com", "//trackberry.com", "ftp://trackberry.com", "javascript:alert(1)", "https://", "https://trackberry.com/blog",
+      "https://trackberry.com?x=1", "https://trackberry.com#top", "https://user:pw@trackberry.com", "https://track berry.com", 42 ].each do |value|
+      assert_raises(ArgumentError, value.inspect) { config.canonical_url = value }
+    end
+    assert_nil config.canonical_url
+  end
+
+  test "changelog_path strips surrounding slashes and takes segments of a-z, 0-9, dashes and underscores" do
+    config = Shiplog::Configuration.new
+    { "whats-new" => "whats-new", "/changelog" => "changelog", "changelog/" => "changelog", "//changelog//" => "changelog",
+      "whats_new" => "whats_new", "docs/whats-new" => "docs/whats-new", "/a/b_c/" => "a/b_c" }.each do |given, stored|
+      config.changelog_path = given
+      assert_equal stored, config.changelog_path, given.inspect
+    end
+  end
+
+  test "changelog_path raises on blank and unsafe values and keeps the previous one" do
+    config = Shiplog::Configuration.new
+    config.changelog_path = "whats-new"
+    [ "", "  ", "/", "//", nil, "change log", " changelog", "changelog.atom", "..", "../x", "a/../b", "a//b", "change?x=1", "change#top",
+      "chângelog", "a\\b", :changelog ].each do |value|
+      assert_raises(ArgumentError, value.inspect) { config.changelog_path = value }
+    end
+    assert_equal "whats-new", config.changelog_path
+  end
+
+  test "changelog_path accepts upper case, as Rails routes do" do
+    config = Shiplog::Configuration.new
+    config.changelog_path = "/Changelog/"
+    assert_equal "Changelog", config.changelog_path
+  end
+
+  test "locales defaults to none" do
+    assert_equal [], Shiplog::Configuration.new.locales
+  end
+
+  test "locales takes Symbols or Strings, stores symbols, drops the default locale and duplicates" do
+    config = Shiplog::Configuration.new
+    config.locales = [ :es, "fr", "es", :en, "pt-BR" ]
+    assert_equal [ :es, :fr, :"pt-BR" ], config.locales
+  end
+
+  test "the default locale is removed whatever I18n.default_locale is" do
+    config = Shiplog::Configuration.new
+    config.locales = [ :es, :en ]
+    original = I18n.default_locale
+    I18n.default_locale = :es
+    assert_equal [ :en ], config.locales
+  ensure
+    I18n.default_locale = original
+  end
+
+  test "locales rejects anything but an Array of Symbols or Strings and keeps the previous value" do
+    config = Shiplog::Configuration.new
+    config.locales = [ :es ]
+    [ :es, "es", nil, { es: 1 }, [ 1 ], [ nil ], [ "" ], [ "  " ], [ :es, [ :fr ] ], [ "e s" ] ].each do |value|
+      assert_raises(ArgumentError, value.inspect) { config.locales = value }
+    end
+    assert_equal [ :es ], config.locales
+  end
+
+  test "locales is part of the render digest, and the default locale does not count" do
+    assert_not_equal digest_config.render_digest, digest_config(locales: [ :es ]).render_digest
+    assert_equal digest_config.render_digest, digest_config(locales: [ :en ]).render_digest
   end
 end

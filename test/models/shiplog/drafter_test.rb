@@ -179,4 +179,20 @@ class Shiplog::DrafterTest < ActiveJob::TestCase
     requeued = enqueued_jobs.select { |j| j["job_class"] == "Shiplog::RewriteEntryJob" }.flat_map { |j| j["arguments"] } & lost_ids
     assert_equal 100, requeued.size
   end
+
+  test "a new draft has its screenshots fetched once, whatever the number of rewrites" do
+    Shiplog.config.github_token = "tok"
+    Shiplog.config.rewriter = ->(_prompt) { '{"title":"T","body":"B","customer_facing":true}' }
+    url = "https://user-images.githubusercontent.com/1/a.png"
+    graphql = stub_request(:post, "https://api.github.com/graphql").to_return(body: { data: { node: { bodyHTML: %(<img src="#{url}">) } } }.to_json)
+    stub_request(:get, url).to_return(body: image_bytes(:png))
+
+    entry = Shiplog::Drafter.draft(shiplog_pull_requests(:dark_mode_pr), "feature")
+    perform_enqueued_jobs
+    Shiplog::RewriteEntryJob.perform_now(entry.id)
+    Shiplog::RewriteEntryJob.perform_now(entry.id)
+
+    assert_equal 1, entry.reload.ordered_images.size
+    assert_requested graphql, times: 1
+  end
 end

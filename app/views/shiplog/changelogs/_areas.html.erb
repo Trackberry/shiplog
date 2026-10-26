@@ -1,0 +1,8 @@
+<%# locals: (areas:, current: nil, query: nil) %>
+<%# the area filter: an "All" link and one link per area (GET ?area=slug, works without JavaScript); the search query is kept %>
+<nav class="<%= shiplog_class(:areas) %>" aria-label="<%= t("shiplog.changelog.areas.label", default: "Filter by area") %>">
+  <%= link_to t("shiplog.changelog.areas.all", default: "All"), changelog_path(q: query), class: shiplog_class(:area_link, ("current" unless current)), "aria-current": ("page" unless current) %>
+  <% areas.each do |area| %>
+    <%= link_to area.display_name, changelog_path(area: area.slug, q: query), class: shiplog_class(:area_link, ("current" if area == current)), "aria-current": ("page" if area == current) %>
+  <% end %>
+</nav>

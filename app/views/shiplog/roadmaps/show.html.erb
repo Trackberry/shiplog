@@ -1,6 +1,6 @@
-<% content_for :title, t("shiplog.roadmap.title") %>
+<% content_for :title, t("shiplog.roadmap.title", default: "Roadmap") %>
 <%= render layout: "shiplog/page", locals: { name: "roadmap" } do %>
-  <%= render "shiplog/page_header", title: t("shiplog.roadmap.title"), lede: t("shiplog.roadmap.lede") %>
+  <%= render "shiplog/page_header", title: t("shiplog.roadmap.title", default: "Roadmap"), lede: t("shiplog.roadmap.lede", default: "What we're working on and what comes next.") %>
   <div class="<%= shiplog_class(:columns) %>">
     <% @columns.each do |column, items| %>
       <%= render "shiplog/roadmaps/column", column:, entries: items.map(&:entry) %>

@@ -29,6 +29,10 @@
           </p>
         <% end %>
         <p>
+          <%= form.label :area_id, t("shiplog.admin.entries.fields.area", default: "Area") %>
+          <%= form.collection_select :area_id, Shiplog::Area.ordered, :id, :name, include_blank: t("shiplog.admin.entries.no_area", default: "None") %>
+        </p>
+        <p>
           <%= form.label :released_on, t("shiplog.admin.entries.fields.released_on") %>
           <%= form.date_field :released_on %>
         </p>
@@ -62,6 +66,14 @@
       <pre class="shiplog-admin-source"><%= source_body(@entry.subject) %></pre>
     </aside>
   </div>
+
+  <% if Shiplog.config.locales.any? %>
+    <%= render "shiplog/admin/entries/translations", entry: @entry %>
+  <% end %>
+
+  <% if Shiplog.images? %>
+    <%= render "shiplog/admin/entries/images", entry: @entry %>
+  <% end %>
 
   <p><%= link_to t("shiplog.admin.entries.back"), entries_filter_path(**inbox_filter_params) %></p>
 <% end %>

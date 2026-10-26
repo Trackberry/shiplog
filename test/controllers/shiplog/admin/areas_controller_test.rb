@@ -1,0 +1,384 @@
+require "test_helper"
+
+class Shiplog::Admin::AreasControllerTest < ActionDispatch::IntegrationTest
+  include ActiveJob::TestHelper
+
+  ADMIN = "/admin/shiplog".freeze
+
+  setup do
+    @billing = Shiplog::Area.create!(name: "Billing")
+    @reports = Shiplog::Area.create!(name: "Reports")
+    @empty = Shiplog::Area.create!(name: "Empty")
+    shiplog_entries(:dark_mode_feature).update!(area: @billing)
+    shiplog_entries(:csv_change_draft).update!(area: @billing)
+    shiplog_entries(:typo_change_discarded).update!(area: @reports)
+  end
+
+  test "the admin nav links to the Areas page" do
+    get "#{ADMIN}/"
+    assert_select "nav.shiplog-admin-nav a[href=?]", "#{ADMIN}/areas", text: "Areas"
+  end
+
+  test "lists the areas in order with their entry counts" do
+    get "#{ADMIN}/areas"
+
+    assert_response :ok
+    assert_select "tr.shiplog-area-row", 3
+    rows = css_select("tr.shiplog-area-row")
+    assert_equal "Billing", rows[0].at_css("input[name='area[name]']")["value"]
+    assert_equal "2", rows[0].at_css(".shiplog-area-row__count").text.strip
+    assert_equal "1", rows[1].at_css(".shiplog-area-row__count").text.strip
+    assert_equal "0", rows[2].at_css(".shiplog-area-row__count").text.strip
+    assert_select "tr.shiplog-area-row input[name='area[name]'][value=?]", "Billing"
+  end
+
+  test "shows an empty state and the detect button when there are no areas" do
+    Shiplog::Area.destroy_all
+    get "#{ADMIN}/areas"
+
+    assert_select "tr.shiplog-area-row", 0
+    assert_select ".shiplog-admin__empty"
+    assert_select "form[action=?] button", "#{ADMIN}/areas/detection", text: "Detect areas"
+  end
+
+  test "the detect button enqueues the job and flashes" do
+    Shiplog.config.rewriter = ->(_prompt) { "{}" }
+    assert_enqueued_with(job: Shiplog::DetectAreasJob) do
+      post "#{ADMIN}/areas/detection"
+    end
+    assert_redirected_to "#{ADMIN}/areas"
+    follow_redirect!
+    assert_select ".shiplog-admin__flash--notice", text: "Detection queued. Refresh in a moment."
+  end
+
+  test "the detect form offers a re-check of unplaced entries" do
+    get "#{ADMIN}/areas"
+
+    assert_select "form[action=?]", "#{ADMIN}/areas/detection" do
+      assert_select "input[type=checkbox][name=recheck][value='1']"
+      assert_select "label", text: "Re-check unplaced entries"
+    end
+  end
+
+  test "detect enqueues with recheck only when asked" do
+    Shiplog.config.rewriter = ->(_prompt) { "{}" }
+    assert_enqueued_with(job: Shiplog::DetectAreasJob, args: [ { recheck: false } ]) { post "#{ADMIN}/areas/detection" }
+    assert_enqueued_with(job: Shiplog::DetectAreasJob, args: [ { recheck: true } ]) { post "#{ADMIN}/areas/detection", params: { recheck: "1" } }
+  end
+
+  test "detect without a rewriter enqueues nothing and says so" do
+    Shiplog.config.rewriter = nil
+
+    assert_no_enqueued_jobs { post "#{ADMIN}/areas/detection" }
+    assert_redirected_to "#{ADMIN}/areas"
+    follow_redirect!
+    assert_select ".shiplog-admin__flash--alert", text: /config\.rewriter/
+  end
+
+  test "the page shows the last detection and its result" do
+    get "#{ADMIN}/areas"
+    assert_select ".shiplog-area-detection", 0
+
+    Shiplog::Setting.write("area_detection", at: Time.utc(2026, 10, 26, 9, 30).iso8601, assigned: 12)
+    get "#{ADMIN}/areas"
+    assert_select ".shiplog-area-detection", text: "Last detection: 2026-10-26 09:30 UTC, assigned 12"
+  end
+
+  test "the page shows the last detection error, escaped" do
+    Shiplog::Setting.write("area_detection", at: Time.utc(2026, 10, 26, 9, 30).iso8601, error: "RuntimeError: <b>boom</b>")
+    get "#{ADMIN}/areas"
+
+    assert_select ".shiplog-area-detection--error", text: "Last detection failed (2026-10-26 09:30 UTC): RuntimeError: <b>boom</b>"
+    assert_not_includes response.body, "<b>boom</b>"
+  end
+
+  test "rename updates the name and the slug" do
+    patch "#{ADMIN}/areas/#{@billing.id}", params: { area: { name: "Payments & Billing" } }
+
+    assert_redirected_to "#{ADMIN}/areas"
+    assert_equal "Payments & Billing", @billing.reload.name
+    assert_equal "payments-billing", @billing.slug
+  end
+
+  test "rename rejects invalid and duplicate names" do
+    patch "#{ADMIN}/areas/#{@billing.id}", params: { area: { name: "<b>x</b>" } }
+    assert_redirected_to "#{ADMIN}/areas"
+    assert_equal "Billing", @billing.reload.name
+    follow_redirect!
+    assert_select ".shiplog-admin__flash--alert"
+
+    patch "#{ADMIN}/areas/#{@billing.id}", params: { area: { name: "reports" } }
+    assert_equal "Billing", @billing.reload.name
+  end
+
+  test "rename ignores other attributes" do
+    patch "#{ADMIN}/areas/#{@billing.id}", params: { area: { name: "Billing", slug: "evil", position: 9 } }
+
+    assert_equal "billing", @billing.reload.slug
+  end
+
+  test "move up and down reorder" do
+    post "#{ADMIN}/areas/#{@reports.id}/move", params: { direction: "up" }
+    assert_redirected_to "#{ADMIN}/areas"
+    assert_equal %w[Reports Billing Empty], Shiplog::Area.ordered.map(&:name)
+
+    post "#{ADMIN}/areas/#{@reports.id}/move", params: { direction: "down" }
+    assert_equal %w[Billing Reports Empty], Shiplog::Area.ordered.map(&:name)
+
+    post "#{ADMIN}/areas/#{@reports.id}/move", params: { direction: "sideways" }
+    assert_equal %w[Billing Reports Empty], Shiplog::Area.ordered.map(&:name)
+  end
+
+  test "merge moves the entries to the target and deletes the source" do
+    post "#{ADMIN}/areas/#{@billing.id}/merge", params: { target_id: @reports.id }
+
+    assert_redirected_to "#{ADMIN}/areas"
+    assert_nil Shiplog::Area.find_by(id: @billing.id)
+    assert_equal 3, @reports.entries.count
+  end
+
+  test "merge into itself or a missing area changes nothing" do
+    post "#{ADMIN}/areas/#{@billing.id}/merge", params: { target_id: @billing.id }
+    assert_redirected_to "#{ADMIN}/areas"
+    post "#{ADMIN}/areas/#{@billing.id}/merge", params: { target_id: 0 }
+    post "#{ADMIN}/areas/#{@billing.id}/merge"
+
+    assert Shiplog::Area.exists?(@billing.id)
+    assert_equal 2, @billing.entries.count
+  end
+
+  test "delete removes the area and clears its entries" do
+    delete "#{ADMIN}/areas/#{@billing.id}"
+
+    assert_redirected_to "#{ADMIN}/areas"
+    assert_nil Shiplog::Area.find_by(id: @billing.id)
+    assert_nil shiplog_entries(:dark_mode_feature).reload.area_id
+    assert_equal 2, Shiplog::Area.count
+  end
+
+  test "an unknown area answers 404" do
+    patch "#{ADMIN}/areas/0", params: { area: { name: "X" } }
+    assert_response :not_found
+  end
+
+  test "the edit page has an area select with None, and the current area selected" do
+    entry = shiplog_entries(:dark_mode_feature)
+    entry.update!(area: @reports)
+    get "#{ADMIN}/entries/#{entry.id}/edit"
+
+    assert_select "select[name='entry[area_id]']" do
+      assert_select "option[value='']", text: "None"
+      assert_select "option", 4
+      assert_select "option[selected][value=?]", @reports.id.to_s, text: "Reports"
+    end
+  end
+
+  test "saving a different area sets area_set_by_admin" do
+    entry = shiplog_entries(:dark_mode_feature)
+    patch "#{ADMIN}/entries/#{entry.id}", params: { entry: { title: entry.title, area_id: @reports.id } }
+
+    assert_equal @reports, entry.reload.area
+    assert entry.area_set_by_admin
+  end
+
+  test "choosing None clears the area and keeps it cleared" do
+    entry = shiplog_entries(:dark_mode_feature)
+    entry.update!(area: @billing)
+    patch "#{ADMIN}/entries/#{entry.id}", params: { entry: { title: entry.title, area_id: "" } }
+
+    assert_nil entry.reload.area
+    assert entry.area_set_by_admin
+  end
+
+  test "saving without touching the area does not lock it" do
+    entry = shiplog_entries(:dark_mode_feature)
+    entry.update!(area: @billing)
+    patch "#{ADMIN}/entries/#{entry.id}", params: { entry: { title: "New title", area_id: @billing.id } }
+
+    assert_equal "New title", entry.reload.title
+    assert_not entry.area_set_by_admin
+  end
+
+  test "an unknown area id is rejected" do
+    entry = shiplog_entries(:dark_mode_feature)
+    patch "#{ADMIN}/entries/#{entry.id}", params: { entry: { title: "x", area_id: 999_999 } }
+
+    assert_response :unprocessable_content
+    assert_equal @billing, entry.reload.area
+  end
+
+  test "saving an entry whose chosen area was deleted meanwhile re-renders with an error" do
+    entry = shiplog_entries(:dark_mode_feature)
+    reports_id = @reports.id
+    vanish = ->(saved) { Shiplog::Area.where(id: reports_id).delete_all if saved.area_id == reports_id } # deleted after validation passed
+    Shiplog::Entry.before_save(vanish)
+
+    patch "#{ADMIN}/entries/#{entry.id}", params: { entry: { title: "New title", area_id: @reports.id } }
+
+    assert_response :unprocessable_content
+    assert_select ".shiplog-admin__errors, [role=alert]", text: /Area no longer exists/
+    assert_equal "Dark mode", entry.reload.title
+  ensure
+    Shiplog::Entry.skip_callback(:save, :before, vanish)
+  end
+
+  test "the inbox shows the area as a badge, and nothing for entries without one" do
+    get "#{ADMIN}/?status=approved"
+    assert_select "tr.shiplog-entry-row .shiplog-badge--area", text: "Billing"
+
+    get "#{ADMIN}/"
+    assert_select "tr.shiplog-entry-row .shiplog-badge--area", count: 1, text: "Billing"
+    assert_select "tr.shiplog-entry-row", text: /Soon thing/ do |rows|
+      assert_select rows.first, ".shiplog-badge--area", 0
+    end
+  end
+
+  test "the inbox does not load areas per row" do
+    extra = lambda do |count, offset|
+      count.times do |i|
+        n = 2000 + offset + i
+        commit = Shiplog::Commit.create!(repository: shiplog_repositories(:app), sha: "ab#{n}".ljust(40, "0"), message: "m #{n}")
+        area = Shiplog::Area.create!(name: "Area #{n.to_s.tr('0-9', 'a-j')}")
+        Shiplog::Entry.create!(subject: commit, kind: "change", status: "approved", title: "Extra #{n}", area:, released_on: Date.new(2026, 10, 1), approved_at: Time.current)
+      end
+    end
+
+    extra.call(1, 0)
+    few = count_queries(ignore_cache: true) { get "#{ADMIN}/?status=approved" }
+    extra.call(5, 10) # five more rows, each with an area of its own
+    many = count_queries(ignore_cache: true) { get "#{ADMIN}/?status=approved" }
+
+    assert_select "tr.shiplog-entry-row .shiplog-badge--area", minimum: 7
+    assert_equal few, many, "few=#{few} many=#{many}"
+  end
+
+  test "the inline row response carries the badge, and the filters stay on the edit save" do
+    entry = shiplog_entries(:csv_change_draft)
+    post "#{ADMIN}/entries/#{entry.id}/discard?status=draft", params: { reason: "x" }, headers: { "Accept" => "application/json" }
+    assert_includes response.parsed_body["row"], "shiplog-badge--area"
+
+    patch "#{ADMIN}/entries/#{entry.id}?status=discarded&kind=change", params: { entry: { area_id: @reports.id } }
+    assert_redirected_to "#{ADMIN}/?kind=change&status=discarded"
+  end
+
+  test "the new admin strings fall back to English defaults under a locale without translations" do
+    I18n.backend.eager_load!
+    new_keys = /translation missing: fr\.shiplog\.admin\.(areas|nav\.areas|entries\.(no_area|fields\.area))/i
+    with_extra_locale(:fr) do
+      get "#{ADMIN}/areas"
+      assert_response :ok
+      assert_no_match(new_keys, response.body)
+      assert_select "form[action=?] button", "#{ADMIN}/areas/detection", text: "Detect areas"
+      assert_select "a", text: "Areas"
+      get "#{ADMIN}/entries/#{shiplog_entries(:dark_mode_feature).id}/edit"
+      assert_no_match(new_keys, response.body)
+      assert_select "option[value='']", text: "None"
+      Shiplog.config.rewriter = ->(_prompt) { "{}" }
+      post "#{ADMIN}/areas/detection"
+      follow_redirect!
+      assert_select ".shiplog-admin__flash--notice", text: "Detection queued. Refresh in a moment."
+    end
+  end
+
+  # --- translated names ---
+
+  test "no translation fields or button without configured locales" do
+    get "#{ADMIN}/areas"
+
+    assert_select "input[name^='area[name_translations]']", 0
+    assert_select "form[action=?]", "#{ADMIN}/areas/translation", 0
+  end
+
+  test "shows a small field per configured locale for each area, and the Translate names button" do
+    Shiplog.config.locales = [ :es, :fr ]
+    @billing.update_columns(name_translations: { "es" => "Facturacion" })
+    get "#{ADMIN}/areas"
+
+    assert_select "tr.shiplog-area-row", 3
+    assert_select "tr#shiplog-area-#{@billing.id} input[name='area[name_translations][es]'][value=?][lang=es]", "Facturacion"
+    assert_select "tr#shiplog-area-#{@billing.id} input[name='area[name_translations][fr]']"
+    assert_select "input[name^='area[name_translations]']", 6
+    assert_select "form[action=?] button", "#{ADMIN}/areas/translation", text: "Translate names"
+  end
+
+  test "an admin edit of a translated name is kept" do
+    Shiplog.config.locales = [ :es ]
+    patch "#{ADMIN}/areas/#{@billing.id}", params: { area: { name: "Billing", name_translations: { es: "  Facturacion  de clientes ", xx: "ignored" } } }
+
+    assert_redirected_to "#{ADMIN}/areas"
+    assert_equal({ "es" => "Facturacion de clientes" }, @billing.reload.name_translations)
+    assert_equal "Billing", @billing.name
+  end
+
+  test "emptying a field removes that translation" do
+    Shiplog.config.locales = [ :es ]
+    @billing.update_columns(name_translations: { "es" => "Facturacion" })
+    patch "#{ADMIN}/areas/#{@billing.id}", params: { area: { name: "Billing", name_translations: { es: "" } } }
+
+    assert_equal({}, @billing.reload.name_translations)
+  end
+
+  test "an invalid translated name is refused with a flash" do
+    Shiplog.config.locales = [ :es ]
+    patch "#{ADMIN}/areas/#{@billing.id}", params: { area: { name: "Billing", name_translations: { es: "<b>x</b>" } } }
+
+    assert_empty @billing.reload.name_translations
+    follow_redirect!
+    assert_select ".shiplog-admin__flash--alert"
+  end
+
+  test "a rename drops the translations (whatever the form sent) and enqueues a translation" do
+    Shiplog.config.locales = [ :es ]
+    Shiplog.config.rewriter = ->(_prompt) { "{}" }
+    @billing.update_columns(name_translations: { "es" => "Facturacion" })
+
+    assert_enqueued_with(job: Shiplog::TranslateAreaJob, args: [ @billing ]) do
+      patch "#{ADMIN}/areas/#{@billing.id}", params: { area: { name: "Payments", name_translations: { es: "Facturacion" } } }
+    end
+    assert_equal({}, @billing.reload.name_translations)
+  end
+
+  test "Translate names enqueues a job that fills in missing names only, for the areas missing a translation" do
+    Shiplog.config.locales = [ :es ]
+    Shiplog.config.rewriter = ->(_prompt) { "{}" }
+    @billing.update_columns(name_translations: { "es" => "Facturacion" })
+    clear_enqueued_jobs
+
+    post "#{ADMIN}/areas/translation"
+
+    assert_redirected_to "#{ADMIN}/areas"
+    assert_enqueued_jobs 2, only: Shiplog::TranslateAreaJob
+    assert_enqueued_with(job: Shiplog::TranslateAreaJob, args: [ @reports, { force: false } ])
+    assert_enqueued_with(job: Shiplog::TranslateAreaJob, args: [ @empty, { force: false } ])
+    follow_redirect!
+    assert_select ".shiplog-admin__flash--notice", text: /2 areas/
+  end
+
+  test "Translate names without locales or a rewriter enqueues nothing and says so" do
+    Shiplog.config.locales = [ :es ]
+    Shiplog.config.rewriter = nil
+    assert_no_enqueued_jobs(only: Shiplog::TranslateAreaJob) { post "#{ADMIN}/areas/translation" }
+    follow_redirect!
+    assert_select ".shiplog-admin__flash--alert", text: /config\.rewriter/
+
+    Shiplog.config.locales = []
+    Shiplog.config.rewriter = ->(_prompt) { "{}" }
+    assert_no_enqueued_jobs(only: Shiplog::TranslateAreaJob) { post "#{ADMIN}/areas/translation" }
+    follow_redirect!
+    assert_select ".shiplog-admin__flash--alert", text: /config\.locales/
+  end
+
+  test "the translation texts have English defaults under a locale without translations (no translation_missing)" do
+    Shiplog.config.locales = [ :es ]
+    Shiplog.config.rewriter = ->(_prompt) { "{}" }
+    missing = /translation[ _]missing: fr\.shiplog\.admin\.areas/i
+    with_extra_locale(:fr) do
+      get "#{ADMIN}/areas"
+      assert_no_match(missing, response.body)
+      assert_select "form[action=?] button", "#{ADMIN}/areas/translation", text: "Translate names"
+      post "#{ADMIN}/areas/translation"
+      follow_redirect!
+      assert_no_match(missing, response.body)
+    end
+  end
+end

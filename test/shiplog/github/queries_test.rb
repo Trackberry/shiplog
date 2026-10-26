@@ -31,6 +31,13 @@ class Shiplog::Github::QueriesTest < ActiveSupport::TestCase
     assert_includes Shiplog::Github::Queries::COMMIT_PULL_REQUESTS, "associatedPullRequests"
   end
 
+  test "BODY_HTML asks for the rendered body of one node, and the sync documents do not" do
+    assert_includes Shiplog::Github::Queries::BODY_HTML, "node(id: $id)"
+    assert_includes Shiplog::Github::Queries::BODY_HTML, "... on Issue { bodyHTML }"
+    assert_includes Shiplog::Github::Queries::BODY_HTML, "... on PullRequest { bodyHTML }"
+    (Shiplog::Github::Queries::ALL.except(:BODY_HTML)).each_value { |document| assert_not_includes document, "bodyHTML" }
+  end
+
   test "link connections request pageInfo hasNextPage" do
     assert_match(/closedByPullRequestsReferences\([^)]*\) \{\s*pageInfo \{ hasNextPage \}/, Shiplog::Github::Queries::ISSUES)
     assert_match(/closingIssuesReferences\([^)]*\) \{\s*pageInfo \{ hasNextPage \}/, Shiplog::Github::Queries::PULL_REQUESTS)

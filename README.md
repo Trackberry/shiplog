@@ -3,7 +3,7 @@
 A mountable Rails engine that turns your GitHub issues, pull requests and commits into a public roadmap and changelog written for customers, not developers. An LLM that you supply drafts the plain-language text. Nothing is public until an admin approves it.
 
 - **Roadmap**: issues labelled `public` appear in three columns (In progress, Coming soon, Later) once approved.
-- **Changelog**: shipped features and small changes, grouped by month.
+- **Changelog**: shipped features and small changes, grouped by month, each with its own permalink page, plus an Atom feed.
 - **Admin**: drafts inbox, entry editing, a drag-and-drop roadmap board and a sync status page.
 
 ## Requirements
@@ -12,6 +12,7 @@ A mountable Rails engine that turns your GitHub issues, pull requests and commit
 - Rails 8.1.4 or newer (< 9)
 - PostgreSQL (tables use `jsonb`)
 - A job backend for Active Job (GoodJob, Solid Queue, ...)
+- Active Storage, only for [screenshots in entries](#screenshots) (the rest works without it)
 
 ## Installation
 
@@ -95,7 +96,7 @@ All settings live in `config/initializers/shiplog.rb`:
 | `product_name` | `nil` | Your product's name, used in the prompts. |
 | `audience` | `nil` | Who your customers are, used in the prompts. |
 | `tone` | `"Friendly, concise, no jargon. Address the customer as 'you'."` | Writing style used in the prompts. |
-| `prompt_builder` | `nil` | Optional `->(kind:, context:) { String }` replacing the built-in prompts. `kind` is `"roadmap"`, `"feature"` or `"change"`. |
+| `prompt_builder` | `nil` | Optional `->(kind:, context:) { String }` replacing the built-in prompts. `kind` is `"roadmap"`, `"feature"` or `"change"`. The built-in prompts ask for the product area; a custom builder must ask for `"area"` in the JSON reply itself (an existing name, or a new one of 1-3 words), and can list the current areas with `Shiplog::Area.ordered.pluck(:name)`. Without `"area"` in the reply, rewrites leave areas alone. |
 | `public_parent_controller` | `"ActionController::Base"` | Parent class of the public controllers. Read once when they load, so set it in the initializer; assigning it after the controllers loaded raises `ArgumentError`. |
 | `public_layout` | `"shiplog/application"` | Layout of the public pages. |
 | `admin_parent_controller` | `"ActionController::Base"` | Parent class of the admin controllers. Read once when they load, so set it in the initializer; assigning it after the controllers loaded raises `ArgumentError`. |
@@ -107,13 +108,19 @@ All settings live in `config/initializers/shiplog.rb`:
 | `authorize_admin` | `->(controller) { false }` | Admin check; return false for a 403. Denies everyone until set; the generated initializer opens it, relying on your route constraint. |
 | `current_admin` | `->(controller) { controller.try(:current_user)&.try(:email) }` | Stored as the approver of an entry. |
 | `roadmap_path` | `"roadmap"` | Path of the public roadmap. |
-| `changelog_path` | `"changelog"` | Path of the public changelog. |
+| `changelog_path` | `"changelog"` | Path of the public changelog: segments of letters, digits, `-` and `_`, nested with `/` if you like (`"docs/whats_new"`). Surrounding slashes are stripped (`"/changelog"` is `"changelog"`); a blank value, spaces, dots, `?` or `#` raise `ArgumentError`. Permalinks live below it and the feed is `<path>.atom`. |
+| `canonical_url` | `nil` | The site's canonical origin, e.g. `"https://trackberry.com"`. See [Canonical URL](#canonical-url). |
 | `extra_pages` | `[]` | Pages added to the switcher after Roadmap and Changelog: `[{ label:, path: }]`, each a String or a callable evaluated in the view. See [Product updates navigation](#product-updates-navigation). Anything else raises `ArgumentError`. |
 | `repository_labels` | `{}` | Tag shown on a roadmap card for the repository of its issue: `{ "owner/name" => "iPhone & iPad" }`. Values are Strings or callables evaluated in the view; repositories without one show no tag. |
 | `roadmap_shipped_count` | `4` | How many recently shipped changelog entries (features and changes) the roadmap lists below its columns. `0` hides the section. |
 | `cache_version` | `nil` | A String added to the public pages' ETag. Callables (`extra_pages`, `repository_labels`, `feedback_path`) cannot be fingerprinted, so bump it when the output of a callable you configured changes. |
 | `feedback_path` | `nil` | Target of the roadmap's "Suggest a feature" link, a String or a callable evaluated in the view. No link while `nil`. |
 | `changelog_search` | `true` | Search box on the public changelog and `?q=` filtering. `false` hides the form and ignores `q`. See [Changelog search](#changelog-search). |
+| `on_changelog_seen` | `nil` | `->(controller) { ... }` called before each changelog index or permalink view renders (also for a 304 revisit), to stamp a visitor's "last seen" time. See [What's new](#whats-new-the-unseen-count). Anything but `nil` or a callable raises `ArgumentError`. |
+| `images` | `true` | [Screenshots](#screenshots) in entries. Effective only when Active Storage is loaded in the host; `false` turns fetching, upload and rendering off. `true` or `false`, anything else raises `ArgumentError`. |
+| `max_images_per_entry` | `4` | How many images are fetched from the GitHub body of a draft. A non-negative Integer; `0` fetches none (admin uploads are not capped). |
+| `locales` | `[]` | Locales entries are translated into when approved, e.g. `[:es]`. An Array of Symbols or Strings (stored as symbols; the default locale `I18n.default_locale` is dropped); anything else raises `ArgumentError`. See [Translations](#translations). Part of the ETag. |
+| `max_areas` | `8` | How many [product areas](#product-areas) the AI may create. Past it, entries can only join existing areas. A non-negative Integer; `0` stops the AI creating areas. |
 
 Example:
 
@@ -230,10 +237,14 @@ You can also trigger a sync from the admin Sync page. Rewriting always runs in `
 `config.rewriter` is a callable that receives the prompt (a String) and returns a String containing a JSON object:
 
 ```json
-{"title": "...", "body": "...", "customer_facing": true}
+{"title": "...", "body": "...", "customer_facing": true, "area": "Billing"}
 ```
 
+`area` is optional (see [Product areas](#product-areas)); a reply without it works as before.
+
 Shiplog extracts the first valid JSON object from the reply, so models that wrap it in prose or code fences still work. `customer_facing: false` means the model thinks the change is irrelevant for customers; such small changes are stored as discarded and can be restored by an admin. If no rewriter is configured, the reply can't be parsed or the call raises, the entry keeps the original GitHub text and the error is shown in the admin, where you can edit the text or regenerate.
+
+The same callable also receives the translation, area-name translation and area-detection prompts, whose replies are other JSON shapes (`{"title", "body"}` for a translation, `{"areas": [...]}` or `{"assignments": [...]}` for areas). It must handle free-form prompts: pass the prompt to your model as is, and return its text reply, without assuming the rewrite schema above.
 
 With [RubyLLM](https://rubyllm.com):
 
@@ -327,6 +338,121 @@ The public changelog has a search form above its months: `GET /changelog?q=csv` 
 ```erb
 <%= tag.meta name: "robots", content: content_for(:shiplog_robots) if content_for?(:shiplog_robots) %>
 ```
+
+## Product areas
+
+The rewriter groups entries into product areas ("Billing", "Reports"), and the changelog lets visitors filter by area.
+
+- **Detection while rewriting.** The prompt lists the existing areas (as data, before the `<source>` block) and asks the model for `"area"` in its JSON reply: an existing name, or a new name of 1-3 words when none fits. Shiplog matches the name against the existing areas ignoring case, then by slug, and creates a new area only while fewer than `config.max_areas` (default 8) exist and the name is valid: at most 40 characters, letters, digits, spaces, `&` and `-`. Any other name leaves the entry's current area as it is (a rewrite never erases an area). A reply without `"area"` (or with one that is not a String) changes nothing. Roadmap entries get areas too, but only features and changes show them publicly. A custom `config.prompt_builder` builds its own prompt, so it has to ask for `"area"` itself and can read the existing areas with `Shiplog::Area.ordered.pluck(:name)`.
+- **Detect areas.** The admin has an Areas page with a "Detect areas" button, which enqueues `Shiplog::DetectAreasJob`. With no areas yet, the job asks your `config.rewriter` (same callable, a dedicated prompt, reply `{"areas": [...]}`) to propose up to `max_areas` areas from the titles of up to 200 approved features and changes. Then it classifies the draft and approved entries that have no area, 50 titles per prompt (reply `{"assignments": [{"id": 1, "area": "Billing"}]}`), using only existing areas; unknown ids and areas are ignored. It is idempotent (it only touches entries without an area), bounded (at most 20 classification prompts, 1000 entries, per run; click again for more) and logs what it did (`[shiplog] Detect areas: ...`). Each entry it sent is stamped (`area_detected_at`), placed or not, so entries the AI declined are not asked again and the next run moves on to the rest; tick "Re-check unplaced entries" next to the button (for example after renaming, merging or adding areas) to ask about them again. Only one detection runs at a time (a database advisory lock); a second one logs and returns. The button needs `config.rewriter` (without it nothing is enqueued and a flash says so). The job never retries: a failure is logged (class, message, first 5 backtrace lines) and the Areas page shows "Last detection: <time>, assigned N" or the error from the last run (stored in the `shiplog_settings` table). After clicking, refresh to see the result. The titles are sent, never the bodies.
+- **Admin.** The Areas page lists areas with their entry counts. You can rename (the slug follows, translated names are dropped and translated again), move up/down, merge into another area (moves the entries, deletes the source) and delete (the entries have no area). The entry edit page has an Area select with "None"; changing it marks the entry as set by an admin (`area_set_by_admin`), and neither rewrites nor detection ever change such an entry's area. The inbox shows the area as a badge.
+- **Public.** With at least 2 areas that have published features or changes, the changelog shows an "All" link and one link per area above the list (`?area=slug`, the `areas` / `area_link` keys, `--current` on the selected one). It combines with search and pagination (the links keep both) and is part of the ETag, with the names, slugs and order of all areas. An unknown `?area=` slug answers 404; a blank one is ignored. Every entry shows its area as a tag (`entry_area`), in the list and on the permalink page. The Atom feed adds `<category term="slug" label="Name"/>` to entries with an area and honours `?area=` (404 for an unknown one). Roadmap cards don't change.
+- **Translated names.** With `config.locales` set, area names are translated too; see [Translations](#translations). Public pages show `area.display_name`.
+- **Texts:** `shiplog.changelog.areas.label` and `.all`, and `shiplog.admin.areas.*`, `shiplog.admin.nav.areas`, `shiplog.admin.entries.no_area` and `.fields.area`; all have English defaults.
+- **Schema:** the `shiplog_areas` table (`name`, `slug` unique, `position`) and `shiplog_entries.area_id` (nullable foreign key, `ON DELETE SET NULL`) and `area_set_by_admin`. The cap is checked under a Postgres advisory lock, so two rewrites racing for the last slot cannot go past it. Also `shiplog_entries.area_detected_at` (entries already sent to detection) and `shiplog_settings` (the last detection run).
+
+## Translations
+
+Set `config.locales = [:es]` and entries are translated into Spanish by your `config.rewriter`, then published with the English text: **there is no second approval**.
+
+- **When.** `Shiplog::TranslateEntryJob` is enqueued for each configured locale when an entry is approved (roadmap entries too), and when the English title or body of an approved entry changes (an admin edit). Editing anything else (the release date, the area) does not translate. Drafts, discarded entries and the unpublishing "Regenerate" (which returns an entry to draft) do not either.
+- **How.** One LLM call per entry, per locale and per change. The prompt asks for the title and body in the language of the locale (Shiplog names about 40 languages; any other locale code is named by its code), keeping the meaning, the tone, product names, numbers, links and formatting, with your `tone`, `audience` and `product_name` as context, and for a JSON reply `{"title": "...", "body": "..."}`. The English text goes inside `<source>` and is neutralised like the rewriting prompts (a `<source>` or `</source>` in it becomes `[source]`). The reply is validated like the English kinds: strings, a non-blank title, at most 120 characters of title and 2000 of body (a roadmap body is cut at the roadmap limit, about 220 characters, so a translation longer than that loses its last sentence). A custom `config.prompt_builder` is for rewriting GitHub text and is not used here.
+- **Stored in** `shiplog_entry_translations` (`entry_id`, `locale`, `title`, `body`, `source_digest`, `edited_by_admin`; unique on `[entry_id, locale]`, deleted with the entry). `source_digest` is the SHA-256 of the English title and body the translation was made from.
+- **The stale rule.** A translation is current while its `source_digest` matches the entry's English text now. Pages show it only then; a missing or stale one shows the English text. A job whose translation is current does nothing and makes no LLM call, so repeated approvals and double clicks cost nothing. The job checks again, under the entry's row lock, before it writes: if the entry was unpublished or its English text changed meanwhile, the result is dropped (the change enqueued its own job).
+- **Admin edits.** The entry edit page has a Translations section per locale with the title and body, editable. Saving marks the translation as edited by an admin and as made from the current English text (so it shows at once, even when it was stale). An edited translation is kept as long as the English text stays the same; when the English text changes, the new translation replaces it and clears the mark (the replacement is logged). The section marks each locale as Missing, Stale, Up to date, and Edited by an admin. **Retranslate** enqueues the job with `force: true`, which ignores the digest and an admin's edit.
+- **Entries approved before 0.3.0** (or before you set `config.locales`) have no translations: run `bin/rails shiplog:translate_approved`. It enqueues `TranslateEntryJob` for every approved entry and configured locale that has no current translation, reading entries in batches (`BATCH_SIZE=100` by default), and prints the counts per locale (and enqueues `TranslateAreaJob` for areas missing a name in some locale). It is idempotent: what is current is not enqueued, and the job's digest check skips it anyway. It needs `config.locales` and `config.rewriter`, and costs one LLM call per job.
+- **Errors.** A failing rewriter (or an unusable reply) is logged and retried twice with a growing wait (`retry_on StandardError, attempts: 3, wait: :polynomially_longer`), then logged and dropped: the English text stays shown and Retranslate tries again. Without `config.rewriter` nothing is translated. An entry deleted since the job was queued is ignored.
+- **Area names.** `areas.name_translations` (jsonb, keyed by locale string) holds each area's name per configured locale, and `Area#display_name(locale = I18n.locale)` returns the translation for a locale in `config.locales`, else the name. The filter pills, the entry tags, the permalink tag and the Atom `<category label>` use it; slugs and the category `term` stay English, so `?area=` URLs are the same in every locale. `Shiplog::TranslateAreaJob(area, force: false)` is enqueued when an area is created (a rewrite, detection) or renamed, if `config.locales` and `config.rewriter` are set. It makes one call for all locales (the name inside `<source>`, neutralised; reply `{"es": "..."}`); every locale asked for must come back as a valid area name (at most 40 characters, letters, digits, spaces, `&`, `-`) or the reply is rejected, retried twice and dropped like entry translations. Without `force` it only fills locales that have no name and never touches an existing one, so a repeat costs no call. A rename drops the stored translations and translates the new name. The Areas page shows a field per locale on each area: what an admin types is kept (an empty field removes it) until the area is renamed or forced. **Translate names** enqueues the job for the areas missing a name in some locale; it only fills in the missing names, so edits are kept. `bin/rails shiplog:translate_approved` enqueues the job (no force) for those areas too. The ETags include the translated names.
+- **Unpublishing.** The job writes nothing for an entry that is not approved. Discarding keeps the rows, but they are never shown: every public query lists approved entries only.
+- **Public pages.** When `I18n.locale` is one of `config.locales`, the roadmap cards, the changelog list, the permalink page (title, body, `<title>`, meta description and Open Graph tags), the Atom feed and the "Recently shipped" list show `entry.display_title` and `entry.display_body` (the translation, else English); call them in your own views. Translations are loaded for the current locale only, in one query per page. Slugs stay English and are shared by all locales. Under the default locale or any other, nothing is queried and English shows. Screenshots' default alt text follows the title shown.
+- **Search** under a translated locale matches the translated title or body of a current translation, or the English text, with the same escaping.
+- **Feed.** `/changelog.atom` follows the request locale (`xml:lang`); an entry's `updated` is the later of its own and its translation's.
+- **Caching.** The ETag includes the locale, `config.locales` (through `render_digest`) and the id and `updated_at` of the translations shown.
+- **Routing is yours.** Shiplog renders under whatever `I18n.locale` your app sets; it adds no locale routes. For `/es/roadmap` and `/es/changelog`, scope your engine mount or set the locale in a controller concern or middleware (the test app uses a tiny middleware that moves `/es` into `SCRIPT_NAME`, so links keep the prefix). A host that redirects `/es/...` to English has to stop doing so. The locale must be in `I18n.available_locales`.
+- **The gem's own texts.** `config/locales/es.yml` translates every `shiplog.*` key (public and admin) into neutral Spanish, and the month names its date formats use. Override any key in your own locale files; `test/shiplog/es_locale_test.rb` keeps `es.yml` complete, and you can copy it for another language.
+- **Cost.** Each approval and each English edit of an approved entry costs one LLM call per locale; a Retranslate costs one.
+
+## Screenshots
+
+Entries can show screenshots: the first one on the changelog list, all of them on the entry's permalink page, and in the Atom feed and the `og:image` tag.
+
+- **Needs Active Storage.** The host must load it (`require "active_storage/engine"` in `config/application.rb`, or `rails/all`) and have its tables (`bin/rails active_storage:install`, then `db:migrate`). Without it, or when its tables (`active_storage_attachments`, `active_storage_blobs`) don't exist yet, screenshots are off: nothing is fetched, uploaded, queried or rendered, nothing crashes, and Shiplog logs the reason once (`[shiplog] Screenshots are off: Active Storage is not loaded...` at boot, or `...tables are missing...` the first time a page checks; the check runs once per process and is not repeated per request). `config.images = false` turns them off too. Shiplog declares `has_many_attached :images` on `Shiplog::Entry` only when Active Storage is loaded. Active Storage's routes belong to your app: Shiplog's views reach them through `main_app`.
+- **From GitHub.** When a draft is written (and when it is regenerated), the job fetches the issue's or pull request's rendered body (`bodyHTML`, one small GraphQL query per draft, so the sync payloads don't grow) and downloads the `<img>` images in it, at most `config.max_images_per_entry` (4). It only does so for a draft that has no images yet: images of an approved entry are never changed automatically, and nothing is fetched twice. Only these hosts are fetched, https only, exact host match: `private-user-images.githubusercontent.com`, `user-images.githubusercontent.com`, `camo.githubusercontent.com`, `raw.githubusercontent.com`, `objects.githubusercontent.com` and `github.com` for `/user-attachments/assets/` paths. `github.com` paths must be exactly `/user-attachments/assets/<letters, digits and dashes>` (an encoded `..` or `%2f` is refused). `raw.` and `objects.githubusercontent.com` are on the list because GitHub serves attachments, and redirects them, from there. Redirects are followed up to 3 times, each checked against the list again, and the body of a redirect is read under the same size cap. Timeouts are 5 seconds (connect and read), a download gets 15 seconds in total (checked while streaming and between redirects, on a monotonic clock) and all the images of one entry 45 seconds (the rest are skipped and logged), the size limit is 5 MB of raw bytes (requests send `Accept-Encoding: identity`; the download stops past the limit), and the type is decided by the file's first bytes: PNG, JPEG, GIF or WebP only (SVG and HTML are refused, whatever the extension says). The pixel size is read from the header too (no decoding): an image over 10,000 pixels on a side or 40 megapixels, or one whose size can't be read, is refused, for downloads and for admin uploads alike. The width and height are stored in the blob's metadata at once, so the pages carry them without waiting for Active Storage's analysis. The GitHub token is sent to `github.com` only, never to the other hosts; signed `private-user-images` URLs need none. Any failure is logged and skipped, and never fails the draft. The token needs no extra permission.
+- **Admin.** The entry edit page lists the images in order, each with an alt text field, "Remove" and "Up"/"Down" buttons, plus an upload form (several files; same type and size checks, done on the file's bytes on the server). Thumbnails are 200px variants when the `image_processing` gem is in your bundle and a processor is available (`ruby-vips` loads, or `mini_magick` is in the bundle), else the original, sized by CSS.
+- **Order and alt text.** Stored on the entry: `image_order` (jsonb, blob ids in order) and `image_alts` (jsonb, blob id => text). An image without alt text uses the entry's title. `Shiplog::Entry#ordered_images` returns the attachments in order.
+- **Public.** `<img loading="lazy">` with the alt text, `width` and `height` (taken from the image's header when it is attached, so they don't wait for the analysis). The URLs come from your routes (`url_for` on the attachment, so `resolve_model_to_route` applies). The `og:image` and the feed use the absolute URL (`config.canonical_url` when set). The ETags include the images' blob ids, order, alt texts and sizes.
+- **Texts:** `shiplog.admin.entries.images.*`, all with English defaults.
+- **Schema:** `shiplog_entries.image_order` and `.image_alts`, in the 0.3.0 migration, plus Active Storage's own tables.
+
+## Entry permalinks
+
+Every approved feature and change has its own page at `GET /changelog/:slug` (under `config.changelog_path`). The changelog list links each title to it. Roadmap entries have no permalink.
+
+- **Slug:** made when the entry is first approved, from the title (`parameterize` with underscores turned into dashes, so `a-z`, `0-9` and single dashes only; at most 80 characters, `entry-<id>` when nothing is left) and made unique with `-2`, `-3`, ... A later title edit keeps the slug, so links never break; restoring and re-approving an entry keeps it too. A unique index (partial, on non-null slugs) guards against two approvals racing for one slug, and the loser retries.
+- **Entries approved before 0.3.0** get their slug from the 0.3.0 migration (oldest first, so the oldest keeps the plain slug on duplicate titles). `bin/rails shiplog:backfill_slugs` (idempotent, oldest first) does the same for entries that old code approved during a deploy window. The public pages never write, because a host may send GETs to a read replica: an approved entry without a slug is listed without a link, left out of the feed and has no page until it has a slug. An entry whose stored slug the route rejects is treated the same way.
+- **The page** shows the entry, a "← Back to the changelog" link to the entry's month anchor, and its newer and older neighbours (`rel="prev"` and `rel="next"`, as in the pagination). Drafts, discarded and roadmap entries and unknown slugs answer 404 with `X-Cascade: pass`: the engine is usually mounted at `/`, and its `/changelog/:slug` route would otherwise shadow a host route of yours below the changelog path (say `/changelog/archive`, declared after the mount). The router carries on with the routes after the mount, and your own 404 shows if none matches. Declare such host routes after `mount Shiplog::Engine`; before it they win anyway.
+- **Caching:** the ETag covers the entry and its neighbours' ids and `updated_at`.
+- **Head tags:** the page sets `content_for :title`, `content_for :shiplog_description` (the body, cut at 160 characters) and `content_for :shiplog_og` (Open Graph: `og:title`, `og:description`, `og:type` = `article`, `og:url`). Shiplog's own layout renders them. A host layout (`config.public_layout`) controls its own `<head>`, so render them there, as for `:shiplog_robots`:
+
+```erb
+<title><%= content_for(:title) %></title>
+<%= tag.meta name: "description", content: content_for(:shiplog_description) if content_for?(:shiplog_description) %>
+<%= content_for(:shiplog_og) %>
+<%= content_for(:shiplog_feed) %>
+```
+
+- **Styling:** the `permalink` (the `article`), `permalink_back`, `permalink_nav` and `permalink_nav_link` keys of [`config.classes`](#3-configclasses-tailwind-and-other-utility-frameworks). Override `shiplog/changelogs/_entry_content.html.erb` (locals `entry:`, `heading:`, `linked:`) to change what an entry shows in both the list and the permalink page.
+- **Texts:** `shiplog.permalink.title`, `.back`, `.nav_label`, `.newer` and `.older` (with `title`); all have English defaults.
+
+## Atom feed
+
+`GET /changelog.atom` serves the latest 50 approved features and changes (newest first) as an Atom feed. An entry has a stable id (a tag URI built from the permalink path, so a title edit does not change it), its permalink, `published` (the release date), `updated`, and its body as HTML. All URLs are absolute. The feed is cached with an ETag like the pages and answers 304 on a match; it does not call `on_changelog_seen`.
+
+The changelog and permalink pages advertise it with a `<link rel="alternate" type="application/atom+xml">` (`content_for :shiplog_feed`, rendered by Shiplog's layout; render it in a host layout too, see above) and the changelog shows a visible "Subscribe (Atom)" link (the `footnote_link` key). The feed has an `<author>` (the product name, or "Changelog"), which RFC 4287 requires when entries carry none. The feed is titled "Changelog", or "<product_name> changelog" when `config.product_name` is set, and follows the request locale. Texts: `shiplog.feed.title_with_product`, `.link_title` and `.subscribe`.
+
+### Canonical URL
+
+By default the feed's ids and every absolute URL (the feed's self and alternate links, entry links, `og:url`, the feed discovery link) are built from the request's host, which varies: apex and `www`, or a forged `X-Forwarded-Host`. A feed reader treats a changed id as a new entry, so set the origin once:
+
+```ruby
+config.canonical_url = "https://trackberry.com"
+```
+
+It must be an `http(s)` origin: scheme, host and an optional port, no path, query or credentials (a trailing slash is dropped; anything else raises `ArgumentError`). A path prefix is not needed: if you mount the engine under one (`mount Shiplog::Engine => "/updates"`), the routes already add it, so the feed lives at `https://trackberry.com/updates/changelog.atom`. The feed's tag URIs use the canonical host. It is part of `render_digest`, so changing it refreshes cached pages, as does `product_name`. Leave it `nil` to keep the request's host.
+
+Behind a proxy or load balancer, the scheme of the URLs built from the request (when `canonical_url` is `nil`) comes from `X-Forwarded-Proto`: set `config.assume_ssl = true` in production (or have your proxy send the header), or the URLs say `http://`.
+
+## What's new: the unseen count
+
+Shiplog doesn't know your users, so you supply the "last seen" time:
+
+```ruby
+# config/initializers/shiplog.rb
+config.on_changelog_seen = lambda do |controller|
+  user = controller.send(:current_user) # current_user is often private; a Current attribute (Current.user) works too
+  # Write only when something is new: the callback runs on every visit, before the page renders.
+  user.update_column(:changelog_seen_at, Time.current) if user && Shiplog.unseen_count(since: user.changelog_seen_at).positive?
+end
+```
+
+```ruby
+Shiplog.unseen_count(since: user.changelog_seen_at) # approved features and changes approved after it, at most 99
+Shiplog.unseen_count(since: nil)                    # all of them, at most 99
+```
+
+```ruby
+class ApplicationController < ActionController::Base
+  helper Shiplog::UnseenHelper
+end
+```
+
+```erb
+<%= shiplog_unseen_count(current_user.changelog_seen_at) %>
+```
+
+The count is one `COUNT` query over the `(status, approved_at)` index. It filters on `approved_at` (when the entry was approved), not on the release date the list is ordered by: "new since you last looked" is about when an entry appeared, so an entry approved today with an earlier `released_on` still counts as new.
+
+`on_changelog_seen` runs **before the page renders**, on the changelog index and on permalink pages whose entry exists, for 200 and 304 answers alike (a visitor whose browser revalidates its cached page has still seen the changelog). Running first means a navbar badge rendered in the same response shows the count after your update. It does not run for 404s (an unknown permalink, a page past the last one), the feed, the roadmap or non-HTML formats. Because it runs on every visit and **may write**, keep it cheap: write only when the stored time is older than the newest entry, as in the example above (one `COUNT`, and a write only when there is something new). The response is not sent yet, so the callback can still set a cookie. An exception in the callback is logged with its class, message and the first five backtrace lines, never shown. A host layout that shows the unseen count renders per-user content, so declare `etag { current_user&.changelog_seen_at }` on your `public_parent_controller`, or a cached page keeps showing the old count.
 
 ## Styling
 
@@ -425,7 +551,7 @@ Without it, `shiplog` is first seen when `shiplog.css` loads, which can put it a
 | `shipped_date` | `shiplog-shipped__date` | Release date of the entry |
 | `shipped_link` | `shiplog-shipped__link` (+ `--all` on the changelog link) | Links to the changelog |
 | `footnote` | `shiplog-footnote` | Footnote paragraph |
-| `footnote_link` | `shiplog-footnote__link` | "Suggest a feature" link |
+| `footnote_link` | `shiplog-footnote__link` (+ `--feed` on the Atom link) | "Suggest a feature" and "Subscribe (Atom)" links |
 | `months` | `shiplog-months` | Changelog months wrapper |
 | `month` | `shiplog-month` | One month section |
 | `month_title` | `shiplog-month__title` | Month `h2` |
@@ -445,6 +571,15 @@ Without it, `shiplog` is first seen when `shiplog.css` loads, which can put it a
 | `search_summary` | `shiplog-search__summary` | "N results for ..." line |
 | `search_clear` | `shiplog-search__clear` | "Clear search" link |
 | `search_empty` | `shiplog-search__empty` | "No entries match" notice |
+| `permalink` | `shiplog-permalink` (+ `--feature` / `--change`) | The `article` of a permalink page |
+| `permalink_back` | `shiplog-permalink__back` | "Back to the changelog" link |
+| `permalink_nav` | `shiplog-permalink__nav` | Newer / older `nav` |
+| `permalink_nav_link` | `shiplog-permalink__nav-link` (+ `--newer` / `--older`) | One neighbour link |
+| `areas` | `shiplog-areas` | The area filter `nav` |
+| `area_link` | `shiplog-areas__link` (+ `--current`) | One filter link, "All" included |
+| `entry_area` | `shiplog-entry__area` | An entry's area tag |
+| `entry_images` | `shiplog-entry__images` | The container of an entry's screenshots |
+| `entry_image` | `shiplog-entry__image` | One screenshot (`img`) |
 
 Values may be strings or arrays. The list is `Shiplog::Classes::KEYS`; assigning `config.classes` raises `ArgumentError` (listing the valid keys) for any other key, in every environment. String keys are accepted and normalised to symbols, and the hash is stored frozen. Texts come from I18n (`shiplog.roadmap.title`, `shiplog.roadmap.lede`, `shiplog.roadmap.*` (`parts`, `shipped_heading`, `full_changelog`, `footnote`, `suggest`), `shiplog.switcher.*`, `shiplog.changelog.*`, `shiplog.categories.feature` / `change`, `shiplog.date_format` (default `%-d %B %Y`, used for entry dates), `shiplog.columns.<column>_description`), so override them in your locale files.
 

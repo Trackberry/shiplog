@@ -149,4 +149,18 @@ class Shiplog::EntryTest < ActiveSupport::TestCase
     assert_equal Shiplog::Entry.count, Shiplog::Entry.search("  ").count
     assert_empty Shiplog::Entry.search("%")
   end
+
+  test "search binds a term that contains :pattern or :locale once, with or without a locale" do
+    Shiplog.config.locales = [ :es ]
+    entry = shiplog_entries(:dark_mode_feature)
+    entry.update_columns(title: "Use :pattern and :locale")
+    entry.translations.create!(locale: "es", title: "Usa :pattern", body: "x", source_digest: entry.translation_source_digest)
+
+    [ nil, "es", "en" ].each do |locale|
+      assert_equal [ entry ], Shiplog::Entry.search(":pattern", locale:).to_a
+      assert_equal [ entry ], Shiplog::Entry.search("and :locale", locale:).to_a
+      assert_empty Shiplog::Entry.search("a:b", locale:)
+    end
+    assert_equal [ entry ], Shiplog::Entry.search("usa :pattern", locale: "es").to_a
+  end
 end

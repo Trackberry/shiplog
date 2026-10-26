@@ -4,7 +4,9 @@ module Shiplog
       @columns = Roadmap.new(published_only: true).columns
       preload_cards(@columns)
       @shipped = recently_shipped
-      fresh_when etag: [ *shiplog_etag_parts, etag_for(@columns), shipped_etag(@shipped) ]
+      shown = [ *@columns.values.flatten.map(&:entry), *@shipped ]
+      preload_translations(shown)
+      fresh_when etag: [ *shiplog_etag_parts, etag_for(@columns), shipped_etag(@shipped), shiplog_translation_etag_parts(shown) ]
     end
 
     private

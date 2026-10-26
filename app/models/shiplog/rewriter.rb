@@ -12,6 +12,32 @@ module Shiplog
     JSON_OBJECT = /\{(?:[^{}"]++|"(?:\\.|[^"\\])*+"|\g<0>)*+\}/m
     CONTROL_CHARS = /[\p{Cc}&&[^\n]]/
 
+    # Roadmap bodies are two short sentences: cut after the last sentence that fits, else at a word. Shared with
+    # the Translator, whose roadmap translations obey the same limit.
+    def self.shorten_roadmap(body)
+      return body if body.length <= MAX_ROADMAP_BODY_CHARS
+
+      last_end = body.enum_for(:scan, SENTENCE_END).map { Regexp.last_match.begin(0) }.select { |i| i < MAX_ROADMAP_BODY_CHARS }.last
+      return body[0..last_end] if last_end
+
+      body.truncate(MAX_ROADMAP_BODY_CHARS, separator: " ", omission: "…")
+    end
+
+    # The JSON objects found in a reply (balanced, string-aware), parsed; each one that is a Hash goes to the block,
+    # which returns the validated result or nil. The first result wins.
+    def self.first_valid_object(reply)
+      reply.to_s.scan(JSON_OBJECT).each do |candidate|
+        data = JSON.parse(candidate)
+        result = yield(data) if data.is_a?(Hash)
+        return result if result
+      rescue JSON::ParserError
+        next
+      end
+      nil
+    end
+
+    def self.sanitize(text) = text.tr("\t", " ").gsub(CONTROL_CHARS, "")
+
     def initialize(entry)
       @entry = entry
     end
@@ -45,16 +71,7 @@ module Shiplog
         rewriter.call(Prompt.new(@entry).to_s).to_s
       end
 
-      def parse(reply)
-        reply.scan(JSON_OBJECT).each do |candidate|
-          data = JSON.parse(candidate)
-          result = validate(data) if data.is_a?(Hash)
-          return result if result
-        rescue JSON::ParserError
-          next
-        end
-        nil
-      end
+      def parse(reply) = self.class.first_valid_object(reply) { |data| validate(data) }
 
       def validate(data)
         title, body, customer_facing = data.values_at("title", "body", "customer_facing")
@@ -64,7 +81,7 @@ module Shiplog
         title = sanitize(title).squish.truncate(MAX_TITLE_CHARS, separator: " ", omission: "…")
         return if title.blank?
 
-        { title:, body: limit_body(sanitize(body.to_s).strip), customer_facing: }
+        { title:, body: limit_body(sanitize(body.to_s).strip), customer_facing:, area: data["area"].then { |area| area.squish.presence if area.is_a?(String) } }
       end
 
       def limit_body(body)
@@ -73,19 +90,9 @@ module Shiplog
         shorten_roadmap(body)
       end
 
-      # Roadmap bodies are two short sentences: cut after the last sentence that fits, else at a word.
-      def shorten_roadmap(body)
-        return body if body.length <= MAX_ROADMAP_BODY_CHARS
+      def shorten_roadmap(body) = self.class.shorten_roadmap(body)
 
-        last_end = body.enum_for(:scan, SENTENCE_END).map { Regexp.last_match.begin(0) }.select { |i| i < MAX_ROADMAP_BODY_CHARS }.last
-        return body[0..last_end] if last_end
-
-        body.truncate(MAX_ROADMAP_BODY_CHARS, separator: " ", omission: "…")
-      end
-
-      def sanitize(text)
-        text.tr("\t", " ").gsub(CONTROL_CHARS, "")
-      end
+      def sanitize(text) = self.class.sanitize(text)
 
       def apply(result)
         discard = result[:customer_facing] == false && @entry.change? && @entry.draft?
@@ -93,7 +100,18 @@ module Shiplog
           rewrite_error: nil, source_digest: Entry.digest_for(@entry.subject))
         @entry.assign_attributes(status: "draft", approved_at: nil, approved_by: nil) if @entry.approved?
         @entry.assign_attributes(status: "discarded", discard_reason: NOT_CUSTOMER_FACING) if discard
+        assign_area(result[:area]) unless discard
         @entry.save!
+      end
+
+      # A name the reply gave: an existing area, or a new one while below config.max_areas. A name that resolves to
+      # nothing (cap reached, invalid) keeps the entry's current area: only an explicit valid name changes it. No
+      # area in the reply keeps it too, and one an admin chose is never changed.
+      def assign_area(name)
+        return if name.nil? || @entry.area_set_by_admin?
+
+        area = Area.resolve_or_create(name)
+        @entry.area = area if area
       end
 
       def fail_with(message)

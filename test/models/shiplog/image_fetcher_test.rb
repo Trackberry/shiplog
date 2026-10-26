@@ -1,0 +1,533 @@
+require "test_helper"
+
+class Shiplog::ImageFetcherTest < ActiveJob::TestCase
+  GRAPHQL = "https://api.github.com/graphql".freeze
+  SIGNED = "https://private-user-images.githubusercontent.com/1/abc.png?jwt=secret".freeze
+
+  setup do
+    Shiplog.config.github_token = "tok"
+    @entry = shiplog_entries(:csv_change_draft)
+  end
+
+  def stub_body(html)
+    stub_request(:post, GRAPHQL).to_return(body: { data: { node: { bodyHTML: html } } }.to_json, headers: { "Content-Type" => "application/json" })
+  end
+
+  def img(url) = %(<p><img src="#{CGI.escapeHTML(url)}" alt="shot"></p>)
+
+  def stub_image(url, body = image_bytes(:png), **options) = stub_request(:get, url).to_return(status: 200, body:, **options)
+
+  def png_header(width, height) = "\x89PNG\r\n\x1A\n".b + [ 13 ].pack("N") + "IHDR" + [ width, height ].pack("NN") + "\x08\x06\x00\x00\x00".b
+
+  def fetch = Shiplog::ImageFetcher.call(@entry)
+
+  test "attaches an image from the body, in order, with its type taken from its bytes" do
+    stub_body(img(SIGNED) + img("https://user-images.githubusercontent.com/2/b.gif"))
+    stub_image(SIGNED)
+    stub_image("https://user-images.githubusercontent.com/2/b.gif", image_bytes(:gif))
+
+    assert_equal 2, fetch
+
+    images = @entry.reload.ordered_images
+    assert_equal %w[image/png image/gif], images.map { |image| image.blob.content_type }
+    assert_equal %w[screenshot-1.png screenshot-2.gif], images.map { |image| image.blob.filename.to_s }
+    assert_equal images.map(&:blob_id), @entry.image_order
+    assert_equal @entry.title, @entry.image_alt(images.first)
+  end
+
+  test "the GraphQL query asks for the body HTML of the subject's node id" do
+    stub_body(img(SIGNED))
+    stub_image(SIGNED)
+    fetch
+    assert_requested(:post, GRAPHQL) { |request| JSON.parse(request.body).then { |body| body["query"].include?("bodyHTML") && body["variables"] == { "id" => "PR_typo_fix" } } }
+  end
+
+  test "only the allowlisted hosts are fetched: exact host, https, user-attachments path" do
+    skipped = [
+      "https://user-images.githubusercontent.com.evil.com/a.png",
+      "https://evil.com/user-images.githubusercontent.com/a.png",
+      "https://user-images.githubusercontent.com@evil.com/a.png",
+      "http://user-images.githubusercontent.com/a.png",
+      "https://github.com/acme/app/raw/main/a.png",
+      "https://github.com/user-attachments/files/1/a.png",
+      "https://github.com.evil.com/user-attachments/assets/a",
+      "https://user-images.githubusercontent.com:8443/a.png",
+      "data:image/png;base64,AAAA",
+      "/relative.png"
+    ]
+    stub_body(skipped.map { |url| img(url) }.join)
+    stub_request(:any, /.*/).to_raise("a request must not be made")
+
+    assert_equal 0, fetch
+    assert_not_requested :get, /.*/
+    assert_not @entry.reload.images.attached?
+  end
+
+  test "every allowlisted host is fetched" do
+    urls = %w[
+      https://private-user-images.githubusercontent.com/1/a.png https://user-images.githubusercontent.com/2/b.png
+      https://github.com/user-attachments/assets/aaaa https://camo.githubusercontent.com/abc
+      https://objects.githubusercontent.com/github-production-user-asset/1/a.png
+    ]
+    Shiplog.config.max_images_per_entry = 6
+    stub_body(urls.map { |url| img(url) }.join + img("https://raw.githubusercontent.com/acme/app/main/c.png"))
+    (urls + [ "https://raw.githubusercontent.com/acme/app/main/c.png" ]).each { |url| stub_image(url) }
+
+    assert_equal 6, fetch
+  end
+
+  test "a redirect off the allowlist is not followed" do
+    stub_body(img(SIGNED))
+    stub_request(:get, SIGNED).to_return(status: 302, headers: { "Location" => "https://evil.com/a.png" })
+    evil = stub_image("https://evil.com/a.png")
+
+    assert_equal 0, fetch
+    assert_not_requested evil
+  end
+
+  test "a redirect to http is not followed" do
+    stub_body(img(SIGNED))
+    stub_request(:get, SIGNED).to_return(status: 302, headers: { "Location" => "http://user-images.githubusercontent.com/a.png" })
+    assert_equal 0, fetch
+  end
+
+  test "redirects within the allowlist are followed, up to three" do
+    stub_body(img("https://github.com/user-attachments/assets/aaaa"))
+    stub_request(:get, "https://github.com/user-attachments/assets/aaaa").to_return(status: 302, headers: { "Location" => "https://objects.githubusercontent.com/x" })
+    stub_request(:get, "https://objects.githubusercontent.com/x").to_return(status: 302, headers: { "Location" => "/y" })
+    stub_request(:get, "https://objects.githubusercontent.com/y").to_return(status: 301, headers: { "Location" => "https://private-user-images.githubusercontent.com/z" })
+    stub_image("https://private-user-images.githubusercontent.com/z")
+
+    assert_equal 1, fetch
+  end
+
+  test "a fourth redirect fails" do
+    stub_body(img(SIGNED))
+    stub_request(:get, SIGNED).to_return(status: 302, headers: { "Location" => "https://objects.githubusercontent.com/1" })
+    stub_request(:get, "https://objects.githubusercontent.com/1").to_return(status: 302, headers: { "Location" => "https://objects.githubusercontent.com/2" })
+    stub_request(:get, "https://objects.githubusercontent.com/2").to_return(status: 302, headers: { "Location" => "https://objects.githubusercontent.com/3" })
+    stub_request(:get, "https://objects.githubusercontent.com/3").to_return(status: 302, headers: { "Location" => "https://objects.githubusercontent.com/4" })
+    final = stub_image("https://objects.githubusercontent.com/4")
+
+    assert_equal 0, fetch
+    assert_not_requested final
+  end
+
+  test "the token goes to github.com only, never to the other hosts, also across a redirect" do
+    stub_body(img("https://github.com/user-attachments/assets/aaaa") + img(SIGNED))
+    stub_request(:get, "https://github.com/user-attachments/assets/aaaa").to_return(status: 302, headers: { "Location" => "https://private-user-images.githubusercontent.com/z" })
+    stub_image("https://private-user-images.githubusercontent.com/z")
+    stub_image(SIGNED)
+
+    assert_equal 2, fetch
+
+    assert_requested(:get, "https://github.com/user-attachments/assets/aaaa", headers: { "Authorization" => "Bearer tok" })
+    assert_requested(:get, "https://private-user-images.githubusercontent.com/z") { |request| !request.headers.key?("Authorization") }
+    assert_requested(:get, SIGNED) { |request| !request.headers.key?("Authorization") }
+  end
+
+  test "an image larger than 5 MB is dropped while streaming" do
+    stub_body(img(SIGNED))
+    stub_image(SIGNED, image_bytes(:png) + ("a" * Shiplog::ImageType::MAX_BYTES))
+    assert_equal 0, fetch
+    assert_not @entry.reload.images.attached?
+  end
+
+  test "an image declaring more than 10,000 pixels a side or 40 megapixels is dropped before any processing" do
+    urls = %w[wide.png tall.png big.png ok.png].map { |name| "https://user-images.githubusercontent.com/#{name}" }
+    stub_body(urls.map { |url| img(url) }.join)
+    stub_image(urls[0], png_header(10_001, 10))
+    stub_image(urls[1], png_header(10, 10_001))
+    stub_image(urls[2], png_header(8_001, 5_000))
+    stub_image(urls[3], png_header(8_000, 5_000))
+
+    assert_equal 1, fetch
+    blob = @entry.reload.images.first.blob
+    assert_equal [ 8_000, 5_000 ], [ blob.metadata[:width], blob.metadata[:height] ]
+  end
+
+  test "a download whose dimensions can't be read is dropped" do
+    stub_body(img(SIGNED))
+    stub_image(SIGNED, image_bytes(:png).byteslice(0, 20))
+    assert_equal 0, fetch
+  end
+
+  test "the parsed width and height are stored in the blob's metadata, without waiting for analysis" do
+    stub_body(img(SIGNED))
+    stub_image(SIGNED)
+    assert_equal 1, fetch
+
+    blob = @entry.reload.images.first.blob
+    assert_equal [ 1, 1 ], [ blob.metadata[:width], blob.metadata[:height] ]
+    assert_not blob.analyzed?
+  end
+
+  test "an image of exactly 5 MB is kept" do
+    stub_body(img(SIGNED))
+    stub_image(SIGNED, image_bytes(:png).ljust(Shiplog::ImageType::MAX_BYTES, "a"))
+    assert_equal 1, fetch
+  end
+
+  test "a declared length over 5 MB is refused" do
+    stub_body(img(SIGNED))
+    stub_image(SIGNED, image_bytes(:png), headers: { "Content-Length" => (Shiplog::ImageType::MAX_BYTES + 1).to_s })
+    assert_equal 0, fetch
+  end
+
+  test "SVG, HTML and unknown bytes are refused whatever the URL and content type say" do
+    urls = %w[a.png b.png c.svg].map { |name| "https://user-images.githubusercontent.com/#{name}" }
+    stub_body(urls.map { |url| img(url) }.join)
+    stub_image(urls[0], image_bytes(:svg), headers: { "Content-Type" => "image/png" })
+    stub_image(urls[1], image_bytes(:html), headers: { "Content-Type" => "image/png" })
+    stub_image(urls[2], "", headers: { "Content-Type" => "image/png" })
+
+    assert_equal 0, fetch
+  end
+
+  test "at most max_images_per_entry images are fetched" do
+    urls = (1..6).map { |i| "https://user-images.githubusercontent.com/#{i}.png" }
+    stub_body(urls.map { |url| img(url) }.join)
+    urls.each { |url| stub_image(url) }
+
+    assert_equal 4, fetch
+    assert_equal 4, @entry.reload.images.count
+    assert_not_requested :get, urls[4]
+
+    Shiplog.config.max_images_per_entry = 2
+    other = shiplog_entries(:soon_item_roadmap)
+    assert_equal 0, Shiplog::ImageFetcher.call(other) # roadmap entries never get images
+  end
+
+  test "the same image twice is fetched once" do
+    stub_body(img(SIGNED) + img(SIGNED))
+    request = stub_image(SIGNED)
+    assert_equal 1, fetch
+    assert_requested request, times: 1
+  end
+
+  test "an image that fails does not stop the others" do
+    first = "https://user-images.githubusercontent.com/1.png"
+    second = "https://user-images.githubusercontent.com/2.png"
+    third = "https://user-images.githubusercontent.com/3.png"
+    stub_body([ first, second, third ].map { |url| img(url) }.join)
+    stub_request(:get, first).to_timeout
+    stub_request(:get, second).to_return(status: 404)
+    stub_image(third)
+
+    assert_equal 1, fetch
+    assert_equal 1, @entry.reload.images.count
+  end
+
+  test "connections have five second timeouts and the limits are 3 redirects and 5 MB" do
+    stub_body(img(SIGNED))
+    stub_image(SIGNED)
+    connections = []
+    original = Net::HTTP.method(:new)
+    Net::HTTP.define_singleton_method(:new) { |*args| original.call(*args).tap { |http| connections << http } }
+    begin
+      fetch
+    ensure
+      Net::HTTP.singleton_class.remove_method(:new)
+    end
+
+    image_connection = connections.find { |http| http.address == "private-user-images.githubusercontent.com" }
+    assert_equal [ 5, 5 ], [ image_connection.open_timeout, image_connection.read_timeout ]
+    assert image_connection.use_ssl?
+    assert_equal 3, Shiplog::ImageFetcher::Downloader::MAX_REDIRECTS
+    assert_equal 5.megabytes, Shiplog::ImageType::MAX_BYTES
+  end
+
+  test "GitHub failures are logged and return zero" do
+    stub_request(:post, GRAPHQL).to_return(status: 500)
+    assert_equal 0, fetch
+
+    stub_request(:post, GRAPHQL).to_timeout
+    assert_equal 0, fetch
+
+    Shiplog.config.github_token = nil
+    assert_equal 0, fetch
+  end
+
+  test "a body without images, or a missing node, attaches nothing" do
+    stub_body("<p>No pictures</p>")
+    assert_equal 0, fetch
+
+    stub_request(:post, GRAPHQL).to_return(body: { data: { node: nil } }.to_json)
+    assert_equal 0, fetch
+  end
+
+  test "an entry that already has images is not fetched again" do
+    stub_body(img(SIGNED))
+    stub_image(SIGNED)
+    assert_equal 1, fetch
+    assert_equal 0, fetch
+    assert_requested :post, GRAPHQL, times: 1
+  end
+
+  test "an approved entry is never touched" do
+    @entry.update_columns(status: "approved", approved_at: Time.current, released_on: Date.current)
+    assert_equal 0, fetch
+    assert_not_requested :post, GRAPHQL
+  end
+
+  test "roadmap entries and subjects without a node id are skipped" do
+    assert_equal 0, Shiplog::ImageFetcher.call(shiplog_entries(:soon_item_roadmap))
+    commit_entry = shiplog_entries(:typo_change_discarded)
+    commit_entry.update_columns(status: "draft")
+    assert_equal 0, Shiplog::ImageFetcher.call(commit_entry)
+    assert_not_requested :post, GRAPHQL
+  end
+
+  test "nothing is fetched with config.images = false or max_images_per_entry = 0" do
+    Shiplog.config.images = false
+    assert_equal 0, fetch
+    Shiplog.config.images = true
+    Shiplog.config.max_images_per_entry = 0
+    assert_equal 0, fetch
+    assert_not_requested :post, GRAPHQL
+  end
+
+  test "nothing is fetched without Active Storage" do
+    without_active_storage { assert_equal 0, fetch }
+    assert_not_requested :post, GRAPHQL
+  end
+
+  test "the images are uploaded before the entry's row lock is taken" do
+    stub_body(img(SIGNED) + img("https://user-images.githubusercontent.com/2/b.gif"))
+    stub_image(SIGNED)
+    stub_image("https://user-images.githubusercontent.com/2/b.gif", image_bytes(:gif))
+    log = []
+    lock = @entry.method(:with_lock)
+
+    with_stub(@entry, :with_lock, ->(*args, &block) { log << :lock; lock.call(*args, &block) }) do
+      tracking_uploads(log) { assert_equal 2, fetch }
+    end
+
+    assert_equal [ :upload, :upload, :lock ], log
+  end
+
+  test "an entry approved while its images were downloading gets none, and the uploaded blobs are purged" do
+    stub_body(img(SIGNED))
+    stub_request(:get, SIGNED).to_return do
+      Shiplog::Entry.where(id: @entry.id).update_all(status: "approved", approved_at: Time.current, released_on: Date.current)
+      { status: 200, body: image_bytes(:png) }
+    end
+    blobs = nil
+
+    assert_no_difference -> { ActiveStorage::Blob.count } do
+      tracking_uploads do |uploaded|
+        blobs = uploaded
+        assert_equal 0, fetch
+      end
+    end
+
+    assert_equal 1, blobs.size
+    assert_not blob_stored?(blobs.first)
+    assert_equal 0, @entry.reload.images.count
+  end
+
+  test "images attached while the download ran win: the fetcher attaches nothing and purges its blobs" do
+    stub_body(img(SIGNED))
+    stub_request(:get, SIGNED).to_return do
+      Shiplog::Entry.find(@entry.id).add_images([ { io: StringIO.new(image_bytes(:gif)), filename: "mine.gif", content_type: "image/gif" } ])
+      { status: 200, body: image_bytes(:png) }
+    end
+
+    assert_equal 0, fetch
+    assert_equal [ "mine.gif" ], @entry.reload.images.map { |image| image.filename.to_s }
+    assert_equal 1, ActiveStorage::Blob.count
+  end
+
+  test "an upload failure on the second image purges the first and attaches nothing" do
+    stub_body(img(SIGNED) + img("https://user-images.githubusercontent.com/2/b.gif"))
+    stub_image(SIGNED)
+    stub_image("https://user-images.githubusercontent.com/2/b.gif", image_bytes(:gif))
+
+    assert_no_difference -> { ActiveStorage::Blob.count } do
+      tracking_uploads(fail_at: 2) do |blobs|
+        assert_equal 0, fetch
+        assert_not blob_stored?(blobs.first)
+      end
+    end
+    assert_not @entry.reload.images.attached?
+  end
+
+  # --- Streaming, redirect bodies, request headers, deadlines ---
+
+  def counted_chunks(count, size: 64.kilobytes, prefix: "".b)
+    @chunks_read = 0
+    Enumerator.new do |yielder|
+      count.times do |index|
+        @chunks_read += 1
+        yielder << (index.zero? ? prefix + ("a" * (size - prefix.bytesize)) : "a" * size)
+      end
+    end
+  end
+
+  def capture_log
+    original = Rails.logger
+    Rails.logger = ActiveSupport::Logger.new(output = StringIO.new)
+    yield
+    output.string
+  ensure
+    Rails.logger = original
+  end
+
+  test "a response streamed in many chunks, with no Content-Length, aborts past the cap before every chunk is read" do
+    stub_body(img(SIGNED))
+    stub_image(SIGNED, "", headers: { "Transfer-Encoding" => "chunked" })
+    total = 200 # 12.5 MB in 64 KB chunks
+
+    streaming(counted_chunks(total, prefix: image_bytes(:png))) { assert_equal 0, fetch }
+
+    assert_operator @chunks_read, :<, total
+    assert_equal Shiplog::ImageType::MAX_BYTES / 64.kilobytes + 1, @chunks_read
+    assert_not @entry.reload.images.attached?
+  end
+
+  test "a chunked response with no Content-Length is read to the end when it fits" do
+    stub_body(img(SIGNED))
+    stub_image(SIGNED, "", headers: { "Transfer-Encoding" => "chunked" })
+    chunks = image_bytes(:png).bytes.each_slice(7).map { |slice| slice.pack("C*") }
+
+    streaming(chunks) { assert_equal 1, fetch }
+
+    assert_equal image_bytes(:png), @entry.reload.images.first.download
+  end
+
+  test "the body of a redirect is read with the same cap, not into memory" do
+    stub_body(img(SIGNED))
+    stub_request(:get, SIGNED).to_return(status: 302, headers: { "Location" => "https://objects.githubusercontent.com/x" })
+    target = stub_image("https://objects.githubusercontent.com/x")
+    total = 200
+
+    streaming(counted_chunks(total)) { assert_equal 0, fetch }
+
+    assert_equal Shiplog::ImageType::MAX_BYTES / 64.kilobytes + 1, @chunks_read
+    assert_not_requested target
+  end
+
+  test "a redirect with a small body is followed, and its body is not mistaken for the image" do
+    stub_body(img(SIGNED))
+    stub_request(:get, SIGNED).to_return(status: 302, body: "Found. Redirecting...", headers: { "Location" => "https://objects.githubusercontent.com/x" })
+    stub_image("https://objects.githubusercontent.com/x")
+
+    assert_equal 1, fetch
+    assert_equal image_bytes(:png), @entry.reload.images.first.download
+  end
+
+  test "images are requested with Accept-Encoding: identity, so the cap counts the bytes sent" do
+    stub_body(img(SIGNED))
+    stub_image(SIGNED)
+    fetch
+    assert_requested(:get, SIGNED) { |request| request.headers["Accept-Encoding"] == "identity" }
+  end
+
+  test "github.com attachments match the assets path exactly" do
+    good = "https://github.com/user-attachments/assets/0f2a8c1e-aaaa-4bbb-8ccc-123456789abc"
+    stub_body(img(good))
+    stub_image(good)
+    assert_equal 1, fetch
+  end
+
+  test "encoded dots and slashes, extra segments and look-alikes in an attachment path are refused" do
+    bad = %w[
+      https://github.com/user-attachments/assets/%2e%2e/files/1/a.png
+      https://github.com/user-attachments/assets/%2E%2E%2Fx
+      https://github.com/user-attachments/assets/..%2fsecret
+      https://github.com/user-attachments/assets/aaa%2fbbb
+      https://github.com/user-attachments/assets/aaa/bbb
+      https://github.com/user-attachments/assets/
+      https://github.com/user-attachments/assets/../files/1/a.png
+      https://github.com/user-attachments/assets/aaa.png
+      https://github.com/user-attachments/assets/aaa%00
+      https://github.com/user-attachments/assetsx/aaa
+      https://github.com/x/user-attachments/assets/aaa
+    ]
+    stub_body(bad.map { |url| img(url) }.join)
+    stub_request(:any, /.*/).to_raise("a request must not be made")
+    Shiplog.config.max_images_per_entry = 20
+
+    assert_equal 0, fetch
+    assert_not_requested :get, /.*/
+  end
+
+  test "a redirect to a bad attachment path is not followed" do
+    stub_body(img(SIGNED))
+    stub_request(:get, SIGNED).to_return(status: 302, headers: { "Location" => "https://github.com/user-attachments/assets/%2e%2e/x" })
+    target = stub_request(:get, /github.com/).to_return(status: 200, body: image_bytes(:png))
+
+    assert_equal 0, fetch
+    assert_not_requested target
+  end
+
+  test "the limits are 15 seconds per download and 45 seconds per entry, on a monotonic clock" do
+    assert_equal 15, Shiplog::ImageFetcher::Downloader::TOTAL_DEADLINE
+    assert_equal 45, Shiplog::ImageFetcher::FETCH_BUDGET
+    assert_in_delta Process.clock_gettime(Process::CLOCK_MONOTONIC), Shiplog::ImageFetcher::Downloader.now, 1
+  end
+
+  test "a download that drips past 15 seconds is aborted while streaming" do
+    stub_body(img(SIGNED))
+    stub_image(SIGNED, "", headers: { "Transfer-Encoding" => "chunked" })
+    clock = 100.0
+    chunks = Enumerator.new do |yielder|
+      @chunks_read = 0
+      50.times do
+        @chunks_read += 1
+        clock += 4 # each chunk takes 4 seconds to arrive
+        yielder << "a" * 10
+      end
+    end
+
+    with_stub(Shiplog::ImageFetcher::Downloader, :now, -> { clock }) do
+      streaming(chunks) { assert_equal 0, fetch }
+    end
+
+    assert_equal 4, @chunks_read # 16 seconds: the fourth chunk is past the deadline
+  end
+
+  test "a download that takes exactly 15 seconds still completes" do
+    stub_body(img(SIGNED))
+    clock = 0.0
+    stub_request(:get, SIGNED).to_return { clock += 15; { status: 200, body: image_bytes(:png) } }
+
+    with_stub(Shiplog::ImageFetcher::Downloader, :now, -> { clock }) { assert_equal 1, fetch }
+  end
+
+  test "the deadline is checked between redirect hops" do
+    stub_body(img(SIGNED))
+    clock = 0.0
+    stub_request(:get, SIGNED).to_return { clock += 16; { status: 302, headers: { "Location" => "https://objects.githubusercontent.com/x" } } }
+    target = stub_image("https://objects.githubusercontent.com/x")
+
+    log = capture_log { with_stub(Shiplog::ImageFetcher::Downloader, :now, -> { clock }) { assert_equal 0, fetch } }
+
+    assert_not_requested target
+    assert_match(/deadline/, log)
+  end
+
+  test "after 45 seconds in total the remaining images are skipped and logged" do
+    urls = (1..5).map { |i| "https://user-images.githubusercontent.com/#{i}.png" }
+    Shiplog.config.max_images_per_entry = 5
+    stub_body(urls.map { |url| img(url) }.join)
+    clock = 0.0
+    urls.each { |url| stub_request(:get, url).to_return { clock += 14; { status: 200, body: image_bytes(:png) } } }
+
+    log = capture_log { with_stub(Shiplog::ImageFetcher::Downloader, :now, -> { clock }) { assert_equal 3, fetch } }
+
+    # Three images took 42 seconds; the fourth had 3 seconds left and ran out; the fifth was never requested.
+    assert_requested :get, urls[3], times: 1
+    assert_not_requested :get, urls[4]
+    assert_equal 3, @entry.reload.images.count
+    assert_match(/budget of 45s/, log)
+    assert_match(/skipped 1 remaining image/, log)
+  end
+
+  test "an entry's budget is not spent by a fast fetch" do
+    urls = (1..4).map { |i| "https://user-images.githubusercontent.com/#{i}.png" }
+    stub_body(urls.map { |url| img(url) }.join)
+    urls.each { |url| stub_image(url) }
+    assert_equal 4, fetch
+  end
+end

@@ -70,6 +70,17 @@ class LiveGithubQueriesTest < ActiveSupport::TestCase
     assert compare["commits"].first.key?("node_id")
   end
 
+  test "BODY_HTML returns the rendered body of an issue or pull request" do
+    node = @client.query(Shiplog::Github::Queries::ISSUES, @vars).dig("repository", "issues", "nodes", 0)
+    skip "no issues in #{@vars.values.join("/")}" unless node
+    data = @client.query(Shiplog::Github::Queries::BODY_HTML, id: node["id"])
+    assert data.dig("node", "bodyHTML").is_a?(String)
+
+    pull_request = @client.query(Shiplog::Github::Queries::PULL_REQUESTS, @vars).dig("repository", "pullRequests", "nodes", 0)
+    skip "no pull requests" unless pull_request
+    assert @client.query(Shiplog::Github::Queries::BODY_HTML, id: pull_request["id"]).dig("node", "bodyHTML").is_a?(String)
+  end
+
   test "COMMITS" do
     data = @client.query(Shiplog::Github::Queries::COMMITS, @vars)
     assert data.key?("repository")

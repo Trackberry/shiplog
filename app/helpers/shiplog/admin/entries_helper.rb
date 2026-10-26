@@ -19,6 +19,21 @@ module Shiplog
         entry.title.presence || source_title(entry.subject)
       end
 
+      # The URL of an image's thumbnail: a 200x200 variant when the host can make them (image_processing and a
+      # processor, see Shiplog.image_variants?), else the original (the stylesheet sizes it).
+      def image_thumbnail_path(image)
+        source = Shiplog.image_variants? && image.variable? ? image.variant(resize_to_limit: [ 200, 200 ]) : image
+        polymorphic_path(source)
+      rescue ActionController::UrlGenerationError, NoMethodError, ArgumentError
+        nil
+      end
+
+      # "Spanish (es)" for a locale of config.locales; the code alone when Shiplog has no name for the language.
+      def translation_language_label(locale)
+        name = Shiplog::Translator.language_name(locale)
+        name == locale.to_s ? name : "#{name} (#{locale})"
+      end
+
       def entries_filter_path(status: nil, kind: nil, page: nil)
         root_path({ status:, kind:, page: }.compact_blank)
       end

@@ -2,6 +2,9 @@
   <td>
     <%= link_to entry_heading(entry), edit_entry_path(entry, inbox_filter_params) %>
     <%= render "shiplog/admin/entries/badges", entry: %>
+    <% if entry.area %>
+      <span class="shiplog-badge shiplog-badge--area"><%= entry.area.name %></span>
+    <% end %>
     <% if entry.discarded? && entry.discard_reason.present? %>
       <div class="shiplog-admin__muted"><%= entry.discard_reason %></div>
     <% end %>

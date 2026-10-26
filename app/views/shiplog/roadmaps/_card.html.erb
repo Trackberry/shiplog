@@ -6,8 +6,8 @@
   parts = issue.children.size
 %>
 <li class="<%= shiplog_class(:card) %>">
-  <h3 class="<%= shiplog_class(:card_title) %>"><%= entry.title %></h3>
-  <div class="<%= shiplog_class(:card_body) %>"><%= simple_format(h(entry.body)) %></div>
+  <h3 class="<%= shiplog_class(:card_title) %>"><%= entry.display_title %></h3>
+  <div class="<%= shiplog_class(:card_body) %>"><%= simple_format(h(entry.display_body)) %></div>
   <% if tag_label || parts > 1 %>
     <p class="<%= shiplog_class(:card_meta) %>">
       <% if tag_label %><span class="<%= shiplog_class(:card_tag) %>"><%= tag_label %></span><% end %>

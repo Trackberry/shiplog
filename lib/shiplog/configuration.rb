@@ -5,7 +5,7 @@ module Shiplog
       :rewriter, :product_name, :audience, :tone, :prompt_builder,
       :public_layout, :admin_layout,
       :stylesheet, :admin_flash, :authorize_admin, :current_admin,
-      :roadmap_path, :changelog_path
+      :roadmap_path
 
     ADMIN_CHROMES = %i[standalone hosted].freeze
     # Segments of only dots ("." and "..") are path traversal, not names.
@@ -16,16 +16,40 @@ module Shiplog
     # Path of the lockfile read in merged pull requests to detect gem upgrades (see config.repositories `gem:`).
     attr_accessor :lockfile_path
 
+    # The public changelog's path: segments of a-z, 0-9, dashes and underscores, joined by slashes ("changelog",
+    # "docs/whats_new"); surrounding slashes are stripped. Permalinks live below it and the Atom feed is
+    # "<path>.atom". Read when routes are drawn.
+    attr_reader :changelog_path
+    CHANGELOG_PATH = %r{\A[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*\z}
+
+    # The site's canonical origin, e.g. "https://trackberry.com" (nil by default). When set, the Atom feed's ids
+    # and links, entry links, og:url and the other absolute URLs use it instead of the request's host, which
+    # varies (apex and www, a forged X-Forwarded-Host). An origin only: scheme, host and optional port. Any path
+    # prefix of the engine's mount comes from the routes, so it needs no place here.
+    attr_reader :canonical_url
+
     attr_reader :admin_chrome, :classes, :public_parent_controller, :admin_parent_controller
 
     # Product updates navigation and roadmap options.
     attr_accessor :feedback_path
     # Whether the public changelog has a search box and honours ?q= (default true).
     attr_accessor :changelog_search
+    # Called with the controller on each changelog index or permalink view (200 or 304 answers), e.g. to stamp
+    # the visitor's "last seen" time. It runs BEFORE the page renders (so a badge in the same response is
+    # current), on every visit, and may write: keep it cheap, e.g. write only when the stored time is older than
+    # the newest entry. Nil by default. Not part of the ETag: it doesn't change the markup.
+    attr_reader :on_changelog_seen
     # Bump it when the output of a callable you configured changes (extra_pages, repository_labels, feedback_path):
     # callables cannot be part of the ETag, so this is how cached public pages learn about it.
     attr_accessor :cache_version
     attr_reader :extra_pages, :repository_labels, :roadmap_shipped_count
+    # How many product areas the AI may create (default 8). Past it, entries can only join existing areas.
+    # Not part of render_digest: the markup depends on the areas themselves, which the ETag carries.
+    attr_reader :max_areas
+    # Screenshots in entries. `images` (default true) is effective only when Active Storage is loaded in the host
+    # (see Shiplog.images?). `max_images_per_entry` (default 4) caps the images fetched from GitHub per entry.
+    attr_reader :images, :max_images_per_entry
+    LOCALE_FORMAT = /\A[A-Za-z][A-Za-z0-9_-]*\z/
 
     EXTRA_PAGE_KEYS = %i[label path].freeze
 
@@ -43,10 +67,10 @@ module Shiplog
       stable = ->(value) { value.respond_to?(:call) ? "callable" : value }
       data = [
         classes.sort_by { |key, _| key.to_s }.map { |key, value| [ key.to_s, Array(value).map(&:to_s) ] },
-        stylesheet, roadmap_shipped_count, cache_version,
+        stylesheet, roadmap_shipped_count, cache_version, product_name, canonical_url,
         extra_pages.map { |page| [ stable.(page[:label]), stable.(page[:path]) ] },
         repository_labels.sort_by { |name, _| name.to_s }.map { |name, label| [ name, stable.(label) ] },
-        stable.(feedback_path), changelog_search
+        stable.(feedback_path), changelog_search, images, max_images_per_entry, locales
       ]
       Digest::SHA256.hexdigest(JSON.generate(data))
     end
@@ -90,6 +114,51 @@ module Shiplog
     def roadmap_shipped_count=(value)
       raise ArgumentError, "roadmap_shipped_count must be a non-negative Integer, got #{value.inspect}" unless value.is_a?(Integer) && value >= 0
       @roadmap_shipped_count = value
+    end
+
+    def max_areas=(value)
+      raise ArgumentError, "max_areas must be a non-negative Integer, got #{value.inspect}" unless value.is_a?(Integer) && value >= 0
+      @max_areas = value
+    end
+
+    def images=(value)
+      raise ArgumentError, "images must be true or false, got #{value.inspect}" unless [ true, false ].include?(value)
+      @images = value
+    end
+
+    def max_images_per_entry=(value)
+      raise ArgumentError, "max_images_per_entry must be a non-negative Integer, got #{value.inspect}" unless value.is_a?(Integer) && value >= 0
+      @max_images_per_entry = value
+    end
+
+    # Locales entries are translated into when approved, e.g. [:es] (default none), as symbols and without the
+    # default locale (I18n.default_locale, read each time so an initializer that sets it later still counts): it
+    # is the language entries are written in. See Shiplog::Translator.
+    def locales = @locales - [ I18n.default_locale.to_sym ]
+
+    # Sets the locales to translate into: an Array of locale Symbols or Strings (see #locales).
+    def locales=(value)
+      unless value.is_a?(Array) && value.all? { |item| (item.is_a?(Symbol) || item.is_a?(String)) && LOCALE_FORMAT.match?(item.to_s) }
+        raise ArgumentError, "locales must be an Array of locale Symbols or Strings like [:es, \"pt-BR\"], got #{value.inspect}"
+      end
+      @locales = value.map(&:to_sym).uniq.freeze
+    end
+
+    def changelog_path=(value)
+      path = value.gsub(%r{\A/+|/+\z}, "") if value.is_a?(String)
+      unless path && CHANGELOG_PATH.match?(path)
+        raise ArgumentError, "changelog_path must be a path of letters, digits, dashes and underscores, with / between segments (like \"changelog\"), got #{value.inspect}"
+      end
+      @changelog_path = path
+    end
+
+    def canonical_url=(value)
+      @canonical_url = normalize_canonical_url(value)
+    end
+
+    def on_changelog_seen=(value)
+      raise ArgumentError, "on_changelog_seen must be nil or a callable, got #{value.inspect}" unless value.nil? || value.respond_to?(:call)
+      @on_changelog_seen = value
     end
 
     # :standalone (default) wraps the admin in Shiplog's own page chrome; :hosted renders it inside the
@@ -158,6 +227,10 @@ module Shiplog
       @repository_labels = {}.freeze
       @roadmap_shipped_count = 4
       @changelog_search = true
+      @max_areas = 8
+      @images = true
+      @max_images_per_entry = 4
+      @locales = [].freeze
     end
 
     def resolved_github_token
@@ -195,6 +268,22 @@ module Shiplog
     end
 
     private
+
+    def normalize_canonical_url(value)
+      return if value.nil? || (value.is_a?(String) && value.strip.empty?)
+      raise ArgumentError, "canonical_url must be a String like \"https://example.com\", got #{value.inspect}" unless value.is_a?(String)
+
+      uri = begin
+        URI.parse(value.strip)
+      rescue URI::InvalidURIError
+        nil
+      end
+      valid = uri.is_a?(URI::HTTP) && uri.host.present? && [ "", "/" ].include?(uri.path) && uri.query.nil? && uri.fragment.nil? && uri.userinfo.nil?
+      raise ArgumentError, "canonical_url must be an http(s) origin without path, query or credentials (\"https://example.com\"), got #{value.inspect}" unless valid
+
+      port = ":#{uri.port}" unless uri.port == uri.default_port
+      "#{uri.scheme}://#{uri.host.downcase}#{port}"
+    end
 
     def normalize_repositories(value)
       raise ArgumentError, "config.repositories must be an Array, got #{value.inspect}" unless value.is_a?(Array)

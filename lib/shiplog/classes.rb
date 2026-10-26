@@ -49,7 +49,16 @@ module Shiplog
       search_button: "shiplog-search__button",
       search_summary: "shiplog-search__summary",
       search_clear: "shiplog-search__clear",
-      search_empty: "shiplog-search__empty"
+      search_empty: "shiplog-search__empty",
+      permalink: "shiplog-permalink",
+      permalink_back: "shiplog-permalink__back",
+      permalink_nav: "shiplog-permalink__nav",
+      permalink_nav_link: "shiplog-permalink__nav-link",
+      areas: "shiplog-areas",
+      area_link: "shiplog-areas__link",
+      entry_area: "shiplog-entry__area",
+      entry_images: "shiplog-entry__images",
+      entry_image: "shiplog-entry__image"
     }.freeze
 
     KEYS = BEM.keys.freeze

@@ -46,12 +46,61 @@ en:
           other: "%{count} results for “%{query}”"
         clear: Clear search
         empty: "No entries match “%{query}”."
+      areas:
+        label: Filter by area
+        all: All
+    permalink:
+      title: "%{title} · %{changelog}"
+      back: "← Back to the changelog"
+      nav_label: More changelog entries
+      newer: "← Newer: %{title}"
+      older: "Older: %{title} →"
+    feed:
+      title_with_product: "%{product} changelog"
+      link_title: Changelog (Atom)
+      subscribe: Subscribe (Atom)
     admin:
       title: Shiplog admin
       nav:
         drafts: Drafts
         board: Roadmap board
         sync: Sync
+        areas: Areas
+      areas:
+        title: Product areas
+        help: The AI groups entries into areas (at most %{max}) while it rewrites them. Visitors can filter the changelog by area once two areas have published entries.
+        detect: Detect areas
+        recheck: Re-check unplaced entries
+        recheck_help: Ask the AI again about entries it left without an area, e.g. after renaming, merging or adding areas.
+        no_rewriter: Detection needs config.rewriter, which is not set.
+        last_detection: "Last detection: %{time}, assigned %{count}"
+        last_error: "Last detection failed (%{time}): %{error}"
+        detection_queued: Detection queued. Refresh in a moment.
+        translate_names: Translate names
+        translate_names_help: Ask the AI for the names that are missing in some language. Names that are already there, including ones you edited, are kept.
+        no_locales: Translating names needs config.locales, which is empty.
+        no_rewriter_translate: Translating names needs config.rewriter, which is not set.
+        translation_queued:
+          one: Translation queued for %{count} area. Refresh in a moment.
+          other: Translation queued for %{count} areas. Refresh in a moment.
+        empty: No areas yet. Detect areas to propose some from your entries.
+        columns:
+          name: Name
+          entries: Entries
+          order: Order
+          merge: Merge into
+        name_label: Name
+        rename: Rename
+        renamed: Area renamed.
+        move_up: Move up
+        move_down: Move down
+        merge: Merge
+        merge_into: Merge into
+        merged: "%{from} merged into %{into}."
+        merge_target: Choose another area to merge into.
+        merge_help: Merging moves the entries to the other area and deletes this one. Deleting an area leaves its entries without one.
+        delete: Delete
+        deleted: Area deleted. Its entries have no area now.
       entries:
         title: Entries
         filters: Filter entries
@@ -73,6 +122,8 @@ en:
         restore: Restore
         save: Save
         regenerate: Regenerate
+        no_area: None
+        area_gone: no longer exists
         regenerate_warning: Regenerating unpublishes this entry until re-approved.
         source_changed: GitHub text changed since this draft
         rewrite_error: Rewrite failed
@@ -80,6 +131,39 @@ en:
         public_text: Public text
         source: GitHub source
         back: Back to drafts
+        images:
+          title: Screenshots
+          help: Shown under the text on the changelog (the first one in the list, all of them on the entry's page). Taken from the GitHub issue or pull request when the draft is written; you can also upload your own.
+          empty: No screenshots yet.
+          alt: Alt text
+          alt_placeholder: Describe the image (defaults to the title)
+          save_alt: Save alt text
+          remove: Remove
+          move_up: Up
+          move_down: Down
+          upload: Upload images
+          upload_label: Images (PNG, JPEG, GIF or WebP, up to 5 MB each)
+          none_selected: Choose at least one image.
+          rejected: "Not added, only PNG, JPEG, GIF and WebP images up to 5 MB and 10,000 pixels a side are accepted: %{names}"
+          added:
+            one: Image added.
+            other: "%{count} images added."
+          alt_saved: Alt text saved.
+          removed: Image removed.
+          moved: Image moved.
+        translations:
+          title: Translations
+          help: "Approving an entry translates it automatically, and the translation is published with the English text. A translation you edit is kept until the English text changes; then it is translated again. A stale or missing translation is not shown: visitors see the English text."
+          not_approved: Translations are written when the entry is approved.
+          missing: Missing
+          stale: Stale
+          current: Up to date
+          edited: Edited by an admin
+          retranslate: Retranslate
+          saved: Translation saved.
+          queued: Translation queued. Refresh in a moment.
+          only_approved: Only approved entries are translated.
+          no_rewriter: Translating needs config.rewriter, which is not set.
         category_options:
           feature: New feature
           change: Improvement
@@ -101,6 +185,7 @@ en:
           body: Text
           released_on: Released on
           category: Category
+          area: Area
           reason: Reason
       board:
         title: Roadmap board

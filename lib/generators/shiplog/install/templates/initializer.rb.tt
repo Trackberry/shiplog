@@ -97,7 +97,12 @@ Shiplog.configure do |config|
 
   # Public paths, read when routes are drawn.
   # config.roadmap_path = "roadmap"
-  # config.changelog_path = "changelog"
+  # config.changelog_path = "changelog"   # a-z, 0-9, - and _; "docs/news" nests; outer slashes are stripped
+
+  # The site's canonical origin (scheme, host, optional port; no path). The Atom feed's ids and links, og:url
+  # and the other absolute URLs use it instead of the request's host, which varies (apex vs www, a forged
+  # X-Forwarded-Host). Behind a proxy, also set config.assume_ssl = true (or send X-Forwarded-Proto) in Rails.
+  # config.canonical_url = "https://example.com"
 
   # Pages added to the Roadmap / Changelog switcher. label and path are Strings, or callables evaluated in the
   # view (route helpers, I18n). Render the same switcher on your own pages with `helper Shiplog::SwitcherHelper`
@@ -116,6 +121,45 @@ Shiplog.configure do |config|
 
   # The public changelog's search box and ?q= filtering. Set to false to turn search off.
   # config.changelog_search = true
+
+  # "What's new". Shiplog doesn't know your users, so you supply the "last seen" time. This is called with the
+  # controller on every changelog index or permalink view, BEFORE the page renders (a 304 revisit included), so a
+  # navbar badge in the same response is current. It may write and runs on every visit: keep it cheap, and write
+  # only when something is new. Show `Shiplog.unseen_count(since: user.changelog_seen_at)` (at most 99, counted on
+  # approved_at; `helper Shiplog::UnseenHelper` and `shiplog_unseen_count(since)` in views) next to your Changelog
+  # link. current_user is often private, hence controller.send (or read a Current attribute).
+  # config.on_changelog_seen = lambda do |controller|
+  #   user = controller.send(:current_user)
+  #   user.update_column(:changelog_seen_at, Time.current) if user && Shiplog.unseen_count(since: user.changelog_seen_at).positive?
+  # end
+
+  # The 0.3.0 migration gives entries approved so far their permalink slug. The public pages never write (a GET
+  # may hit a read replica), so an entry approved by older code during a deploy window has no permalink until
+  # `bin/rails shiplog:backfill_slugs` runs. Permalink pages set `content_for :shiplog_og` (Open Graph tags),
+  # `content_for :shiplog_description` and `content_for :shiplog_feed` (the Atom discovery link); Shiplog's own
+  # layout renders them, so emit them in your layout's <head> when you set `config.public_layout`.
+
+  # Product areas. The rewriter's reply may name an area (an existing one, or a new name of 1-3 words); Shiplog
+  # creates it while fewer than max_areas exist, so the AI cannot sprawl. The changelog offers an area filter
+  # (?area=slug) once two areas have published entries. Manage areas in the admin ("Areas"): rename, reorder,
+  # merge, delete, and "Detect areas" to backfill entries that have none (it reuses config.rewriter).
+  # Entries you set by hand on the edit page are never changed by the AI.
+  # config.max_areas = 8
+
+  # Screenshots in entries. They need Active Storage in your app (require "active_storage/engine", and its tables);
+  # without it they stay off and Shiplog logs that once at boot. When a draft is written, the images in the GitHub
+  # issue or pull request body are attached to the entry (GitHub image hosts only, 5 MB and PNG, JPEG, GIF or
+  # WebP at most; the token needs no extra permission). You can also upload images on the entry edit page.
+  # config.images = true
+  # config.max_images_per_entry = 4
+
+  # Translations of entries. Entries are translated into each of these locales with config.rewriter when they are
+  # approved, and again when the English title or body of an approved entry changes; the translation is published
+  # at once, with no second approval. One LLM call per entry, locale and change. Admins can edit a translation on
+  # the entry page (kept until the English text changes) or retranslate it. Pages render the translation when
+  # I18n.locale is one of these and it matches the current English text, and English otherwise. Your routes
+  # decide which URLs set the locale (e.g. a /es scope). The default locale is dropped from the list.
+  # config.locales = []   # e.g. [:es]
 
   # Callables above cannot be part of the public pages' ETag. Bump this when the output of a callable you
   # configured changes (a new label, another path) so cached pages are refreshed.

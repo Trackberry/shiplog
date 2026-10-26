@@ -1,11 +1,15 @@
-<% content_for :title, t("shiplog.changelog.title") %>
+<% content_for :title, t("shiplog.changelog.title", default: "Changelog") %>
+<% content_for :shiplog_feed, auto_discovery_link_tag(:atom, shiplog_absolute_url(:changelog_feed), title: t("shiplog.feed.link_title", default: "Changelog (Atom)")) %>
 <%= render layout: "shiplog/page", locals: { name: "changelog" } do %>
-  <%= render "shiplog/page_header", title: t("shiplog.changelog.title"), lede: t("shiplog.changelog.lede") %>
+  <%= render "shiplog/page_header", title: t("shiplog.changelog.title", default: "Changelog"), lede: t("shiplog.changelog.lede", default: "New features and improvements, as they ship.") %>
   <% if @query %>
     <% content_for :shiplog_robots, "noindex" %>
   <% end %>
   <% if Shiplog.config.changelog_search %>
     <%= render "shiplog/changelogs/search", query: @query, count: @result_count %>
+  <% end %>
+  <% if @areas.any? %>
+    <%= render "shiplog/changelogs/areas", areas: @areas, current: @area, query: @query %>
   <% end %>
   <% if @months.empty? && @query %>
     <p class="<%= shiplog_class(:search_empty) %>"><%= t("shiplog.changelog.search.empty", query: @query, default: "No entries match “%{query}”.") %></p>
@@ -19,6 +23,9 @@
     </div>
   <% end %>
   <%= render "shiplog/pagination",
-        newer_path: (changelog_path(page: (@page - 1 if @page > 2), q: @query) if @page > 1),
-        older_path: (changelog_path(page: @page + 1, q: @query) if @older) %>
+        newer_path: (changelog_path(area: @area&.slug, page: (@page - 1 if @page > 2), q: @query) if @page > 1),
+        older_path: (changelog_path(area: @area&.slug, page: @page + 1, q: @query) if @older) %>
+  <p class="<%= shiplog_class(:footnote) %>">
+    <%= link_to t("shiplog.feed.subscribe", default: "Subscribe (Atom)"), changelog_feed_path, class: shiplog_class(:footnote_link, :feed) %>
+  </p>
 <% end %>
