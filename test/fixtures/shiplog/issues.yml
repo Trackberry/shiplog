@@ -139,7 +139,7 @@ dark_mode:
   title: Dark mode
   body: Body of dark mode
   state: closed
-  state_reason: COMPLETED
+  state_reason: completed
   closed_at: 2026-10-10 12:00:00
   labels: ["public"]
   assignees_count: 0

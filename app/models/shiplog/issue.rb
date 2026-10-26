@@ -20,6 +20,37 @@ module Shiplog
 
     MAX_DEPTH = 8
 
+    # Loads every descendant of the roots breadth-first, one query per level.
+    # Returns a hash of parent node_id => children.
+    def self.children_index(roots)
+      index = Hash.new { |hash, key| hash[key] = [] }
+      visited = roots.map(&:node_id).to_set
+      frontier = visited.to_a
+
+      MAX_DEPTH.times do
+        break if frontier.empty?
+        level = where(parent_node_id: frontier).to_a
+        frontier = []
+        level.each do |child|
+          index[child.parent_node_id] << child
+          frontier << child.node_id if visited.add?(child.node_id)
+        end
+      end
+      index
+    end
+
+    def self.descendants_in(index, root)
+      visited = Set[root.node_id]
+      frontier = [ root ]
+      found = []
+      MAX_DEPTH.times do
+        frontier = frontier.flat_map { |issue| index.fetch(issue.node_id, []) }
+          .select { |child| visited.add?(child.node_id) }
+        found.concat(frontier)
+      end
+      found
+    end
+
     def descendants
       visited = Set[node_id]
       frontier = [ node_id ]

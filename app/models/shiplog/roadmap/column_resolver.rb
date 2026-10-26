@@ -35,15 +35,7 @@ module Shiplog
         def descendants
           return @issue.descendants unless @children_index
 
-          visited = Set[@issue.node_id]
-          frontier = [ @issue ]
-          found = []
-          Issue::MAX_DEPTH.times do
-            frontier = frontier.flat_map { |issue| @children_index.fetch(issue.node_id, []) }
-              .select { |child| visited.add?(child.node_id) }
-            found.concat(frontier)
-          end
-          found
+          Issue.descendants_in(@children_index, @issue)
         end
 
         def coming_soon?
