@@ -11,4 +11,8 @@ Rails.application.routes.draw do
 
   mount Shiplog::Engine => "/"
   mount Shiplog::Admin::Engine => "/admin/shiplog"
+
+  # A host route below the changelog path, declared after the mount: the engine's permalink route would shadow it
+  # without the cascade for unknown slugs.
+  get "changelog/archive", to: "pages#news", as: :changelog_archive
 end
