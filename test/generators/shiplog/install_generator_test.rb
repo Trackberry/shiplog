@@ -22,6 +22,20 @@ class Shiplog::Generators::InstallGeneratorTest < Rails::Generators::TestCase
     end
   end
 
+  test "the initializer shows the 0.2.0 settings as commented examples" do
+    run_generator_without_rake
+
+    assert_file "config/initializers/shiplog.rb" do |content|
+      assert_match(/^  # config\.extra_pages = \[ \{ label: "News", path: /, content)
+      assert_match(/^  # config\.repository_labels = \{ "acme\/app-ios" => "iPhone & iPad" \}$/, content)
+      assert_match(/^  # config\.roadmap_shipped_count = 4$/, content)
+      assert_match(/^  # config\.feedback_path = /, content)
+      assert_match(/^  #   \{ name: "acme\/pricing", changelog: false, gem: "acme-pricing" \}$/, content)
+      assert_match(/^  # config\.lockfile_path = "Gemfile\.lock"$/, content)
+      assert_includes content, "shiplog.roadmap.footnote"
+    end
+  end
+
   test "the initializer explains the hosted admin chrome" do
     run_generator_without_rake
 

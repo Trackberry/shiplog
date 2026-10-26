@@ -20,5 +20,9 @@ class CreateShiplogPullRequestUpgrades < ActiveRecord::Migration[8.1]
       t.timestamps
       t.index [ :pull_request_id, :gem_name ], unique: true
     end
+
+    # The changelog and the roadmap's recently shipped list read approved entries newest release first:
+    # `status = 'approved' ... ORDER BY released_on DESC`. Equality column first, then the sort column.
+    add_index :shiplog_entries, [ :status, :released_on ]
   end
 end

@@ -146,7 +146,7 @@ config.repositories = [
 | `changelog` | `true` | `false` makes the repository roadmap-only: its issues still feed the roadmap, but its pull requests and commits never become changelog entries. |
 | `gem` | `nil` | The gem's name in your `Gemfile.lock`, for [gem upgrades](#gem-upgrades). |
 
-Unknown options and invalid values raise `ArgumentError` when you assign `repositories`.
+Unknown options and invalid values raise `ArgumentError` when you assign `repositories`, and so does a name that is not `owner/name` (letters, digits, `.`, `_` and `-`). A repository with both `gem:` and `changelog: true` is accepted, but a warning is logged: its changes would be drafted twice, from its own pull requests and from the upgrade. Set `changelog: false`.
 
 `gem:` must be set explicitly because gem names and repository names differ (`acme-produce` lives in `acme/produce`), and a public gem can share a name with one of your repositories without being it: the `holidays` gem from RubyGems is not `acme/holidays`. Matching on names would attach someone else's changes to your changelog, so only gems listed with `gem:` are tracked.
 
@@ -158,14 +158,16 @@ A change made in a gem you depend on should appear in the changelog once, when y
 
 For each merged pull request in a repository with `changelog: true` that changes the lockfile:
 
-1. Shiplog reads the lockfile at the pull request's base and at its merge commit, and compares the tracked gems with `Bundler::LockfileParser`.
-2. For a gem whose version changed it resolves the tag in the gem's repository (`v<version>`, then `<version>`). For a git source it uses the locked revision.
+1. Shiplog reads the lockfile at the merge commit's first parent and at the merge commit itself, and compares the tracked gems with `Bundler::LockfileParser`.
+2. For a gem whose version changed it resolves the tag in the gem's repository (`v<version>`, then `<version>`). For a git source it uses the locked revision. Shiplog then compares the two refs.
 3. It lists the pull requests merged between the two refs (GitHub's compare API, then the pull requests associated with those commits, at most 50) and stores them with the upgrade.
 4. The pull request gets one change draft, dated at its merge. The gem's changes (up to 20 titles with excerpts) go into the rewrite prompt, and the rewriter writes one customer-facing entry, or marks it not customer-facing.
 
-A Dependabot bump, or a `chore(deps):` pull request, is drafted when it carries an upgrade with changes; without one it is skipped as usual. If a tag cannot be found, or the gem's repository is not readable by the token, the upgrade is recorded without changes and a warning is logged; the rewriter then works from the pull request alone.
+A Dependabot bump, a `chore(deps):` title or the `dependencies` label does not exclude a pull request that carries an upgrade with changes; without one it is skipped as usual. Other excluded labels (such as `internal`) still exclude it. If a tag cannot be found, or the gem's repository is not readable by the token, the upgrade is recorded without changes and a warning is logged; the rewriter then works from the pull request alone.
 
-The GitHub token needs read access to the gem repositories as well (**Contents** and **Pull requests**). Detection is capped per sync (50 pull requests), so the first backfill of a large repository finishes over several syncs.
+The GitHub token needs read access to the gem repositories as well (**Contents** and **Pull requests**). Detection is capped per sync (50 pull requests), so a large repository's first sync finishes over several syncs.
+
+Only pull requests synced by 0.2.0 or later are inspected: merges imported earlier are not backfilled, and their gem changes are not turned into entries.
 
 ## GitHub token
 
@@ -274,7 +276,7 @@ Drafts whose rewrite job was lost (no result and no error after an hour) are que
 
 ## Product updates navigation
 
-The default page header shows a switcher under the lede: **Roadmap**, **Changelog**, then `config.extra_pages`. The current page carries `aria-current="page"` (an extra page is current when the request path is, or is below, its path). Add your own pages, for example a news section:
+The default page header shows a switcher under the lede: **Roadmap**, **Changelog**, then `config.extra_pages`. The current page carries `aria-current="page"`: of the pages whose path equals or contains the request path, the one with the longest path is current. Add your own pages, for example a news section:
 
 ```ruby
 config.extra_pages = [
@@ -295,6 +297,8 @@ end
 ```erb
 <%= shiplog_switcher %>
 ```
+
+A `path` String must start with `/` (not `//`), `http://`, `https://` or `mailto:`; anything else, such as `"news"`, raises `ArgumentError` when you assign `extra_pages`. A callable that returns another scheme renders the label as text, without a link, and logs a warning. `feedback_path` follows the same rule at render time: an unsafe value shows no link.
 
 Labels come from `shiplog.switcher.roadmap`, `.changelog` and `.label` (the `nav` label). Style it with the `switcher` and `switcher_link` keys of [`config.classes`](#3-configclasses-tailwind-and-other-utility-frameworks); the current link also has `shiplog-switcher__link--current`. Hosts that override `shiplog/_page_header` keep their own header; render `shiplog_switcher` or the `shiplog/switcher` partial in it to get the links.
 

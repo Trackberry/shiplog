@@ -128,4 +128,10 @@ class Shiplog::EntryTest < ActiveSupport::TestCase
     assert_not entry.update(changelog_kind: "feature")
     assert entry.errors.of_kind?(:changelog_kind, :taken)
   end
+
+  test "approved entries are indexed by status then released_on for the changelog and recently shipped queries" do
+    indexes = Shiplog::Entry.connection.indexes(:shiplog_entries).map(&:columns)
+
+    assert_includes indexes, %w[status released_on]
+  end
 end

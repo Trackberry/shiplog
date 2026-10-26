@@ -43,6 +43,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_27_000001) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["status"], name: "index_shiplog_entries_on_status"
+    t.index ["status", "released_on"], name: "index_shiplog_entries_on_status_and_released_on"
     t.index ["subject_type", "subject_id", "kind"], name: "index_shiplog_entries_on_subject_type_and_subject_id_and_kind", unique: true
   end
 
