@@ -8,6 +8,7 @@
     <% if content_for?(:shiplog_description) %><meta name="description" content="<%= content_for(:shiplog_description) %>"><% end %>
     <%= content_for(:shiplog_og) %>
     <%= content_for(:shiplog_feed) %>
+    <%= content_for(:shiplog_structured_data) %>
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
   </head>

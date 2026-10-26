@@ -116,6 +116,7 @@ All settings live in `config/initializers/shiplog.rb`:
 | `cache_version` | `nil` | A String added to the public pages' ETag. Callables (`extra_pages`, `repository_labels`, `feedback_path`) cannot be fingerprinted, so bump it when the output of a callable you configured changes. |
 | `feedback_path` | `nil` | Target of the roadmap's "Suggest a feature" link, a String or a callable evaluated in the view. No link while `nil`. |
 | `changelog_search` | `true` | Search box on the public changelog and `?q=` filtering. `false` hides the form and ignores `q`. See [Changelog search](#changelog-search). |
+| `structured_data` | `true` | schema.org JSON-LD on the public pages (`content_for :shiplog_structured_data`). `false` emits none. See [Structured data](#structured-data). Part of the ETag. |
 | `on_changelog_seen` | `nil` | `->(controller) { ... }` called before each changelog index or permalink view renders (also for a 304 revisit), to stamp a visitor's "last seen" time. See [What's new](#whats-new-the-unseen-count). Anything but `nil` or a callable raises `ArgumentError`. |
 | `images` | `true` | [Screenshots](#screenshots) in entries. Effective only when Active Storage is loaded in the host; `false` turns fetching, upload and rendering off. `true` or `false`, anything else raises `ArgumentError`. |
 | `max_images_per_entry` | `4` | How many images are fetched from the GitHub body of a draft. A non-negative Integer; `0` fetches none (admin uploads are not capped). |
@@ -399,10 +400,26 @@ Every approved feature and change has its own page at `GET /changelog/:slug` (un
 <%= tag.meta name: "description", content: content_for(:shiplog_description) if content_for?(:shiplog_description) %>
 <%= content_for(:shiplog_og) %>
 <%= content_for(:shiplog_feed) %>
+<%= content_for(:shiplog_structured_data) %>
 ```
 
 - **Styling:** the `permalink` (the `article`), `permalink_back`, `permalink_nav` and `permalink_nav_link` keys of [`config.classes`](#3-configclasses-tailwind-and-other-utility-frameworks). Override `shiplog/changelogs/_entry_content.html.erb` (locals `entry:`, `heading:`, `linked:`) to change what an entry shows in both the list and the permalink page.
 - **Texts:** `shiplog.permalink.title`, `.back`, `.nav_label`, `.newer` and `.older` (with `title`); all have English defaults.
+
+## Structured data
+
+The public pages describe themselves to search engines with schema.org JSON-LD: one `<script type="application/ld+json">` per page, set through `content_for :shiplog_structured_data`. Shiplog's own layout renders it. A host layout (`config.public_layout`) controls its own `<head>`, so render it there next to `:shiplog_og`:
+
+```erb
+<%= content_for(:shiplog_og) %>
+<%= content_for(:shiplog_structured_data) %>
+```
+
+- **Permalink page:** an `Article` with `headline` (the title, at most 110 characters), `description` (the meta description), `inLanguage` (`I18n.locale`, e.g. `en`, `es`), `datePublished` (the release date), `dateModified`, `url` and `mainEntityOfPage` (the permalink, honouring `config.canonical_url`), `image` (absolute URLs of the screenshots, left out without any), `articleSection` (the area's name, when it has one), `publisher` (an `Organization` named `config.product_name`, left out while it is `nil`) and `isPartOf` (the changelog's `CollectionPage`). Titles and bodies follow the request locale, translations included.
+- **Changelog list:** a `CollectionPage` whose `mainEntity` is an `ItemList` of the entries on the current page (`position` counted on the page, `url`, `name`). Entries without a valid slug are skipped. Search results (they are `noindex`) and an empty list have none.
+- **Roadmap:** a `CollectionPage` with an `ItemList` of the cards (`position` and `name`; roadmap cards have no permalink, so no `url`).
+- **Safety:** the JSON is built from a Ruby Hash and `<`, `>` and `&` are written as `\u003c`, `\u003e` and `\u0026`, so a title containing `</script>` cannot close the tag.
+- **Off:** `config.structured_data = false` emits none. It is part of the ETag.
 
 ## Atom feed
 

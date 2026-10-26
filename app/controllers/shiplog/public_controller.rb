@@ -9,6 +9,7 @@ module Shiplog
     helper Shiplog::RoadmapHelper
     helper Shiplog::HostRoutesHelper
     helper Shiplog::PermalinkHelper
+    helper Shiplog::StructuredDataHelper
     layout -> { Shiplog.config.public_layout }
 
     private

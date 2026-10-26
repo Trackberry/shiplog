@@ -40,9 +40,10 @@ module Shiplog
     # The id of a month's section on the changelog list.
     def shiplog_month_anchor(date) = "shiplog-month-#{date.strftime("%Y-%m")}"
 
-    # The body, on one line and cut for a meta description. Plain text: tag helpers escape it.
-    def shiplog_entry_description(entry)
-      truncate(entry.display_body.to_s.squish, length: DESCRIPTION_LENGTH, separator: " ")
+    # The body, on one line and cut for a meta description. Plain text: tag helpers escape it. `escape: false`
+    # keeps the cut text raw (not HTML-escaped) for JSON, which escapes it its own way.
+    def shiplog_entry_description(entry, escape: true)
+      truncate(entry.display_body.to_s.squish, length: DESCRIPTION_LENGTH, separator: " ", escape:)
     end
 
     # The Open Graph meta tags of a permalink page, for `content_for :shiplog_og`.

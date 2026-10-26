@@ -24,6 +24,7 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
     assert_equal({}, config.repository_labels)
     assert_equal 4, config.roadmap_shipped_count
     assert_equal true, config.changelog_search
+    assert_equal true, config.structured_data
     assert_nil config.feedback_path
     assert_equal 8, config.max_areas
   end
@@ -260,7 +261,7 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
     base = digest_config.render_digest
     [ { classes: { card: "other" } }, { stylesheet: false }, { roadmap_shipped_count: 2 }, { feedback_path: "/other" },
       { repository_labels: { "Acme/ios" => "iOS" } }, { extra_pages: [ { label: "News", path: "/n" } ] },
-      { cache_version: "2" }, { changelog_search: false }, { product_name: "Acme" },
+      { cache_version: "2" }, { changelog_search: false }, { structured_data: false }, { product_name: "Acme" },
       { canonical_url: "https://trackberry.com" } ].each do |change|
       assert_not_equal base, digest_config(**change).render_digest, "expected #{change.inspect} to change the digest"
     end

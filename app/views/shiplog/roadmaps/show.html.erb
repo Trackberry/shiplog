@@ -1,4 +1,5 @@
 <% content_for :title, t("shiplog.roadmap.title", default: "Roadmap") %>
+<% content_for :shiplog_structured_data, shiplog_roadmap_json_ld(@columns.values.flatten.map(&:entry), name: t("shiplog.roadmap.title", default: "Roadmap"), url: shiplog_absolute_url(:roadmap)) %>
 <%= render layout: "shiplog/page", locals: { name: "roadmap" } do %>
   <%= render "shiplog/page_header", title: t("shiplog.roadmap.title", default: "Roadmap"), lede: t("shiplog.roadmap.lede", default: "What we're working on and what comes next.") %>
   <div class="<%= shiplog_class(:columns) %>">

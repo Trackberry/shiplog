@@ -122,6 +122,10 @@ Shiplog.configure do |config|
   # The public changelog's search box and ?q= filtering. Set to false to turn search off.
   # config.changelog_search = true
 
+  # schema.org structured data (JSON-LD) on the public pages: an Article on each permalink, a CollectionPage on
+  # the changelog and the roadmap. Set to false to turn it off.
+  # config.structured_data = true
+
   # "What's new". Shiplog doesn't know your users, so you supply the "last seen" time. This is called with the
   # controller on every changelog index or permalink view, BEFORE the page renders (a 304 revisit included), so a
   # navbar badge in the same response is current. It may write and runs on every visit: keep it cheap, and write
