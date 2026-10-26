@@ -191,7 +191,12 @@ module Shiplog
     # What public pages show: the translation for the request's locale when there is a current one, else English.
     def display_title(locale = I18n.locale) = translation(locale)&.title || title
 
-    def display_body(locale = I18n.locale) = translation(locale)&.body || body
+    # The translated body, or the English one when the translation's body is blank and the English one is not
+    # (a blank body is never published in place of text).
+    def display_body(locale = I18n.locale)
+      translated = translation(locale)&.body
+      translated.blank? && body.present? ? body : (translated || body)
+    end
 
     def source_changed?
       source_digest.present? && source_digest != self.class.digest_for(subject)

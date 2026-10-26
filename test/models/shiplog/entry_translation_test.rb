@@ -80,10 +80,10 @@ class Shiplog::EntryTranslationTest < ActiveSupport::TestCase
     end
   end
 
-  test "an empty translated body shows as empty, not as the English one" do
+  test "an empty translated body shows the English one" do
     translate!(@entry, body: "")
 
-    I18n.with_locale(:es) { assert_equal "", @entry.display_body }
+    I18n.with_locale(:es) { assert_equal @entry.body, @entry.display_body }
   end
 
   test "translations are preloaded for the current locale only" do
@@ -153,5 +153,18 @@ class Shiplog::EntryTranslationTest < ActiveSupport::TestCase
       shiplog_entries(:csv_change_draft).approve!(by: "ed@example.com")
       @entry.update!(title: "Changed")
     end
+  end
+
+  test "display_body falls back to the English body when the translation's body is blank" do
+    translate!(@entry, body: "")
+    assert_equal @entry.body, @entry.display_body(:es)
+    assert_equal @entry.body, @entry.reload.display_body(:es)
+    assert_equal "Modo oscuro", @entry.display_title(:es)
+  end
+
+  test "display_body is blank when both bodies are blank" do
+    @entry.update_columns(body: nil)
+    translate!(@entry, body: "")
+    assert_empty @entry.reload.display_body(:es).to_s
   end
 end

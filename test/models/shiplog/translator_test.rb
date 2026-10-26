@@ -109,7 +109,17 @@ class Shiplog::TranslatorTest < ActiveSupport::TestCase
     assert_raises(Shiplog::Translator::InvalidReply) { translate }
   end
 
-  test "a missing body becomes an empty one" do
+  test "a nil, missing or blank body is an invalid reply while the English body is present" do
+    [ '{"title":"Modo oscuro"}', '{"title":"Modo oscuro","body":null}', '{"title":"Modo oscuro","body":""}', '{"title":"Modo oscuro","body":"  \n "}' ].each do |reply|
+      @reply = reply
+
+      assert_raises(Shiplog::Translator::InvalidReply, reply) { translate }
+    end
+    assert_equal 0, @entry.translations.count
+  end
+
+  test "a missing body is kept empty when the English body is blank" do
+    @entry.update_columns(body: nil)
     @reply = '{"title":"Modo oscuro"}'
 
     assert_equal "", translate.body

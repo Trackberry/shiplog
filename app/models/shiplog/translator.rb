@@ -30,7 +30,8 @@ module Shiplog
 
     # Returns the stored translation, or nil when nothing was written: the entry is not approved, the locale is not
     # configured, there is no rewriter, or the translation is current already. Raises InvalidReply (or whatever
-    # the rewriter raises) when the reply is unusable; the job retries.
+    # the rewriter raises) when the reply is unusable, which includes a blank body for an entry that has one;
+    # the job retries.
     def call(force: false)
       return unless Entry.translated_locale?(@locale) && Shiplog.config.rewriter && @entry.approved?
 
@@ -61,7 +62,10 @@ module Shiplog
         title = Rewriter.sanitize(title).squish.truncate(Rewriter::MAX_TITLE_CHARS, separator: " ", omission: "…")
         return if title.blank?
 
-        { title:, body: limit_body(Rewriter.sanitize(body.to_s).strip) }
+        body = limit_body(Rewriter.sanitize(body.to_s).strip)
+        return if body.blank? && @entry.body.present? # a blank body would be published in place of the English text
+
+        { title:, body: }
       end
 
       def limit_body(body)
