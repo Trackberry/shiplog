@@ -46,8 +46,9 @@ module Shiplog
     # current), on every visit, and may write: keep it cheap, e.g. write only when the stored time is older than
     # the newest entry. Nil by default. Not part of the ETag: it doesn't change the markup.
     attr_reader :on_changelog_seen
-    # Bump it when the output of a callable you configured changes (extra_pages, repository_labels, feedback_path):
-    # callables cannot be part of the ETag, so this is how cached public pages learn about it.
+    # Bump it when the output of a callable you configured changes (extra_pages, repository_labels, feedback_path,
+    # og_image): callables cannot be part of the ETag, so this is how cached public pages learn about it. Also
+    # bump it after changing the layout's head or a shiplog/head/* partial: ETags don't cover layouts.
     attr_accessor :cache_version
     attr_reader :extra_pages, :repository_labels, :roadmap_shipped_count
     # How many product areas the AI may create (default 8). Past it, entries can only join existing areas.
