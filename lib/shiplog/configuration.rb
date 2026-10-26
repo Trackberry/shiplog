@@ -49,8 +49,6 @@ module Shiplog
     # Screenshots in entries. `images` (default true) is effective only when Active Storage is loaded in the host
     # (see Shiplog.images?). `max_images_per_entry` (default 4) caps the images fetched from GitHub per entry.
     attr_reader :images, :max_images_per_entry
-    # Locales entries are translated into when approved, e.g. [:es] (default none). The default locale is never
-    # in the list: it is the language entries are written in. See Shiplog::Translator.
     LOCALE_FORMAT = /\A[A-Za-z][A-Za-z0-9_-]*\z/
 
     EXTRA_PAGE_KEYS = %i[label path].freeze
@@ -133,10 +131,12 @@ module Shiplog
       @max_images_per_entry = value
     end
 
-    # The locales to translate into, as symbols and without the default locale (I18n.default_locale, read each
-    # time so an initializer that sets it later still counts).
+    # Locales entries are translated into when approved, e.g. [:es] (default none), as symbols and without the
+    # default locale (I18n.default_locale, read each time so an initializer that sets it later still counts): it
+    # is the language entries are written in. See Shiplog::Translator.
     def locales = @locales - [ I18n.default_locale.to_sym ]
 
+    # Sets the locales to translate into: an Array of locale Symbols or Strings (see #locales).
     def locales=(value)
       unless value.is_a?(Array) && value.all? { |item| (item.is_a?(Symbol) || item.is_a?(String)) && LOCALE_FORMAT.match?(item.to_s) }
         raise ArgumentError, "locales must be an Array of locale Symbols or Strings like [:es, \"pt-BR\"], got #{value.inspect}"

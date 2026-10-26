@@ -244,6 +244,8 @@ You can also trigger a sync from the admin Sync page. Rewriting always runs in `
 
 Shiplog extracts the first valid JSON object from the reply, so models that wrap it in prose or code fences still work. `customer_facing: false` means the model thinks the change is irrelevant for customers; such small changes are stored as discarded and can be restored by an admin. If no rewriter is configured, the reply can't be parsed or the call raises, the entry keeps the original GitHub text and the error is shown in the admin, where you can edit the text or regenerate.
 
+The same callable also receives the translation and area-detection prompts, whose replies are other JSON shapes (`{"title", "body"}` for a translation, `{"areas": [...]}` or `{"assignments": [...]}` for areas). It must handle free-form prompts: pass the prompt to your model as is, and return its text reply, without assuming the rewrite schema above.
+
 With [RubyLLM](https://rubyllm.com):
 
 ```ruby

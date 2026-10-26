@@ -150,7 +150,7 @@ es:
           moved: Imagen movida.
         translations:
           title: Traducciones
-          help: "Al aprobar una entrada se traduce automáticamente, y la traducción se publica junto con el texto en inglés. Una traducción que edites se conserva hasta que cambie el texto en inglés; entonces se vuelve a traducir. Una traducción desactualizada o ausente no se muestra: los visitantes ven el texto en inglés."
+          help: "Al aprobar una entrada, esta se traduce automáticamente, y la traducción se publica junto con el texto en inglés. Una traducción que edites se conserva hasta que cambie el texto en inglés; entonces se vuelve a traducir. Una traducción desactualizada o ausente no se muestra: los visitantes ven el texto en inglés."
           not_approved: Las traducciones se escriben cuando se aprueba la entrada.
           missing: Falta
           stale: Desactualizada
@@ -160,7 +160,7 @@ es:
           saved: Traducción guardada.
           queued: Traducción en cola. Actualiza en un momento.
           only_approved: Solo se traducen las entradas aprobadas.
-          no_rewriter: Traducir necesita config.rewriter, que no está configurado.
+          no_rewriter: Para traducir hace falta config.rewriter, que no está configurado.
         category_options:
           feature: Nueva función
           change: Mejora
@@ -192,7 +192,7 @@ es:
         pinned: Fijada
         move_to: Mover a
         move: Mover
-        unpin: Desfijar
+        unpin: Quitar de fijadas
       sync:
         title: Estado de la sincronización
         queued: Sincronización en cola.
