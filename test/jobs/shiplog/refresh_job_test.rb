@@ -118,6 +118,16 @@ class Shiplog::RefreshJobTest < ActiveJob::TestCase
     assert_equal "open", issue.reload.state
   end
 
+  test "refreshes repositories configured as Hashes" do
+    Shiplog.config.repositories = [ { name: "Acme/widgets", changelog: false } ]
+    stub = stub_request(:post, URL).to_return(body: github_fixture("issue_single"))
+
+    Shiplog::RefreshJob.perform_now("acme/widgets", "issue", 12)
+
+    assert_requested stub
+    assert_equal "Acme/widgets", Shiplog::Issue.find_by!(node_id: "I_kwDOSync001").repository.full_name
+  end
+
   test "ignores repositories that are not configured" do
     assert_no_difference -> { Shiplog::Repository.count } do
       Shiplog::RefreshJob.perform_now("Other/repo", "issue", 1)

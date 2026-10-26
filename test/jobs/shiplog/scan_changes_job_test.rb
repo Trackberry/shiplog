@@ -55,6 +55,21 @@ class Shiplog::ScanChangesJobTest < ActiveJob::TestCase
     assert_not repository.commits.find_by!(sha: "c" * 40).entries.exists?
   end
 
+  test "a changelog: false repository is synced but never drafts changes" do
+    Shiplog.config.repositories = [ { name: "Acme/widgets", changelog: false } ]
+    repository = Shiplog::Repository.create!(full_name: "Acme/widgets", changes_scanned_at: Time.utc(2026, 10, 1))
+    repository.pull_requests.create!(node_id: "PR_x", number: 5, title: "Add thing", state: "merged", merged_at: Time.utc(2026, 10, 15, 9),
+      author_login: "ed", labels: [], github_updated_at: Time.utc(2026, 10, 15))
+
+    assert_no_difference -> { Shiplog::Entry.change.count } do
+      Shiplog::ScanChangesJob.perform_now
+    end
+
+    assert_not_requested(:post, GRAPHQL) { |req| commit_requests.call(req) }
+    assert_requested(:post, GRAPHQL) { |req| JSON.parse(req.body)["query"].include?("issues(first") }
+    assert_equal Time.utc(2026, 10, 26, 12), repository.reload.changes_scanned_at
+  end
+
   test "is idempotent" do
     Shiplog::Repository.create!(full_name: "Acme/widgets", changes_scanned_at: Time.utc(2026, 10, 1))
     Shiplog::ScanChangesJob.perform_now
@@ -64,7 +79,7 @@ class Shiplog::ScanChangesJobTest < ActiveJob::TestCase
     Rails.error.subscribe(@subscriber)
 
     travel_to Time.utc(2026, 10, 27, 12)
-    assert_no_difference -> { Shiplog::Entry.count } do
+    assert_no_difference -> { Shiplog::Entry.change.count } do
       Shiplog::ScanChangesJob.perform_now
     end
 

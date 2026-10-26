@@ -21,6 +21,13 @@ class Shiplog::Admin::SyncsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "lists repositories configured as Hashes" do
+    Shiplog.config.repositories = [ "Trackberry/trackberry", { name: "Trackberry/market_data", changelog: false, gem: "market_data" } ]
+    get "/admin/shiplog/sync"
+    assert_select "tr.shiplog-repository-row", 2
+    assert_select "tr.shiplog-repository-row", text: /Trackberry\/market_data/
+  end
+
   test "lists the 20 most recent webhook deliveries" do
     25.times do |i|
       Shiplog::WebhookDelivery.create!(delivery_id: "d-#{i}", event: "issues", action: "edited", repository_full_name: "Trackberry/trackberry",

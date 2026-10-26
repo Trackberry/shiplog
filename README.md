@@ -82,7 +82,8 @@ All settings live in `config/initializers/shiplog.rb`:
 
 | Key | Default | Description |
 |---|---|---|
-| `repositories` | `[]` | GitHub repositories to sync, as `"owner/name"`. Sub-issues may cross repositories of the same owner. |
+| `repositories` | `[]` | GitHub repositories to sync, as `"owner/name"` or a Hash with options. Sub-issues may cross repositories of the same owner. See [Repositories](#repositories). |
+| `lockfile_path` | `"Gemfile.lock"` | Lockfile read in merged pull requests to detect [gem upgrades](#gem-upgrades). Change it for a monorepo. |
 | `github_token` | `nil` | A String, or a callable evaluated on every GitHub request. |
 | `webhook_secret` | `nil` | Secret of the GitHub webhook. While blank, the webhook endpoint answers 503. |
 | `public_label` | `"public"` | Only issues with this label reach the roadmap. |
@@ -120,6 +121,46 @@ Shiplog.configure do |config|
   config.rewriter       = ->(prompt) { RubyLLM.chat.ask(prompt).content }
 end
 ```
+
+## Repositories
+
+Each entry of `config.repositories` is a String (`"owner/name"`) or a Hash:
+
+```ruby
+config.repositories = [
+  "acme/app",
+  "acme/app-ios",
+  { name: "acme/market_data", changelog: false, gem: "market_data" },
+  { name: "acme/produce", changelog: false, gem: "acme-produce" }
+]
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `name` | required | `"owner/name"`. |
+| `changelog` | `true` | `false` makes the repository roadmap-only: its issues still feed the roadmap, but its pull requests and commits never become changelog entries. |
+| `gem` | `nil` | The gem's name in your `Gemfile.lock`, for [gem upgrades](#gem-upgrades). |
+
+Unknown options and invalid values raise `ArgumentError` when you assign `repositories`.
+
+`gem:` must be set explicitly because gem names and repository names differ (`acme-produce` lives in `acme/produce`), and a public gem can share a name with one of your repositories without being it: the `holidays` gem from RubyGems is not `acme/holidays`. Matching on names would attach someone else's changes to your changelog, so only gems listed with `gem:` are tracked.
+
+`config.lockfile_path` (default `"Gemfile.lock"`) is the lockfile Shiplog reads in the repositories where `changelog` is true.
+
+## Gem upgrades
+
+A change made in a gem you depend on should appear in the changelog once, when your customers get it: the day your app upgraded the gem. Shiplog does this with the repositories you listed with `gem:`.
+
+For each merged pull request in a repository with `changelog: true` that changes the lockfile:
+
+1. Shiplog reads the lockfile at the pull request's base and at its merge commit, and compares the tracked gems with `Bundler::LockfileParser`.
+2. For a gem whose version changed it resolves the tag in the gem's repository (`v<version>`, then `<version>`). For a git source it uses the locked revision.
+3. It lists the pull requests merged between the two refs (GitHub's compare API, then the pull requests associated with those commits, at most 50) and stores them with the upgrade.
+4. The pull request gets one change draft, dated at its merge. The gem's changes (up to 20 titles with excerpts) go into the rewrite prompt, and the rewriter writes one customer-facing entry, or marks it not customer-facing.
+
+A Dependabot bump, or a `chore(deps):` pull request, is drafted when it carries an upgrade with changes; without one it is skipped as usual. If a tag cannot be found, or the gem's repository is not readable by the token, the upgrade is recorded without changes and a warning is logged; the rewriter then works from the pull request alone.
+
+The GitHub token needs read access to the gem repositories as well (**Contents** and **Pull requests**). Detection is capped per sync (50 pull requests), so the first backfill of a large repository finishes over several syncs.
 
 ## GitHub token
 

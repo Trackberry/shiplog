@@ -2,6 +2,21 @@ Shiplog.configure do |config|
   # GitHub repositories to sync ("owner/name"). Sub-issues may cross repositories of the same owner.
   config.repositories = %w[acme/app acme/app-ios]
 
+  # A repository can also be a Hash with options:
+  #   changelog: false  keep the repository on the roadmap, but never draft changelog entries from its PRs or commits
+  #   gem: "name"       the gem's name in your Gemfile.lock. When a merged PR upgrades it, the changelog gets one
+  #                     entry for the upgrade, built from the gem's changes. Needed because names differ
+  #                     (a "trackberry-produce" gem can live in acme/produce) and a public gem of the same name
+  #                     is not your repository.
+  # config.repositories = [
+  #   "acme/app",
+  #   { name: "acme/app-ios" },
+  #   { name: "acme/pricing", changelog: false, gem: "acme-pricing" }
+  # ]
+
+  # Lockfile read in merged pull requests to detect gem upgrades (change it for a monorepo).
+  # config.lockfile_path = "Gemfile.lock"
+
   # A String, or a callable evaluated on every GitHub request (e.g. to mint a GitHub App installation token).
   config.github_token = -> { Rails.application.credentials.dig(:github, :shiplog_token) }
 

@@ -4,7 +4,7 @@ module Shiplog
 
     def perform
       client = Github::Client.new
-      Shiplog.config.repositories.each do |full_name|
+      Shiplog.config.repository_names.each do |full_name|
         scan(Repository.find_or_create_by!(full_name:), client)
       end
       Drafter.call
@@ -16,8 +16,10 @@ module Shiplog
         started_at = Time.current
         # Import late-synced PRs first so anything merged before `started_at` is visible to the scan.
         Sync::RepositorySync.new(repository, client:).call
-        Sync::CommitScanner.new(repository, client:).call(since:)
-        draft_changes(ChangeCandidates.new(repository:, since:, before: started_at).to_a)
+        if Shiplog.config.changelog_repository?(repository.full_name)
+          Sync::CommitScanner.new(repository, client:).call(since:)
+          draft_changes(ChangeCandidates.new(repository:, since:, before: started_at).to_a)
+        end
         repository.update!(changes_scanned_at: started_at)
       rescue Github::RateLimited
         raise

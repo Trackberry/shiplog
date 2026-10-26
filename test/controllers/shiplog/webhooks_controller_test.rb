@@ -35,6 +35,13 @@ class Shiplog::WebhooksControllerTest < ActionDispatch::IntegrationTest
     assert_nil delivery.error
   end
 
+  test "accepts repositories configured as Hashes" do
+    Shiplog.config.repositories = [ { name: "o/r", changelog: false, gem: "r" } ]
+    deliver "issues", { action: "opened", issue: { number: 7 }, repository: { full_name: "O/R" } }
+
+    assert_equal [ [ "o/r", "issue", 7 ] ], enqueued_refreshes
+  end
+
   test "deleted and transferred issue actions enqueue a refresh of the old repo and number" do
     %w[deleted transferred].each do |action|
       deliver "issues", { action:, issue: { number: 7 }, repository: { full_name: "o/r" } }

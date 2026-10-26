@@ -27,6 +27,16 @@ class Shiplog::SyncJobTest < ActiveJob::TestCase
     Shiplog::Drafter.define_singleton_method(:call, original)
   end
 
+  test "syncs repositories given as Hashes, including roadmap-only ones" do
+    Shiplog.config.repositories = [ "Acme/widgets", { name: "Acme/gadgets", changelog: false, gem: "gadgets" } ]
+    stub_repo("widgets")
+    stub_repo("gadgets", issues: github_fixture("issues_page_2"))
+
+    Shiplog::SyncJob.perform_now
+
+    assert_equal 1, Shiplog::Repository.find_by!(full_name: "Acme/gadgets").issues.count
+  end
+
   test "creates repositories, syncs each and then calls the drafter" do
     stub_repo("widgets", issues: github_fixture("issues_page_2"))
     stub_repo("gadgets")
