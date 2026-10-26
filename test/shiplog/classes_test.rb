@@ -11,6 +11,7 @@ class Shiplog::ClassesTest < ActiveSupport::TestCase
     months month month_title
     entries entry entry_feature entry_category entry_title entry_body entry_date
     pagination pagination_link empty
+    search search_input search_button search_summary search_clear search_empty
   ].freeze
 
   test "KEYS is the frozen public list" do

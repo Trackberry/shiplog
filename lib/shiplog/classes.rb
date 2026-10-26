@@ -43,7 +43,13 @@ module Shiplog
       entry_date: "shiplog-entry__date",
       pagination: "shiplog-pagination",
       pagination_link: "shiplog-pagination__link",
-      empty: "shiplog-empty"
+      empty: "shiplog-empty",
+      search: "shiplog-search",
+      search_input: "shiplog-search__input",
+      search_button: "shiplog-search__button",
+      search_summary: "shiplog-search__summary",
+      search_clear: "shiplog-search__clear",
+      search_empty: "shiplog-search__empty"
     }.freeze
 
     KEYS = BEM.keys.freeze

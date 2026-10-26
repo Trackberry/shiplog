@@ -10,6 +10,7 @@
 - Per-repository options in `config.repositories`: `{ name:, changelog: false, gem: }`. `changelog: false` keeps a repository on the roadmap only. `gem:` names the gem in your lockfile so that upgrading it produces a single changelog entry, written from the gem's own merged pull requests, instead of one entry per repository. `config.lockfile_path` changes the lockfile that is read.
 - A Dependabot author, a `chore(deps)` title or the `dependencies` label no longer excludes a pull request that carries gem changes; other excluded labels, such as `internal`, still do.
 - `config.cache_version`, to refresh cached public pages when the output of a configured callable changes.
+- Search on the public changelog: a GET form (`/changelog?q=csv`) that lists approved features and changes whose title or body contain every word of the query, with a result count, a "Clear search" link and pagination that keeps `q`. Turn it off with `config.changelog_search = false`; override `shiplog/changelogs/_search.html.erb` to change it. New `config.classes` keys: `search`, `search_input`, `search_button`, `search_summary`, `search_clear`, `search_empty`. Search pages set `content_for :shiplog_robots, "noindex"` (emitted as a robots meta tag by Shiplog's own layout; add it to your layout, see the README).
 - A Discard button on draft rows of the admin inbox, next to Edit and Approve. It updates the list in place; give a reason from the entry's page.
 
 ### Changed
@@ -29,7 +30,7 @@
 ### Upgrade notes
 
 - Copy and run the new migration: `bin/rails shiplog:install:migrations`, then `bin/rails db:migrate`. Run it before the job workers start on the new code, because the importer writes the new columns.
-- New I18n keys, all with English defaults, so a locale without translations shows English: `shiplog.switcher.label`, `.roadmap`, `.changelog`; `shiplog.roadmap.parts` (with `count`), `.shipped_heading`, `.shipped_date_format`, `.full_changelog`, `.suggest`.
+- New I18n keys, all with English defaults, so a locale without translations shows English: `shiplog.switcher.label`, `.roadmap`, `.changelog`; `shiplog.roadmap.parts` (with `count`), `.shipped_heading`, `.shipped_date_format`, `.full_changelog`, `.suggest`; `shiplog.changelog.search.label`, `.submit`, `.summary` (with `count` and `query`), `.clear`, `.empty` (with `query`).
 - The default `shiplog/_page_header` now renders the switcher. Hosts that override `_page_header` keep theirs; render `shiplog_switcher` (or the `shiplog/switcher` partial) in it to get the links.
 - If your app overrides `roadmaps/show`, `_column` or `_card` only to add column status, card tags or recently shipped, delete them and use the new defaults and `config.classes` keys.
 - Style the new elements with the new class keys above if you use `config.classes` with `config.stylesheet = false`.

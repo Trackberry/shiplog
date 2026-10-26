@@ -20,6 +20,8 @@ module Shiplog
 
     # Product updates navigation and roadmap options.
     attr_accessor :feedback_path
+    # Whether the public changelog has a search box and honours ?q= (default true).
+    attr_accessor :changelog_search
     # Bump it when the output of a callable you configured changes (extra_pages, repository_labels, feedback_path):
     # callables cannot be part of the ETag, so this is how cached public pages learn about it.
     attr_accessor :cache_version
@@ -44,7 +46,7 @@ module Shiplog
         stylesheet, roadmap_shipped_count, cache_version,
         extra_pages.map { |page| [ stable.(page[:label]), stable.(page[:path]) ] },
         repository_labels.sort_by { |name, _| name.to_s }.map { |name, label| [ name, stable.(label) ] },
-        stable.(feedback_path)
+        stable.(feedback_path), changelog_search
       ]
       Digest::SHA256.hexdigest(JSON.generate(data))
     end
@@ -155,6 +157,7 @@ module Shiplog
       @extra_pages = [].freeze
       @repository_labels = {}.freeze
       @roadmap_shipped_count = 4
+      @changelog_search = true
     end
 
     def resolved_github_token

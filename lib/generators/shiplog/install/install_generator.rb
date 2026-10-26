@@ -53,7 +53,13 @@ module Shiplog
         entry_date: "text-xs text-gray-500 dark:text-gray-400",
         pagination: "mt-8 flex justify-between",
         pagination_link: "text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400",
-        empty: "text-gray-500 dark:text-gray-400"
+        empty: "text-gray-500 dark:text-gray-400",
+        search: "my-4 flex gap-2",
+        search_input: "min-w-0 flex-1 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-900",
+        search_button: "rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500",
+        search_summary: "mb-4 text-sm text-gray-500 dark:text-gray-400",
+        search_clear: "ml-2 font-medium text-indigo-600 hover:underline dark:text-indigo-400",
+        search_empty: "text-gray-500 dark:text-gray-400"
       }.freeze
 
       def copy_initializer

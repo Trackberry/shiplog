@@ -38,6 +38,14 @@ en:
         label: Pagination
         older: Older
         newer: Newer
+      search:
+        label: Search the changelog
+        submit: Search
+        summary:
+          one: "%{count} result for “%{query}”"
+          other: "%{count} results for “%{query}”"
+        clear: Clear search
+        empty: "No entries match “%{query}”."
     admin:
       title: Shiplog admin
       nav:

@@ -113,6 +113,7 @@ All settings live in `config/initializers/shiplog.rb`:
 | `roadmap_shipped_count` | `4` | How many recently shipped changelog entries (features and changes) the roadmap lists below its columns. `0` hides the section. |
 | `cache_version` | `nil` | A String added to the public pages' ETag. Callables (`extra_pages`, `repository_labels`, `feedback_path`) cannot be fingerprinted, so bump it when the output of a callable you configured changes. |
 | `feedback_path` | `nil` | Target of the roadmap's "Suggest a feature" link, a String or a callable evaluated in the view. No link while `nil`. |
+| `changelog_search` | `true` | Search box on the public changelog and `?q=` filtering. `false` hides the form and ignores `q`. See [Changelog search](#changelog-search). |
 
 Example:
 
@@ -311,6 +312,22 @@ Labels come from `shiplog.switcher.roadmap`, `.changelog` and `.label` (the `nav
 - **Recently shipped:** the last `config.roadmap_shipped_count` approved feature and change entries (default 4), each linking to its month on the changelog, plus a "See the full changelog" link. The roadmap's ETag follows changelog approvals.
 - **Footnote:** set the `shiplog.roadmap.footnote` translation (empty by default, nothing renders while it is empty) and `config.feedback_path` for a "Suggest a feature" link (`shiplog.roadmap.suggest`).
 
+## Changelog search
+
+The public changelog has a search form above its months: `GET /changelog?q=csv` lists the approved features and changes whose title or body contain every word of the query (case-insensitive `ILIKE`, so PostgreSQL; `%`, `_` and `\` are matched literally). Only the first 5 words of the first 100 characters count. Results keep the changelog's order and month grouping and are paginated; the pagination links keep `q`. With a query the page shows "N results for “csv”" and a "Clear search" link, or a "no entries match" message. A blank `q` is the same as no `q`. The form is a plain GET form (`role="search"`, a `type="search"` input named `q` with an `aria-label`), so it needs no JavaScript.
+
+- Turn it off with `config.changelog_search = false`: no form, and `q` is ignored.
+- Override `shiplog/changelogs/_search.html.erb` (locals `query:` and `count:`, both `nil` without a query) to change the markup. Style it with the `search*` keys of [`config.classes`](#3-configclasses-tailwind-and-other-utility-frameworks).
+- Texts: `shiplog.changelog.search.label`, `.submit`, `.summary` (`one` / `other`, with `count` and `query`), `.clear` and `.empty` (with `query`); all have English defaults.
+- The ETag includes the normalised query.
+- The model scope is `Shiplog::Entry.search(query)`.
+
+**Keeping search pages out of search engines.** A page with a query sets `content_for :shiplog_robots, "noindex"`. Shiplog's own layout turns that into `<meta name="robots" content="noindex">`. A host layout (`config.public_layout`) controls its own `<head>`, so emit it there:
+
+```erb
+<%= tag.meta name: "robots", content: content_for(:shiplog_robots) if content_for?(:shiplog_robots) %>
+```
+
 ## Styling
 
 The public pages ship plain semantic HTML with stable [BEM](https://getbem.com) classes (`shiplog-card`, `shiplog-entry__title`, ...) and a small, framework-free stylesheet. Pick the level that fits your app; the same views work in all of them.
@@ -422,6 +439,12 @@ Without it, `shiplog` is first seen when `shiplog.css` loads, which can put it a
 | `pagination` | `shiplog-pagination` | Pagination `nav` |
 | `pagination_link` | `shiplog-pagination__link` (+ `--newer` / `--older`) | Newer/older links |
 | `empty` | `shiplog-empty` | "Nothing here yet" notice |
+| `search` | `shiplog-search` | Changelog search `form` |
+| `search_input` | `shiplog-search__input` | The `type="search"` input |
+| `search_button` | `shiplog-search__button` | Submit button |
+| `search_summary` | `shiplog-search__summary` | "N results for ..." line |
+| `search_clear` | `shiplog-search__clear` | "Clear search" link |
+| `search_empty` | `shiplog-search__empty` | "No entries match" notice |
 
 Values may be strings or arrays. The list is `Shiplog::Classes::KEYS`; assigning `config.classes` raises `ArgumentError` (listing the valid keys) for any other key, in every environment. String keys are accepted and normalised to symbols, and the hash is stored frozen. Texts come from I18n (`shiplog.roadmap.title`, `shiplog.roadmap.lede`, `shiplog.roadmap.*` (`parts`, `shipped_heading`, `full_changelog`, `footnote`, `suggest`), `shiplog.switcher.*`, `shiplog.changelog.*`, `shiplog.categories.feature` / `change`, `shiplog.date_format` (default `%-d %B %Y`, used for entry dates), `shiplog.columns.<column>_description`), so override them in your locale files.
 
@@ -432,7 +455,7 @@ Copy any view from the engine's `app/views/shiplog/` into your app with the same
 - `shiplog/_page.html.erb`, `shiplog/_page_header.html.erb`, `shiplog/_pagination.html.erb`, `shiplog/_empty.html.erb`
 - `shiplog/_switcher.html.erb`
 - `shiplog/roadmaps/_column.html.erb`, `shiplog/roadmaps/_card.html.erb`, `shiplog/roadmaps/_shipped.html.erb`
-- `shiplog/changelogs/_month.html.erb`, `shiplog/changelogs/_entry.html.erb`
+- `shiplog/changelogs/_month.html.erb`, `shiplog/changelogs/_entry.html.erb`, `shiplog/changelogs/_search.html.erb`
 
 `shiplog/_page.html.erb` is what links the stylesheet (so it also works in layouts you don't control); keep that line if you copy it and still want the bundled CSS.
 

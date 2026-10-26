@@ -114,6 +114,9 @@ Shiplog.configure do |config|
   # next to it with the shiplog.roadmap.footnote translation.
   # config.feedback_path = -> { main_app.new_feedback_path }
 
+  # The public changelog's search box and ?q= filtering. Set to false to turn search off.
+  # config.changelog_search = true
+
   # Callables above cannot be part of the public pages' ETag. Bump this when the output of a callable you
   # configured changes (a new label, another path) so cached pages are refreshed.
   # config.cache_version = nil

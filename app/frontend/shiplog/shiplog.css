@@ -264,6 +264,33 @@
   .shiplog-pagination__link { color: var(--sl-accent); }
   .shiplog-pagination__link--older { margin-left: auto; }
 
+  .shiplog-search { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: var(--sl-space) 0; }
+  .shiplog-search__input {
+    flex: 1 1 14rem;
+    min-width: 0;
+    font: inherit;
+    color: inherit;
+    background: var(--sl-card);
+    border: 1px solid var(--sl-border);
+    border-radius: var(--sl-radius);
+    padding: 0.4rem 0.75rem;
+  }
+  .shiplog-search__input:focus-visible,
+  .shiplog-search__button:focus-visible,
+  .shiplog-search__clear:focus-visible { outline: 2px solid var(--sl-accent); outline-offset: 2px; }
+  .shiplog-search__button {
+    font: inherit;
+    color: #fff;
+    background: var(--sl-accent);
+    border: 1px solid var(--sl-accent);
+    border-radius: var(--sl-radius);
+    padding: 0.4rem 1rem;
+    cursor: pointer;
+  }
+  .shiplog-search__summary { color: var(--sl-muted); margin: 0 0 var(--sl-space); }
+  .shiplog-search__clear { color: var(--sl-accent); margin-left: 0.5rem; }
+  .shiplog-search__empty { color: var(--sl-muted); margin: 0; }
+
   @media (max-width: 40rem) {
     .shiplog-page { padding: var(--sl-space) 0.75rem; }
     .shiplog-page__title { font-size: 1.5rem; }

@@ -13,6 +13,23 @@ module Shiplog
     validate :kind_change_allowed, on: :update
     validate :kind_free_for_subject, on: :update
 
+    SEARCH_MAX_LENGTH = 100
+    SEARCH_MAX_WORDS = 5
+
+    # The words of a search query: whitespace squished, cut at 100 characters, at most 5 words.
+    def self.search_terms(query)
+      query.to_s.squish.first(SEARCH_MAX_LENGTH).split.first(SEARCH_MAX_WORDS)
+    end
+
+    # Entries whose title or body contains every word of the query (case-insensitive, LIKE wildcards escaped).
+    # A blank query leaves the scope unchanged.
+    def self.search(query)
+      search_terms(query).reduce(all) do |scope, term|
+        pattern = "%#{sanitize_sql_like(term)}%"
+        scope.where("#{table_name}.title ILIKE :pattern OR #{table_name}.body ILIKE :pattern", pattern:)
+      end
+    end
+
     def changelog_kind = kind
 
     # Switches a changelog entry between "feature" and "change". Roadmap entries never convert, and
