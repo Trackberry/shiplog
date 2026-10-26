@@ -14,7 +14,7 @@
           <div class="shiplog-admin-images__controls">
             <%= form_with url: entry_image_path(entry, image.blob_id, inbox_filter_params), method: :patch, class: "shiplog-admin-inline-form" do |form| %>
               <%= form.label :alt, t("shiplog.admin.entries.images.alt", default: "Alt text"), for: "alt_#{image.blob_id}" %>
-              <%= form.text_field :alt, id: "alt_#{image.blob_id}", value: entry.image_alts.to_h[image.blob_id.to_s], maxlength: Shiplog::Entry::Images::ALT_MAX_LENGTH, placeholder: t("shiplog.admin.entries.images.alt_placeholder", default: "Describe the image (defaults to the title)") %>
+              <%= form.text_field :alt, id: "alt_#{image.blob_id}", value: entry.custom_image_alt(image), maxlength: Shiplog::Entry::Images::ALT_MAX_LENGTH, placeholder: t("shiplog.admin.entries.images.alt_placeholder", default: "Describe the image (defaults to the title)") %>
               <%= form.submit t("shiplog.admin.entries.images.save_alt", default: "Save alt text"), class: "shiplog-button" %>
             <% end %>
             <div class="shiplog-admin-inline-form">

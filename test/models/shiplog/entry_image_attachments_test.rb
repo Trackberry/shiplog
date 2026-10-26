@@ -114,4 +114,61 @@ class Shiplog::EntryImageAttachmentsTest < ActiveJob::TestCase
       end
     end
   end
+
+  FakeAttachment = Struct.new(:id, :blob_id) do
+    def purge_later = true
+  end
+
+  # An entry whose blobs have UUID primary keys, as in a host that uses uuid ids (the dummy app uses bigint).
+  def with_uuid_blobs(ids)
+    attachments = ids.each_with_index.map { |blob_id, index| FakeAttachment.new(index + 1, blob_id) }
+    images = Struct.new(:attachments).new(attachments)
+    with_stub(@entry, :images, ->(*) { images }) { yield attachments }
+  end
+
+  UUIDS = %w[0b0d6d3a-1111-4c1b-8a6a-000000000001 5f8a1c2e-2222-4c1b-8a6a-000000000002 c9e4f7a0-3333-4c1b-8a6a-000000000003].freeze
+
+  test "blob ids are compared as strings, so UUID ids order, find, move and get alt texts" do
+    with_uuid_blobs(UUIDS) do
+      @entry.update_columns(image_order: [ UUIDS[2], UUIDS[0] ])
+      assert_equal [ UUIDS[2], UUIDS[0], UUIDS[1] ], @entry.ordered_images.map(&:blob_id)
+      assert_equal UUIDS[1], @entry.find_image(UUIDS[1]).blob_id
+      assert_nil @entry.find_image("not-a-uuid")
+
+      assert @entry.move_image(UUIDS[1], :up)
+      assert_equal [ UUIDS[2], UUIDS[1], UUIDS[0] ], @entry.image_order
+      assert_not @entry.move_image(UUIDS[2], :up)
+      assert_not @entry.move_image("not-a-uuid", :up)
+
+      assert @entry.update_image_alt(UUIDS[1], "Second")
+      assert_equal({ UUIDS[1] => "Second" }, @entry.image_alts)
+      assert_equal "Second", @entry.image_alt(@entry.find_image(UUIDS[1]))
+
+      assert @entry.remove_image(UUIDS[2])
+      assert_equal [ UUIDS[1], UUIDS[0] ], @entry.image_order
+    end
+  end
+
+  test "ids kept in image_order as strings or integers match the same blob" do
+    first, second = @entry.add_images([ file(:png), file(:gif) ])
+    @entry.update_columns(image_order: [ second.blob_id.to_s, first.blob_id ])
+    assert_equal [ second.blob_id, first.blob_id ], @entry.reload.ordered_images.map(&:blob_id)
+    assert @entry.find_image(first.blob_id.to_s)
+    assert @entry.find_image(first.blob_id)
+  end
+
+  test "a non-Hash image_alts is treated as empty" do
+    image, = @entry.add_images([ file(:png) ])
+    [ [ "x" ], "text", 3, [ [ image.blob_id.to_s, "pair" ] ] ].each do |junk|
+      @entry.update_columns(image_alts: junk)
+      @entry.reload
+      assert_equal "Dark mode", @entry.image_alt(image), junk.inspect
+      assert @entry.update_image_alt(image.blob_id, "Fixed")
+      assert_equal({ image.blob_id.to_s => "Fixed" }, @entry.reload.image_alts)
+      assert @entry.update_image_alt(image.blob_id, "")
+    end
+    @entry.update_columns(image_alts: [ "x" ])
+    assert @entry.reload.remove_image(image.blob_id)
+    assert_equal({}, @entry.image_alts)
+  end
 end

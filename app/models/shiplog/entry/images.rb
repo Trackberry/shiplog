@@ -17,14 +17,20 @@ module Shiplog::Entry::Images
   def ordered_images
     return [] unless Shiplog.active_storage?
 
-    by_blob = images.attachments.index_by(&:blob_id)
-    listed = Array(image_order).filter_map { |id| by_blob.delete(Integer(id, exception: false)) }
+    by_blob = images.attachments.index_by { |attachment| attachment.blob_id.to_s }
+    listed = Array(image_order).filter_map { |id| by_blob.delete(id.to_s) }
     listed + by_blob.values.sort_by(&:id)
   end
 
+  # The alt texts by blob id (a String), whatever the column holds: anything but a Hash counts as none.
+  def image_alts_by_blob = image_alts.is_a?(Hash) ? image_alts : {}
+
+  # The alt text an admin set for an image, or nil.
+  def custom_image_alt(attachment) = image_alts_by_blob[attachment.blob_id.to_s].presence
+
   # The alt text of an image: the one set for its blob, else the entry's title.
   def image_alt(attachment)
-    image_alts.to_h[attachment.blob_id.to_s].presence || display_title.to_s
+    custom_image_alt(attachment) || display_title.to_s
   end
 
   # What public pages depend on, for ETags: each image's blob id and alt text, in order.
@@ -32,8 +38,9 @@ module Shiplog::Entry::Images
     ordered_images.map { |attachment| [ attachment.blob_id, image_alt(attachment) ] }
   end
 
+  # Blob ids are compared as strings: they may be integers or UUIDs, in the column, in the URL and in the table.
   def find_image(blob_id)
-    images.attachments.find { |attachment| attachment.blob_id == Integer(blob_id, exception: false) } if Shiplog.active_storage?
+    images.attachments.find { |attachment| attachment.blob_id.to_s == blob_id.to_s } if Shiplog.active_storage?
   end
 
   # Attaches files ({ io:, filename:, content_type: }, already validated) after the existing images and returns
@@ -54,7 +61,7 @@ module Shiplog::Entry::Images
 
       ids = ordered_images.map(&:blob_id) - [ attachment.blob_id ]
       attachment.purge_later
-      update!(image_order: ids, image_alts: image_alts.to_h.except(attachment.blob_id.to_s))
+      update!(image_order: ids, image_alts: image_alts_by_blob.except(attachment.blob_id.to_s))
     end
   end
 
@@ -62,7 +69,7 @@ module Shiplog::Entry::Images
   def move_image(blob_id, direction)
     with_lock do
       ids = ordered_images.map(&:blob_id)
-      index = ids.index(Integer(blob_id, exception: false))
+      index = ids.index { |id| id.to_s == blob_id.to_s }
       target = index && (direction.to_sym == :up ? index - 1 : index + 1)
       next false unless target && target.between?(0, ids.size - 1)
 
@@ -77,7 +84,7 @@ module Shiplog::Entry::Images
       next false unless attachment
 
       alt = text.to_s.squish.first(ALT_MAX_LENGTH)
-      alts = image_alts.to_h.except(attachment.blob_id.to_s)
+      alts = image_alts_by_blob.except(attachment.blob_id.to_s)
       alts[attachment.blob_id.to_s] = alt if alt.present?
       update!(image_alts: alts)
     end
