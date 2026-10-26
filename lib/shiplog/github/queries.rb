@@ -4,7 +4,7 @@ module Shiplog
       PULL_REQUEST_FIELDS = <<~GRAPHQL.freeze
         fragment PullRequestFields on PullRequest {
           id number title body state mergedAt url updatedAt
-          author { login }
+          author { __typename login }
           repository { nameWithOwner }
           labels(first: 30) { nodes { name } }
         }

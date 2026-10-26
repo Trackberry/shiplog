@@ -14,7 +14,7 @@ module Shiplog
     private
       def pull_requests
         candidates = @repository.pull_requests.where(state: "merged", merged_at: @window).where.missing(:entries).to_a
-          .reject { |pull_request| excluded_label?(pull_request) || Shiplog.config.excluded_author?(pull_request.author_login) }
+          .reject { |pull_request| excluded_label?(pull_request) || excluded_type?(pull_request) || Shiplog.config.excluded_author?(pull_request.author_login) }
         public_ids = pull_request_ids_in_public_tree(candidates)
         candidates.reject { |pull_request| public_ids.include?(pull_request.node_id) }
       end
@@ -26,6 +26,12 @@ module Shiplog
 
       def excluded_label?(pull_request)
         pull_request.labels.intersect?(Shiplog.config.excluded_labels)
+      end
+
+      # Untyped PR titles stay in; the rewriter decides whether customers would notice.
+      def excluded_type?(pull_request)
+        type = pull_request.title[COMMIT_TYPE, 1]
+        type.present? && !Shiplog.config.commit_types.include?(type)
       end
 
       def eligible_commit?(commit)

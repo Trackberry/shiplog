@@ -84,7 +84,7 @@ All settings live in `config/initializers/shiplog.rb`:
 | `soon_labels` | `["soon"]` | Labels that put an issue in "Coming soon". A milestone does the same. |
 | `excluded_labels` | `["internal", "dependencies", "refactor", "chore"]` | Pull requests with one of these labels never become changelog entries. |
 | `excluded_authors` | `[/\[bot\]\z/]` | Patterns (matched with `===`) for authors whose pull requests and commits are skipped. |
-| `commit_types` | `["feat", "fix", "perf"]` | Conventional-commit types eligible for the changelog. |
+| `commit_types` | `["feat", "fix", "perf"]` | Conventional-commit types eligible for the changelog. Commits need one of these types; pull requests whose title has a different type (`ci:`, `chore(deps):`, ...) are skipped, untyped titles are kept. |
 | `rewriter` | `nil` | Callable that rewrites text with an LLM. See [The rewriter](#the-rewriter). |
 | `product_name` | `nil` | Your product's name, used in the prompts. |
 | `audience` | `nil` | Who your customers are, used in the prompts. |
@@ -204,7 +204,7 @@ end
 ## How changelog entries are produced
 
 - **Features**: a public top-level issue closed as completed that has at least one merged linked pull request on itself or a sub-issue. The issue form sections (`### Problem`, `### Before`, `### After`), sub-issue titles and linked pull request titles are given to the rewriter. Only issues closed in the last 90 days are drafted, so a first sync doesn't flood the inbox. The release date is the newest merge date.
-- **Small changes**: the weekly scan looks at pull requests merged, and stored commits made, since the last scan (seven days on the first run). Commits are only considered when they are on the default branch and have no pull request, and their conventional-commit type (`feat:`, `fix(scope):`, ...) must be in `commit_types`.
+- **Small changes**: the weekly scan looks at pull requests merged, and stored commits made, since the last scan (seven days on the first run). Commits are only considered when they are on the default branch and have no pull request, and their conventional-commit type (`feat:`, `fix(scope):`, ...) must be in `commit_types`. Pull requests are skipped when their title carries a type outside `commit_types`; untyped titles are left for the rewriter to judge. Bot authors are recorded as `name[bot]`, so the default `excluded_authors` pattern matches them.
 - **Exclusions**: pull requests with an excluded label or an excluded author, commits from excluded authors, pull requests that belong to a feature's issue tree (the feature entry covers them), and anything that already has an entry.
 
 ## Approval workflow

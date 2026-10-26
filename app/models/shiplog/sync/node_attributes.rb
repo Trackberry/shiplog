@@ -11,6 +11,12 @@ module Shiplog
 
       def label_names(node) = nodes_of(node, "labels").map { |label| label["name"] }
 
+      # GraphQL reports bots as "dependabot"; REST (and excluded_authors) say "dependabot[bot]".
+      def author_login(node)
+        login = node.dig("author", "login")
+        node.dig("author", "__typename") == "Bot" && login ? "#{login}[bot]" : login
+      end
+
       def stale?(record, node)
         record.persisted? && record.github_updated_at && record.github_updated_at > Time.iso8601(node["updatedAt"])
       end

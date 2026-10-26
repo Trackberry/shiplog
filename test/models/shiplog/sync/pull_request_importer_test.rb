@@ -18,6 +18,13 @@ class Shiplog::Sync::PullRequestImporterTest < ActiveSupport::TestCase
     assert_equal Time.utc(2026, 10, 20, 10), merged.merged_at
   end
 
+  test "bot authors get the [bot] suffix GitHub's REST API uses" do
+    node = @nodes[0].deep_dup
+    node["author"] = { "__typename" => "Bot", "login" => "dependabot" }
+
+    assert_equal "dependabot[bot]", @importer.import(node).author_login
+  end
+
   test "replaces links from closingIssuesReferences" do
     pull_request = @importer.import(@nodes[0])
     assert_equal %w[I_kwDOSync001], Shiplog::IssueLink.where(pull_request_node_id: pull_request.node_id).pluck(:issue_node_id)

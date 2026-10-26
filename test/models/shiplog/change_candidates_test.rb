@@ -41,6 +41,15 @@ class Shiplog::ChangeCandidatesTest < ActiveSupport::TestCase
     assert_not_includes candidates, pull_request(54, labels: [ "chore" ])
   end
 
+  test "excludes PRs whose conventional type is not a changelog type" do
+    ci = pull_request(57, title: "ci: Cache gems")
+    chore = pull_request(58, title: "chore(deps): Bump rails")
+    fix = pull_request(59, title: "fix(mailbox): Accept forwarded mail")
+    untyped = pull_request(60, title: "Read prices from the new feed")
+
+    assert_equal [ fix, untyped ], candidates & [ ci, chore, fix, untyped ]
+  end
+
   test "excludes bot authors" do
     assert_not_includes candidates, pull_request(55, author_login: "dependabot[bot]")
   end

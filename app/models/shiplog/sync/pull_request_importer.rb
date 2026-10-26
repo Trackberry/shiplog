@@ -28,7 +28,7 @@ module Shiplog
           repository: repository_for(node),
           number: node["number"], title: node["title"], body: node["body"],
           state: STATES.fetch(node["state"]), merged_at: node["mergedAt"],
-          author_login: node.dig("author", "login"), labels: label_names(node),
+          author_login: author_login(node), labels: label_names(node),
           url: node["url"], github_updated_at: node["updatedAt"]
         }
       end
