@@ -107,7 +107,7 @@ All settings live in `config/initializers/shiplog.rb`:
 | `authorize_admin` | `->(controller) { false }` | Admin check; return false for a 403. Denies everyone until set; the generated initializer opens it, relying on your route constraint. |
 | `current_admin` | `->(controller) { controller.try(:current_user)&.try(:email) }` | Stored as the approver of an entry. |
 | `roadmap_path` | `"roadmap"` | Path of the public roadmap. |
-| `changelog_path` | `"changelog"` | Path of the public changelog: segments of `a-z`, `0-9`, `-` and `_`, nested with `/` if you like (`"docs/whats_new"`). Surrounding slashes are stripped (`"/changelog"` is `"changelog"`); a blank value, spaces, dots, `?` or `#` raise `ArgumentError`. Permalinks live below it and the feed is `<path>.atom`. |
+| `changelog_path` | `"changelog"` | Path of the public changelog: segments of letters, digits, `-` and `_`, nested with `/` if you like (`"docs/whats_new"`). Surrounding slashes are stripped (`"/changelog"` is `"changelog"`); a blank value, spaces, dots, `?` or `#` raise `ArgumentError`. Permalinks live below it and the feed is `<path>.atom`. |
 | `canonical_url` | `nil` | The site's canonical origin, e.g. `"https://trackberry.com"`. See [Canonical URL](#canonical-url). |
 | `extra_pages` | `[]` | Pages added to the switcher after Roadmap and Changelog: `[{ label:, path: }]`, each a String or a callable evaluated in the view. See [Product updates navigation](#product-updates-navigation). Anything else raises `ArgumentError`. |
 | `repository_labels` | `{}` | Tag shown on a roadmap card for the repository of its issue: `{ "owner/name" => "iPhone & iPad" }`. Values are Strings or callables evaluated in the view; repositories without one show no tag. |
