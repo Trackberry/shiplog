@@ -23,6 +23,7 @@ puts JSON.generate(
   host_page: host_view.shiplog_head_tags,
   host_page_status: host_page.status,
   public_controller_loaded_by_host_page:,
+  eager_load: Rails.application.config.eager_load,
   status: page.status,
   canonical: page.body[%r{<link rel="canonical" href="([^"]+)"}, 1]
 )
