@@ -90,3 +90,13 @@
 .shiplog-admin-actions { border-top: 1px solid var(--shiplog-admin-border); display: grid; gap: 0.75rem; margin-top: 1rem; padding-top: 1rem; }
 .shiplog-admin-inline-form { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .shiplog-admin-source { background: var(--shiplog-admin-bg); overflow-x: auto; padding: 0.75rem; white-space: pre-wrap; word-break: break-word; }
+
+.shiplog-board { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
+.shiplog-board__title { font-size: 1.125rem; margin: 0 0 0.5rem; }
+.shiplog-board__cards { display: grid; align-content: start; gap: 0.5rem; min-height: 6rem; padding: 0.5rem; background: var(--shiplog-admin-bg); border: 1px dashed var(--shiplog-admin-border); border-radius: 0.5rem; }
+.shiplog-card { background: var(--shiplog-admin-surface); border: 1px solid var(--shiplog-admin-border); border-radius: 0.375rem; cursor: grab; padding: 0.5rem 0.75rem; }
+.shiplog-card--dragging { opacity: 0.5; }
+.shiplog-card__title { font-size: 0.9375rem; margin: 0 0 0.25rem; }
+.shiplog-card__meta { color: var(--shiplog-admin-muted); font-size: 0.8125rem; margin: 0 0 0.5rem; }
+.shiplog-card__form { align-items: center; display: flex; gap: 0.375rem; margin-bottom: 0.25rem; }
+.shiplog-card__label { font-size: 0.8125rem; }

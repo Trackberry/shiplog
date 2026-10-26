@@ -63,3 +63,12 @@ en:
           body: Text
           released_on: Released on
           reason: Reason
+      board:
+        title: Roadmap board
+        help: Drag cards between columns to pin and reorder them. Without JavaScript, use the Move button on each card.
+        updated: Board updated.
+        not_approved: Not approved
+        pinned: Pinned
+        move_to: Move to
+        move: Move
+        unpin: Unpin
