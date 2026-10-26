@@ -11,6 +11,7 @@ module Shiplog
       scope = scope.where(area_id: @area.id) if @area
       @entries = scope.includes(:area).limit(LIMIT).to_a
       @entries.each(&:ensure_slug!)
+      @entries.select!(&:permalink?) # an entry without a valid permalink has no stable id: left out
       fresh_when etag: [ *shiplog_etag_parts, *shiplog_area_etag_parts, @entries.map { |entry| [ entry.id, entry.updated_at, entry.area_id ] } ]
     end
   end

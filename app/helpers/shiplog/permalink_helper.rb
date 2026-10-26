@@ -4,6 +4,21 @@ module Shiplog
   module PermalinkHelper
     DESCRIPTION_LENGTH = 160
 
+    # The path of an entry's permalink page, or nil when the entry has no slug the route accepts (a link is
+    # an extra, never a reason to fail the page).
+    def shiplog_entry_path(entry)
+      changelog_entry_path(entry.slug) if entry.permalink?
+    rescue ActionController::UrlGenerationError
+      nil
+    end
+
+    # A link to an entry's permalink page, or the plain content in a span when it has none.
+    def shiplog_entry_link(entry, name = nil, html_options = {}, &block)
+      name, html_options = capture(&block), name || {} if block
+      path = shiplog_entry_path(entry)
+      path ? link_to(name, path, html_options) : content_tag(:span, name, html_options.slice(:class))
+    end
+
     # The id of a month's section on the changelog list.
     def shiplog_month_anchor(date) = "shiplog-month-#{date.strftime("%Y-%m")}"
 

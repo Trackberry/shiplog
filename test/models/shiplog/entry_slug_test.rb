@@ -19,6 +19,19 @@ class Shiplog::EntrySlugTest < ActiveSupport::TestCase
     assert_equal "dark-mode-finally", feature.reload.slug
   end
 
+  test "slugs only contain a-z, 0-9 and single dashes, whatever the title" do
+    {
+      "Support for snake_case keys" => "support-for-snake-case-keys",
+      "__init__ and  -- dashes --" => "init-and-dashes",
+      "Crème brûlée_mode" => "creme-brulee-mode"
+    }.each do |title, expected|
+      entry = draft(title:)
+      entry.approve!(by: "ed@example.com")
+      assert_equal expected, entry.reload.slug, title
+      assert_match(/\A[a-z0-9]+(-[a-z0-9]+)*\z/, entry.slug)
+    end
+  end
+
   test "roadmap entries get no slug" do
     entry = draft(title: "Soon thing", kind: "roadmap")
     entry.approve!(by: "ed@example.com")

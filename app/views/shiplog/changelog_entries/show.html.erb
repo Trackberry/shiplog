@@ -11,12 +11,12 @@
   <% if @newer || @older %>
     <nav class="<%= shiplog_class(:permalink_nav) %>" aria-label="<%= t("shiplog.permalink.nav_label", default: "More changelog entries") %>">
       <% if @newer %>
-        <%= link_to changelog_entry_path(@newer.slug), class: shiplog_class(:permalink_nav_link, :newer), rel: "prev" do %>
+        <%= shiplog_entry_link @newer, class: shiplog_class(:permalink_nav_link, :newer), rel: "prev" do %>
           <%= t("shiplog.permalink.newer", title: @newer.title, default: "← Newer: %{title}") %>
         <% end %>
       <% end %>
       <% if @older %>
-        <%= link_to changelog_entry_path(@older.slug), class: shiplog_class(:permalink_nav_link, :older), rel: "next" do %>
+        <%= shiplog_entry_link @older, class: shiplog_class(:permalink_nav_link, :older), rel: "next" do %>
           <%= t("shiplog.permalink.older", title: @older.title, default: "Older: %{title} →") %>
         <% end %>
       <% end %>

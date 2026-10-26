@@ -35,6 +35,8 @@ module Shiplog
     UNSEEN_COUNT_CAP = 99
     SLUG_MAX_LENGTH = 80
     SLUG_ATTEMPTS = 5
+    # What a slug may look like (the permalink route's constraint, /[a-z0-9-]+/, is the unanchored twin).
+    SLUG_FORMAT = /\A[a-z0-9-]+\z/
 
     # What the public changelog lists: approved features and changes with a release date.
     scope :published_changelog, -> { approved.where(kind: CHANGELOG_KINDS).where.not(released_on: nil) }
@@ -54,6 +56,12 @@ module Shiplog
     # slug on duplicate titles). Returns how many it filled.
     def self.backfill_slugs
       published_changelog.where(slug: nil).order(:released_on, :approved_at, :id).to_a.count { |entry| entry.ensure_slug!.present? }
+    end
+
+    # Whether the entry has a slug the permalink route accepts. Entries without one (approved by older code) or
+    # with a stray one render without a link rather than raising.
+    def permalink?
+      slug.is_a?(String) && SLUG_FORMAT.match?(slug)
     end
 
     def changelog_kind = kind
@@ -113,7 +121,7 @@ module Shiplog
     # has nothing left. The uniqueness check can lose a race, which the unique index catches (see
     # retrying_on_slug_conflict).
     def generate_slug
-      base = title.to_s.parameterize.first(SLUG_MAX_LENGTH).delete_suffix("-").presence || "entry-#{id}"
+      base = dashed_title.first(SLUG_MAX_LENGTH).gsub(/\A-+|-+\z/, "").presence || "entry-#{id}"
       candidate = base
       suffix = 2
       while self.class.where(slug: candidate).where.not(id:).exists?
@@ -122,6 +130,12 @@ module Shiplog
         suffix += 1
       end
       candidate
+    end
+
+    # The title as [a-z0-9-] only: parameterized (which keeps underscores), underscores turned into dashes,
+    # repeated dashes squeezed, dashes at both ends stripped.
+    def dashed_title
+      title.to_s.parameterize.tr("_", "-").squeeze("-").gsub(/\A-+|-+\z/, "")
     end
 
     # Runs the block in a savepoint (a unique violation aborts the surrounding PostgreSQL transaction otherwise)

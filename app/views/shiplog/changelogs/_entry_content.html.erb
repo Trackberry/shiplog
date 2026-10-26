@@ -5,5 +5,5 @@
   <span class="<%= shiplog_class(:entry_area) %>"><%= entry.area.name %></span>
 <% end %>
 <time class="<%= shiplog_class(:entry_date) %>" datetime="<%= entry.released_on.iso8601 %>"><%= l(entry.released_on, format: t("shiplog.date_format", default: "%-d %B %Y")) %></time>
-<%= content_tag heading, (linked && entry.slug ? link_to(entry.title, changelog_entry_path(entry.slug)) : entry.title), class: shiplog_class(:entry_title) %>
+<%= content_tag heading, (linked && shiplog_entry_path(entry) ? link_to(entry.title, shiplog_entry_path(entry)) : entry.title), class: shiplog_class(:entry_title) %>
 <div class="<%= shiplog_class(:entry_body) %>"><%= simple_format(h(entry.body)) %></div>
