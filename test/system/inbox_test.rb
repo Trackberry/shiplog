@@ -34,6 +34,20 @@ class InboxTest < ApplicationSystemTestCase
     assert page.evaluate_script("window.shiplogNotReloaded")
   end
 
+  test "discarding on the drafts list removes the row without a reload" do
+    entry = shiplog_entries(:csv_change_draft)
+    visit "/admin/shiplog/?status=draft"
+    page.execute_script("window.shiplogNotReloaded = true")
+
+    within("#shiplog-entry-#{entry.id}") { click_button I18n.t("shiplog.admin.entries.discard") }
+
+    assert_no_selector "#shiplog-entry-#{entry.id}"
+    assert_selector "[data-shiplog-inbox] [role=status]", text: I18n.t("shiplog.admin.entries.discarded")
+    assert page.evaluate_script("window.shiplogNotReloaded"), "the inbox was reloaded"
+    assert_equal "discarded", entry.reload.status
+    assert_nil entry.discard_reason
+  end
+
   test "restoring on the discarded list removes the row" do
     entry = shiplog_entries(:typo_change_discarded)
     visit "/admin/shiplog/?status=discarded"

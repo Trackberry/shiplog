@@ -9,11 +9,12 @@
 - New `config.classes` keys: `switcher`, `switcher_link`, `column_marker`, `card_meta`, `card_tag`, `shipped`, `shipped_title`, `shipped_list`, `shipped_item`, `shipped_date`, `shipped_link`, `footnote`, `footnote_link`.
 - Per-repository options in `config.repositories`: `{ name:, changelog: false, gem: }`. `changelog: false` keeps a repository on the roadmap only. `gem:` names the gem in your lockfile so that upgrading it produces a single changelog entry, written from the gem's own merged pull requests, instead of one entry per repository. `config.lockfile_path` changes the lockfile that is read.
 - `config.cache_version`, to refresh cached public pages when the output of a configured callable changes.
+- A Discard button on draft rows of the admin inbox, next to Edit and Approve. It updates the list in place; give a reason from the entry's page.
 
 ### Changed
 
 - Roadmap drafts are shorter (about two sentences) and lead with what the customer gets, instead of opening with "We're working on".
-- The public pages' ETag now follows approved changelog entries, since the roadmap lists them.
+- The roadmap's ETag also covers its recently shipped entries and each card's repository and sub-issues, so those changes reach cached pages.
 - The migration `create_shiplog_pull_request_upgrades` also adds an index on `shiplog_entries (status, released_on)`.
 
 ### Fixed

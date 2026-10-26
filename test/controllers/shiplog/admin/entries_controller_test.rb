@@ -10,6 +10,18 @@ class Shiplog::Admin::EntriesControllerTest < ActionDispatch::IntegrationTest
     assert_select "tr.shiplog-entry-row", text: /Dark mode/, count: 0
   end
 
+  test "index offers discard on draft rows only, keeping the filters" do
+    get "/admin/shiplog/?status=draft&kind=change"
+    draft = shiplog_entries(:csv_change_draft)
+    assert_select "#shiplog-entry-#{draft.id} form[data-shiplog-inline][action=?]",
+      "/admin/shiplog/entries/#{draft.id}/discard?kind=change&status=draft" do
+      assert_select "button", I18n.t("shiplog.admin.entries.discard")
+    end
+
+    get "/admin/shiplog/?status=approved"
+    assert_select "tr.shiplog-entry-row button", text: I18n.t("shiplog.admin.entries.discard"), count: 0
+  end
+
   test "index filters by status and kind" do
     get "/admin/shiplog/", params: { status: "approved", kind: "feature" }
     assert_select "tr.shiplog-entry-row", 1
