@@ -44,6 +44,10 @@ module Shiplog
           lockfile_changed: paths.include?(Shiplog.config.lockfile_path) || !complete?(node, "files") }
       end
 
+      # Rebase merges: GitHub makes no merge commit, so `mergeCommit` is the last rebased commit and its first
+      # parent the one before it. Only that last commit's lockfile change is seen. Dependabot's pull requests are
+      # a single commit and unaffected; a multi-commit branch that bumps a gem earlier is missed (see the README).
+      #
       # `baseRefOid` is the base tip as of the last update of the pull request, so upgrades merged since then
       # would show up as false diffs. The merge commit's first parent is the base at merge, for merge and squash
       # commits alike.

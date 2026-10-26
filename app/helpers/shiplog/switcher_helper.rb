@@ -7,8 +7,10 @@ module Shiplog
     include Shiplog::StylingHelper
     include Shiplog::CallableHelper
 
+    # URLs already warned about. Capped, since a callable path could return a new bad URL on every request.
     WARNED = Set.new
-    private_constant :WARNED
+    MAX_WARNED = 100
+    private_constant :WARNED, :MAX_WARNED
 
     def self.reset_warnings! = WARNED.clear
 
@@ -63,7 +65,9 @@ module Shiplog
       return if url.blank?
       return url.to_s if Shiplog::Configuration.safe_url?(url)
 
-      Rails.logger.warn("[Shiplog] Not linking #{url.inspect}: only paths, http(s) and mailto: URLs are allowed") if WARNED.add?(url.to_s)
+      if WARNED.size < MAX_WARNED && WARNED.add?(url.to_s)
+        Rails.logger.warn("[Shiplog] Not linking #{url.inspect}: only paths, http(s) and mailto: URLs are allowed")
+      end
       nil
     end
 
@@ -78,10 +82,14 @@ module Shiplog
     end
 
     # Length of the link's path when it contains the request path (equal, or a parent segment), else nil.
+    # An absolute URL counts only for http(s) and the request's own host.
     def shiplog_match_length(url)
       return if url.nil?
 
-      prefix = (URI.parse(url).path || "").chomp("/")
+      uri = URI.parse(url)
+      return if uri.scheme && !(uri.scheme.match?(/\Ahttps?\z/i) && uri.host.to_s.casecmp?(request.host))
+
+      prefix = (uri.path || "").chomp("/")
       current = request.path.to_s.chomp("/")
       return (prefix.length if current == prefix) if prefix.empty?
 

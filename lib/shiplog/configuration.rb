@@ -8,7 +8,8 @@ module Shiplog
       :roadmap_path, :changelog_path
 
     ADMIN_CHROMES = %i[standalone hosted].freeze
-    REPOSITORY_NAME = %r{\A[\w.-]+/[\w.-]+\z}
+    # Segments of only dots ("." and "..") are path traversal, not names.
+    REPOSITORY_NAME = %r{\A(?!\.+/)[\w.-]+/(?!\.+\z)[\w.-]+\z}
     REPOSITORY_OPTION_KEYS = %i[name changelog gem].freeze
 
     attr_reader :repositories
@@ -26,10 +27,13 @@ module Shiplog
 
     EXTRA_PAGE_KEYS = %i[label path].freeze
 
-    SAFE_URL = %r{\A(?:/(?!/)|https?://|mailto:)}i
+    # A path (not "//host", "/\host" or "/ x", which browsers read as other targets), an http(s) URL or mailto:.
+    SAFE_URL = %r{\A(?:/(?![/\\\s])|https?://|mailto:)}i
 
     # Whether a link target is safe to render: a path, an http(s) URL or a mailto: address.
-    def self.safe_url?(value) = value.is_a?(String) && SAFE_URL.match?(value.strip)
+    def self.safe_url?(value)
+      value.is_a?(String) && SAFE_URL.match?(value.strip) && !value.match?(/[[:cntrl:]]/)
+    end
 
     # A digest of everything configured that changes the public markup, stable across processes and servers
     # (no Object#hash). Callables are represented by a marker; see cache_version.

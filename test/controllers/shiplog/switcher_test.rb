@@ -91,6 +91,33 @@ class Shiplog::SwitcherTest < ActionDispatch::IntegrationTest
     assert_select "nav.shiplog-switcher a[href=?][aria-current=page]", "http://www.example.com/news"
   end
 
+  test "an absolute extra page on another host is never current, and neither is a mailto: link" do
+    Shiplog.config.extra_pages = [ { label: "Elsewhere", path: -> { "https://other.example.com#{main_app.news_path}" } },
+                                   { label: "Mail", path: "mailto:hi@example.com" } ]
+    get "/news"
+    assert_select "nav.shiplog-switcher a[href=?]:not([aria-current])", "https://other.example.com/news"
+    assert_select "nav.shiplog-switcher [aria-current]", 0
+
+    get "/roadmap"
+    assert_select "nav.shiplog-switcher a[href=?][aria-current=page]", "/roadmap"
+    assert_select "nav.shiplog-switcher a[href^=mailto]:not([aria-current])"
+  end
+
+  test "the set of warned URLs stops growing at 100, so a callable path cannot leak memory" do
+    helper = ActionView::Base.empty.extend(Shiplog::SwitcherHelper)
+    io = StringIO.new
+    original = Rails.logger
+    Rails.logger = ActiveSupport::Logger.new(io)
+    Shiplog::SwitcherHelper.reset_warnings!
+
+    150.times { |i| assert_nil helper.shiplog_safe_url("javascript:#{i}") }
+
+    assert_equal 100, io.string.scan("Not linking").size
+  ensure
+    Rails.logger = original
+    Shiplog::SwitcherHelper.reset_warnings!
+  end
+
   test "a callable path with an unsafe scheme renders as plain text and logs once" do
     Shiplog.config.extra_pages = [ { label: "Bad", path: -> { "javascript:alert(1)" } } ]
     io = StringIO.new

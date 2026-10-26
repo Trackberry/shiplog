@@ -208,6 +208,23 @@ class Shiplog::Sync::UpgradeDetectorTest < ActiveSupport::TestCase
     assert @pull_request.reload.upgrades_checked_at
   end
 
+  test "tries every tag style, the matching styles first" do
+    stub_blob(BASE, lockfile(market_data: "1.0.0"))
+    stub_blob(MERGE, lockfile(market_data: "1.1.0"))
+    stub_request(:get, %r{#{Regexp.escape(COMPARE)}/.*}).to_return(status: 404)
+    stub_compare("1.0.0", "v1.1.0", %w[c1])
+    stub_associated("c1" => [ pr_node(7, "Seven") ])
+
+    @detector.call
+
+    assert_requested(:get, %r{compare/v1\.0\.0\.\.\.v1\.1\.0}, times: 1)
+    assert_requested(:get, %r{compare/1\.0\.0\.\.\.1\.1\.0}, times: 1)
+    assert_requested(:get, %r{compare/v1\.0\.0\.\.\.1\.1\.0}, times: 1)
+    upgrade = @pull_request.upgrades.sole
+    assert_equal %w[1.0.0 v1.1.0], [ upgrade.from_ref, upgrade.to_ref ]
+    assert_equal [ 7 ], upgrade.gem_changes.map { |change| change["number"] }
+  end
+
   test "caps the stored changes at 50 and de-duplicates them" do
     stub_blob(BASE, lockfile)
     stub_blob(MERGE, lockfile(market_data: "0.2.2"))
@@ -220,7 +237,7 @@ class Shiplog::Sync::UpgradeDetectorTest < ActiveSupport::TestCase
     numbers = @pull_request.upgrades.sole.gem_changes.map { |change| change["number"] }
     assert_equal 50, numbers.size
     assert_equal numbers.uniq, numbers
-    assert_equal (1..50).to_a, numbers
+    assert_equal (11..60).to_a, numbers, "the newest 50, oldest first"
   end
 
   test "is idempotent: a checked pull request is not inspected again and the upsert keeps one row" do

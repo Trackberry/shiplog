@@ -122,7 +122,7 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
 
   test "repositories rejects names that are not owner/name" do
     config = Shiplog::Configuration.new
-    [ "nope", "a/b/c", "a/ b", "a/b\n", "/b", "a/", { name: "bad name/x" }, { name: "a/b", gem: "g" }.merge(name: "a/b;rm") ].each do |item|
+    [ "nope", "a/b/c", "a/ b", "a/b\n", "/b", "a/", "../x", "./x", "a/..", "a/.", "a/...", "....//x", { name: "bad name/x" }, { name: "a/b", gem: "g" }.merge(name: "a/b;rm") ].each do |item|
       assert_raises(ArgumentError, item.inspect) { config.repositories = [ item ] }
     end
     config.repositories = [ "Acme/my-app.rb_2", { name: "Acme/gem", gem: "gem" } ]
@@ -240,6 +240,15 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
     end
     [ "javascript:alert(1)", "data:text/html,x", "news", "//evil.example", "ftp://x" ].each do |path|
       assert_raises(ArgumentError, path) { config.extra_pages = [ { label: "X", path: } ] }
+    end
+  end
+
+  test "safe_url? rejects a backslash or whitespace after the leading slash, and control characters anywhere" do
+    [ "/\\evil.example", "/ evil", "/\tevil", "/\nevil", "/news\u0000", "/ne\u0007ws", "https://example.com/a\u0001b", "mailto:a@b.c\r\nBcc: x" ].each do |url|
+      assert_not Shiplog::Configuration.safe_url?(url), url.inspect
+    end
+    [ "/", "/news", "/news/archive?x=1#top", "https://example.com/news", "mailto:hi@example.com" ].each do |url|
+      assert Shiplog::Configuration.safe_url?(url), url.inspect
     end
   end
 end

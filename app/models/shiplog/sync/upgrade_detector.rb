@@ -150,10 +150,13 @@ module Shiplog
         upgrade
       end
 
-      # A git source is pinned by revision; a version tries the tag "v<version>", then "<version>".
+      # A git source is pinned by revision; a version tries the tag "v<version>", then "<version>". Every
+      # combination is tried (a project may have changed its tag style between releases), the matching styles
+      # first: v/v, bare/bare, v/bare, bare/v.
       def ref_pairs(old_gem, new_gem)
         old_refs, new_refs = candidates(old_gem), candidates(new_gem)
-        Array.new([ old_refs.size, new_refs.size ].max) { |i| [ old_refs[[ i, old_refs.size - 1 ].min], new_refs[[ i, new_refs.size - 1 ].min] ] }.uniq
+        matching = old_refs.each_index.filter_map { |i| [ old_refs[i], new_refs[i] ] if new_refs[i] }
+        (matching + old_refs.product(new_refs)).uniq
       end
 
       def candidates(locked) = locked[:revision] ? [ locked[:revision] ] : [ "v#{locked[:version]}", locked[:version] ]
@@ -184,7 +187,7 @@ module Shiplog
           end
         end
         found.select { |node| node["state"] == "MERGED" && node.dig("repository", "nameWithOwner").to_s.casecmp?(gem_repository) }
-          .uniq { |node| node["number"] }.sort_by { |node| node["number"] }.first(MAX_CHANGES)
+          .uniq { |node| node["number"] }.sort_by { |node| node["number"] }.last(MAX_CHANGES)
           .map { |node| { number: node["number"], title: node["title"], body_excerpt: node["body"].to_s.squish.truncate(EXCERPT_CHARS), url: node["url"] } }
       end
 
