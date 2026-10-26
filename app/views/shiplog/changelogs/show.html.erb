@@ -1,4 +1,5 @@
 <% content_for :title, t("shiplog.changelog.title") %>
+<% content_for :shiplog_feed, auto_discovery_link_tag(:atom, changelog_feed_url, title: t("shiplog.feed.link_title", default: "Changelog (Atom)")) %>
 <%= render layout: "shiplog/page", locals: { name: "changelog" } do %>
   <%= render "shiplog/page_header", title: t("shiplog.changelog.title"), lede: t("shiplog.changelog.lede") %>
   <% if @query %>
@@ -21,4 +22,7 @@
   <%= render "shiplog/pagination",
         newer_path: (changelog_path(page: (@page - 1 if @page > 2), q: @query) if @page > 1),
         older_path: (changelog_path(page: @page + 1, q: @query) if @older) %>
+  <p class="<%= shiplog_class(:footnote) %>">
+    <%= link_to t("shiplog.feed.subscribe", default: "Subscribe (Atom)"), changelog_feed_path, class: shiplog_class(:footnote_link, :feed) %>
+  </p>
 <% end %>

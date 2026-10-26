@@ -36,6 +36,18 @@ class Shiplog::Generators::InstallGeneratorTest < Rails::Generators::TestCase
     end
   end
 
+  test "the initializer documents the 0.3.0 settings" do
+    run_generator_without_rake
+
+    assert_file "config/initializers/shiplog.rb" do |content|
+      assert_match(/^  # config\.on_changelog_seen = ->\(controller\) \{ .*changelog_seen_at/, content)
+      assert_includes content, "Shiplog.unseen_count"
+      assert_includes content, "shiplog:backfill_slugs"
+      assert_includes content, "content_for :shiplog_og"
+      assert_includes content, "content_for :shiplog_feed"
+    end
+  end
+
   test "the initializer explains the hosted admin chrome" do
     run_generator_without_rake
 

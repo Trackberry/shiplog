@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title><%= content_for(:title) %></title>
     <% if content_for?(:shiplog_robots) %><meta name="robots" content="<%= content_for(:shiplog_robots) %>"><% end %>
+    <% if content_for?(:shiplog_description) %><meta name="description" content="<%= content_for(:shiplog_description) %>"><% end %>
+    <%= content_for(:shiplog_og) %>
+    <%= content_for(:shiplog_feed) %>
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
   </head>

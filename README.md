@@ -3,7 +3,7 @@
 A mountable Rails engine that turns your GitHub issues, pull requests and commits into a public roadmap and changelog written for customers, not developers. An LLM that you supply drafts the plain-language text. Nothing is public until an admin approves it.
 
 - **Roadmap**: issues labelled `public` appear in three columns (In progress, Coming soon, Later) once approved.
-- **Changelog**: shipped features and small changes, grouped by month.
+- **Changelog**: shipped features and small changes, grouped by month, each with its own permalink page, plus an Atom feed.
 - **Admin**: drafts inbox, entry editing, a drag-and-drop roadmap board and a sync status page.
 
 ## Requirements
@@ -114,6 +114,7 @@ All settings live in `config/initializers/shiplog.rb`:
 | `cache_version` | `nil` | A String added to the public pages' ETag. Callables (`extra_pages`, `repository_labels`, `feedback_path`) cannot be fingerprinted, so bump it when the output of a callable you configured changes. |
 | `feedback_path` | `nil` | Target of the roadmap's "Suggest a feature" link, a String or a callable evaluated in the view. No link while `nil`. |
 | `changelog_search` | `true` | Search box on the public changelog and `?q=` filtering. `false` hides the form and ignores `q`. See [Changelog search](#changelog-search). |
+| `on_changelog_seen` | `nil` | `->(controller) { ... }` called on each changelog index or permalink view (a 200, or a 304 for a revisit), to stamp a visitor's "last seen" time. See [What's new](#whats-new-the-unseen-count). Anything but `nil` or a callable raises `ArgumentError`. |
 
 Example:
 
@@ -328,6 +329,60 @@ The public changelog has a search form above its months: `GET /changelog?q=csv` 
 <%= tag.meta name: "robots", content: content_for(:shiplog_robots) if content_for?(:shiplog_robots) %>
 ```
 
+## Entry permalinks
+
+Every approved feature and change has its own page at `GET /changelog/:slug` (under `config.changelog_path`). The changelog list links each title to it. Roadmap entries have no permalink.
+
+- **Slug:** made when the entry is first approved, from the title (`parameterize`, at most 80 characters, `entry-<id>` when nothing is left) and made unique with `-2`, `-3`, ... A later title edit keeps the slug, so links never break; restoring and re-approving an entry keeps it too. A unique index (partial, on non-null slugs) guards against two approvals racing for one slug, and the loser retries.
+- **Entries approved before 0.3.0** get their slug the first time they are listed on the changelog, the feed or as a neighbour, or all at once with `bin/rails shiplog:backfill_slugs` (idempotent, oldest first).
+- **The page** shows the entry, a "← Back to the changelog" link to the entry's month anchor, and its newer and older neighbours (`rel="prev"` and `rel="next"`, as in the pagination). Drafts, discarded and roadmap entries and unknown slugs answer 404.
+- **Caching:** the ETag covers the entry and its neighbours' ids and `updated_at`.
+- **Head tags:** the page sets `content_for :title`, `content_for :shiplog_description` (the body, cut at 160 characters) and `content_for :shiplog_og` (Open Graph: `og:title`, `og:description`, `og:type` = `article`, `og:url`). Shiplog's own layout renders them. A host layout (`config.public_layout`) controls its own `<head>`, so render them there, as for `:shiplog_robots`:
+
+```erb
+<title><%= content_for(:title) %></title>
+<%= tag.meta name: "description", content: content_for(:shiplog_description) if content_for?(:shiplog_description) %>
+<%= content_for(:shiplog_og) %>
+<%= content_for(:shiplog_feed) %>
+```
+
+- **Styling:** the `permalink` (the `article`), `permalink_back`, `permalink_nav` and `permalink_nav_link` keys of [`config.classes`](#3-configclasses-tailwind-and-other-utility-frameworks). Override `shiplog/changelogs/_entry_content.html.erb` (locals `entry:`, `heading:`, `linked:`) to change what an entry shows in both the list and the permalink page.
+- **Texts:** `shiplog.permalink.title`, `.back`, `.nav_label`, `.newer` and `.older` (with `title`); all have English defaults.
+
+## Atom feed
+
+`GET /changelog.atom` serves the latest 50 approved features and changes (newest first) as an Atom feed. An entry has a stable id (a tag URI built from the permalink path, so a title edit does not change it), its permalink, `published` (the release date), `updated`, and its body as HTML. All URLs are absolute. The feed is cached with an ETag like the pages and answers 304 on a match; it does not call `on_changelog_seen`.
+
+The changelog and permalink pages advertise it with a `<link rel="alternate" type="application/atom+xml">` (`content_for :shiplog_feed`, rendered by Shiplog's layout; render it in a host layout too, see above) and the changelog shows a visible "Subscribe (Atom)" link (the `footnote_link` key). The feed is titled "Changelog", or "<product_name> changelog" when `config.product_name` is set, and follows the request locale. Texts: `shiplog.feed.title_with_product`, `.link_title` and `.subscribe`.
+
+## What's new: the unseen count
+
+Shiplog doesn't know your users, so you supply the "last seen" time:
+
+```ruby
+# config/initializers/shiplog.rb
+config.on_changelog_seen = ->(controller) { controller.current_user&.update_column(:changelog_seen_at, Time.current) }
+```
+
+```ruby
+Shiplog.unseen_count(since: user.changelog_seen_at) # approved features and changes approved after it, at most 99
+Shiplog.unseen_count(since: nil)                    # all of them, at most 99
+```
+
+```ruby
+class ApplicationController < ActionController::Base
+  helper Shiplog::UnseenHelper
+end
+```
+
+```erb
+<%= shiplog_unseen_count(current_user.changelog_seen_at) %>
+```
+
+The count is one `COUNT` query over the `(status, approved_at)` index.
+
+`on_changelog_seen` runs as an `after_action` of the changelog index and the permalink pages, for answers with status 200 or 304 (a visitor whose browser revalidates its cached page has still seen the changelog). It does not run for 404s, the feed, the roadmap or non-HTML formats. The response is not sent yet, so the callback can still set a cookie. An exception in the callback is logged, never shown. A host layout that shows the unseen count renders per-user content, so declare `etag { current_user&.changelog_seen_at }` on your `public_parent_controller`, or a cached page keeps showing the old count.
+
 ## Styling
 
 The public pages ship plain semantic HTML with stable [BEM](https://getbem.com) classes (`shiplog-card`, `shiplog-entry__title`, ...) and a small, framework-free stylesheet. Pick the level that fits your app; the same views work in all of them.
@@ -425,7 +480,7 @@ Without it, `shiplog` is first seen when `shiplog.css` loads, which can put it a
 | `shipped_date` | `shiplog-shipped__date` | Release date of the entry |
 | `shipped_link` | `shiplog-shipped__link` (+ `--all` on the changelog link) | Links to the changelog |
 | `footnote` | `shiplog-footnote` | Footnote paragraph |
-| `footnote_link` | `shiplog-footnote__link` | "Suggest a feature" link |
+| `footnote_link` | `shiplog-footnote__link` (+ `--feed` on the Atom link) | "Suggest a feature" and "Subscribe (Atom)" links |
 | `months` | `shiplog-months` | Changelog months wrapper |
 | `month` | `shiplog-month` | One month section |
 | `month_title` | `shiplog-month__title` | Month `h2` |
@@ -445,6 +500,10 @@ Without it, `shiplog` is first seen when `shiplog.css` loads, which can put it a
 | `search_summary` | `shiplog-search__summary` | "N results for ..." line |
 | `search_clear` | `shiplog-search__clear` | "Clear search" link |
 | `search_empty` | `shiplog-search__empty` | "No entries match" notice |
+| `permalink` | `shiplog-permalink` (+ `--feature` / `--change`) | The `article` of a permalink page |
+| `permalink_back` | `shiplog-permalink__back` | "Back to the changelog" link |
+| `permalink_nav` | `shiplog-permalink__nav` | Newer / older `nav` |
+| `permalink_nav_link` | `shiplog-permalink__nav-link` (+ `--newer` / `--older`) | One neighbour link |
 
 Values may be strings or arrays. The list is `Shiplog::Classes::KEYS`; assigning `config.classes` raises `ArgumentError` (listing the valid keys) for any other key, in every environment. String keys are accepted and normalised to symbols, and the hash is stored frozen. Texts come from I18n (`shiplog.roadmap.title`, `shiplog.roadmap.lede`, `shiplog.roadmap.*` (`parts`, `shipped_heading`, `full_changelog`, `footnote`, `suggest`), `shiplog.switcher.*`, `shiplog.changelog.*`, `shiplog.categories.feature` / `change`, `shiplog.date_format` (default `%-d %B %Y`, used for entry dates), `shiplog.columns.<column>_description`), so override them in your locale files.
 

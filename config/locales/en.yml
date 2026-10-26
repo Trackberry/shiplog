@@ -46,6 +46,16 @@ en:
           other: "%{count} results for “%{query}”"
         clear: Clear search
         empty: "No entries match “%{query}”."
+    permalink:
+      title: "%{title} · %{changelog}"
+      back: "← Back to the changelog"
+      nav_label: More changelog entries
+      newer: "← Newer: %{title}"
+      older: "Older: %{title} →"
+    feed:
+      title_with_product: "%{product} changelog"
+      link_title: Changelog (Atom)
+      subscribe: Subscribe (Atom)
     admin:
       title: Shiplog admin
       nav:

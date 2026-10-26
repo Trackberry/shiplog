@@ -3,15 +3,17 @@ module Shiplog
     PER_PAGE = 30
     MAX_PAGE = 100_000
 
+    after_action :notify_changelog_seen, only: :show
+
     def show
       @page = page_number
-      scope = Entry.approved.where(kind: %w[feature change]).where.not(released_on: nil)
-        .order(released_on: :desc, approved_at: :desc, id: :desc)
+      scope = Entry.published_changelog.newest_first
       @query = search_query
       scope = scope.search(@query) if @query
       records = scope.offset((@page - 1) * PER_PAGE).limit(PER_PAGE + 1).to_a
       return head(:not_found) if @page > 1 && records.empty?
 
+      records.each(&:ensure_slug!) # entries approved before 0.3.0 get their permalink on first listing
       @older = records.size > PER_PAGE
       @months = records.first(PER_PAGE).group_by { |entry| entry.released_on.beginning_of_month }
       @result_count = scope.count if @query

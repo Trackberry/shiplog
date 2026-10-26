@@ -25,6 +25,10 @@ module Shiplog
     # For compatibility with applications that use this config
     config.action_controller.include_all_helpers = false
 
+    # Rails rejects migration timestamps more than a day ahead of the clock, and the 0.3.0 migration is
+    # dated for its release (2026-10-28). Remove this once the clock has caught up.
+    config.active_record.validate_migration_timestamps = false
+
     # Please, add to the `ignore` list any other `lib` subdirectories that do
     # not contain `.rb` files, or that should not be reloaded or eager loaded.
     # Common ones are `templates`, `generators`, or `middleware`, for example.

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_27_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_28_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -42,7 +42,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_27_000001) do
     t.string "discard_reason"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "slug"
+    t.index ["slug"], name: "index_shiplog_entries_on_slug", unique: true, where: "(slug IS NOT NULL)"
     t.index ["status"], name: "index_shiplog_entries_on_status"
+    t.index ["status", "approved_at"], name: "index_shiplog_entries_on_status_and_approved_at"
     t.index ["status", "released_on"], name: "index_shiplog_entries_on_status_and_released_on"
     t.index ["subject_type", "subject_id", "kind"], name: "index_shiplog_entries_on_subject_type_and_subject_id_and_kind", unique: true
   end

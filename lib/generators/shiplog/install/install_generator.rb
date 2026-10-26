@@ -59,7 +59,11 @@ module Shiplog
         search_button: "rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500",
         search_summary: "mb-4 text-sm text-gray-500 dark:text-gray-400",
         search_clear: "ml-2 font-medium text-indigo-600 hover:underline dark:text-indigo-400",
-        search_empty: "text-gray-500 dark:text-gray-400"
+        search_empty: "text-gray-500 dark:text-gray-400",
+        permalink: "mx-auto max-w-2xl rounded-lg border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900",
+        permalink_back: "mt-6 inline-block text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400",
+        permalink_nav: "mt-8 flex flex-wrap justify-between gap-4 border-t border-gray-200 pt-4 dark:border-gray-800",
+        permalink_nav_link: "text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
       }.freeze
 
       def copy_initializer

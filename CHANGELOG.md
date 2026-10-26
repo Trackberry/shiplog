@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.3.0 (unreleased)
+
+### Added
+
+- Entry permalinks: every approved feature and change has a page at `/changelog/:slug`, with a "Back to the changelog" link to its month, and links to the newer and older entries. The changelog list links each title to it. The slug is made from the title when the entry is first approved (at most 80 characters, `-2`, `-3` for duplicates, `entry-<id>` when the title leaves nothing) and never changes afterwards. Drafts, discarded and roadmap entries and unknown slugs answer 404. The page sets `content_for :title`, `:shiplog_description` and `:shiplog_og` (Open Graph `og:title`, `og:description`, `og:type`, `og:url`); Shiplog's layout renders them, host layouts should too (see the README). The entry markup is the new `shiplog/changelogs/_entry_content` partial.
+- An Atom feed of the latest 50 features and changes at `/changelog.atom`, with stable tag-URI ids, absolute URLs, an ETag, a `<link rel="alternate">` through `content_for :shiplog_feed` and a "Subscribe (Atom)" link on the changelog.
+- `Shiplog.unseen_count(since:)` (approved features and changes approved after `since`, all of them when nil, at most 99), the `Shiplog::UnseenHelper#shiplog_unseen_count(since)` view helper, and `config.on_changelog_seen = ->(controller) { ... }`, called after each changelog index or permalink view that answered 200 or 304, to stamp a "last seen" time. Shiplog doesn't know your users, so the host supplies and stores the time.
+- `bin/rails shiplog:backfill_slugs`, which gives entries approved before 0.3.0 their permalink slug. Entries without one also get it the first time they are listed.
+- New `config.classes` keys: `permalink`, `permalink_back`, `permalink_nav`, `permalink_nav_link`. The Atom link reuses `footnote` and `footnote_link` (`shiplog-footnote__link--feed`).
+
+### Changed
+
+- The changelog's entry markup moved to `shiplog/changelogs/_entry_content.html.erb`; entry titles on the list are now links.
+
+### Upgrade notes
+
+- Copy and run the new migration: `bin/rails shiplog:install:migrations`, then `bin/rails db:migrate`. It adds `shiplog_entries.slug` (unique index on non-null values) and an index on `shiplog_entries (status, approved_at)`. Then run `bin/rails shiplog:backfill_slugs` (optional: entries get a slug when first listed).
+- If you override `shiplog/changelogs/_entry.html.erb`, titles are not links in your copy; render `shiplog/changelogs/_entry_content` (locals `entry:`, `heading:`, `linked: true`) or link `changelog_entry_path(entry.slug)` yourself.
+- If your `config.public_layout` is your own layout, render `content_for(:shiplog_og)`, `content_for(:shiplog_feed)` and the `:shiplog_description` meta tag in its `<head>` to get Open Graph tags and feed discovery on the permalink pages.
+- New I18n keys, all with English defaults: `shiplog.permalink.title`, `.back`, `.nav_label`, `.newer`, `.older` (with `title`); `shiplog.feed.title_with_product` (with `product`), `.link_title`, `.subscribe`.
+- Style the permalink page with the new class keys above if you use `config.classes` with `config.stylesheet = false`.
+- If your layout shows the unseen count, it renders per-user content: declare `etag { current_user&.changelog_seen_at }` on your `public_parent_controller`.
+
 ## 0.2.0 (2026-10-26)
 
 ### Added

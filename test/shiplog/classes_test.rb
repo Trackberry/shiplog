@@ -12,11 +12,19 @@ class Shiplog::ClassesTest < ActiveSupport::TestCase
     entries entry entry_feature entry_category entry_title entry_body entry_date
     pagination pagination_link empty
     search search_input search_button search_summary search_clear search_empty
+    permalink permalink_back permalink_nav permalink_nav_link
   ].freeze
 
   test "KEYS is the frozen public list" do
     assert_equal EXPECTED_KEYS, Shiplog::Classes::KEYS
     assert_predicate Shiplog::Classes::KEYS, :frozen?
+  end
+
+  test "the permalink keys have BEM classes" do
+    assert_equal "shiplog-permalink", Shiplog::Classes::BEM[:permalink]
+    assert_equal "shiplog-permalink__back", Shiplog::Classes::BEM[:permalink_back]
+    assert_equal "shiplog-permalink__nav", Shiplog::Classes::BEM[:permalink_nav]
+    assert_equal "shiplog-permalink__nav-link", Shiplog::Classes::BEM[:permalink_nav_link]
   end
 
   test "every key has a stable BEM class" do

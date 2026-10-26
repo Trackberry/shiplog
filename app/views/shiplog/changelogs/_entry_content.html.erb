@@ -1,0 +1,6 @@
+<%# locals: (entry:, heading: "h3", linked: false) %>
+<%# what an entry shows: category pill ("New" for features, "Improved" for changes), date, title (a permalink link in the list) and body. Add images and the area tag here. %>
+<span class="<%= shiplog_class(:entry_category) %>"><%= t("shiplog.categories.#{entry.kind}", default: (entry.feature? ? "New" : "Improved")) %></span>
+<time class="<%= shiplog_class(:entry_date) %>" datetime="<%= entry.released_on.iso8601 %>"><%= l(entry.released_on, format: t("shiplog.date_format", default: "%-d %B %Y")) %></time>
+<%= content_tag heading, (linked && entry.slug ? link_to(entry.title, changelog_entry_path(entry.slug)) : entry.title), class: shiplog_class(:entry_title) %>
+<div class="<%= shiplog_class(:entry_body) %>"><%= simple_format(h(entry.body)) %></div>

@@ -22,6 +22,9 @@ module Shiplog
     attr_accessor :feedback_path
     # Whether the public changelog has a search box and honours ?q= (default true).
     attr_accessor :changelog_search
+    # Called with the controller on each changelog index or permalink view (200 or 304 answers), e.g. to stamp
+    # the visitor's "last seen" time. Nil by default. Not part of the ETag: it doesn't change the markup.
+    attr_reader :on_changelog_seen
     # Bump it when the output of a callable you configured changes (extra_pages, repository_labels, feedback_path):
     # callables cannot be part of the ETag, so this is how cached public pages learn about it.
     attr_accessor :cache_version
@@ -90,6 +93,11 @@ module Shiplog
     def roadmap_shipped_count=(value)
       raise ArgumentError, "roadmap_shipped_count must be a non-negative Integer, got #{value.inspect}" unless value.is_a?(Integer) && value >= 0
       @roadmap_shipped_count = value
+    end
+
+    def on_changelog_seen=(value)
+      raise ArgumentError, "on_changelog_seen must be nil or a callable, got #{value.inspect}" unless value.nil? || value.respond_to?(:call)
+      @on_changelog_seen = value
     end
 
     # :standalone (default) wraps the admin in Shiplog's own page chrome; :hosted renders it inside the

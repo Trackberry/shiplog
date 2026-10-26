@@ -28,6 +28,7 @@ dark_mode_feature:
   status: approved
   subject: dark_mode (Shiplog::Issue)
   title: Dark mode
+  slug: dark-mode
   body: Switch to a dark theme.
   released_on: 2026-10-09
   approved_at: 2026-10-10 09:00:00

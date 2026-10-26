@@ -1,0 +1,25 @@
+<% content_for :title, t("shiplog.permalink.title", title: @entry.title, changelog: t("shiplog.changelog.title", default: "Changelog"), default: "%{title} · %{changelog}") %>
+<% content_for :shiplog_description, shiplog_entry_description(@entry) %>
+<% content_for :shiplog_og, shiplog_og_tags(@entry, url: changelog_entry_url(@entry.slug)) %>
+<% content_for :shiplog_feed, auto_discovery_link_tag(:atom, changelog_feed_url, title: t("shiplog.feed.link_title", default: "Changelog (Atom)")) %>
+<%= render layout: "shiplog/page", locals: { name: "permalink" } do %>
+  <%= render "shiplog/page_header", title: t("shiplog.changelog.title", default: "Changelog"), lede: nil %>
+  <article class="<%= shiplog_class(:permalink, @entry.kind) %>">
+    <%= render "shiplog/changelogs/entry_content", entry: @entry, heading: "h2" %>
+  </article>
+  <%= link_to t("shiplog.permalink.back", default: "← Back to the changelog"), changelog_path(anchor: shiplog_month_anchor(@entry.released_on)), class: shiplog_class(:permalink_back) %>
+  <% if @newer || @older %>
+    <nav class="<%= shiplog_class(:permalink_nav) %>" aria-label="<%= t("shiplog.permalink.nav_label", default: "More changelog entries") %>">
+      <% if @newer %>
+        <%= link_to changelog_entry_path(@newer.slug), class: shiplog_class(:permalink_nav_link, :newer), rel: "prev" do %>
+          <%= t("shiplog.permalink.newer", title: @newer.title, default: "← Newer: %{title}") %>
+        <% end %>
+      <% end %>
+      <% if @older %>
+        <%= link_to changelog_entry_path(@older.slug), class: shiplog_class(:permalink_nav_link, :older), rel: "next" do %>
+          <%= t("shiplog.permalink.older", title: @older.title, default: "Older: %{title} →") %>
+        <% end %>
+      <% end %>
+    </nav>
+  <% end %>
+<% end %>
