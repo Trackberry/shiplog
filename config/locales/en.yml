@@ -72,3 +72,24 @@ en:
         move_to: Move to
         move: Move
         unpin: Unpin
+      sync:
+        title: Sync status
+        queued: Sync queued.
+        webhook_secret_missing: The webhook secret is not configured, so GitHub webhooks are rejected.
+        github_token_missing: The GitHub token is not configured, so syncing cannot run.
+        sync_now: Sync now
+        sync_and_scan: Sync and scan for changes
+        repositories: Repositories
+        no_repositories: No repositories are configured.
+        repository: Repository
+        synced_at: Last synced
+        changes_scanned_at: Changes scanned
+        last_error: Last error
+        never: Never
+        deliveries: Recent webhook deliveries
+        no_deliveries: No deliveries yet.
+        event: Event
+        action: Action
+        received_at: Received
+        processed_at: Processed
+        error: Error
