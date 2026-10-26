@@ -82,9 +82,65 @@ class Shiplog::Github::ClientTest < ActiveSupport::TestCase
     assert_requested stub
   end
 
-  test "queries include the required connections" do
-    assert_includes Shiplog::Github::Queries::ISSUES, "closedByPullRequestsReferences(first: 20, includeClosedPrs: true)"
-    assert_includes Shiplog::Github::Queries::PULL_REQUESTS, "closingIssuesReferences"
-    assert_includes Shiplog::Github::Queries::COMMITS, "associatedPullRequests(first: 1)"
+  test "returns data when all errors are NOT_FOUND" do
+    body = { data: { repository: { issue: nil } }, errors: [ { type: "NOT_FOUND", path: %w[repository issue], message: "nope" } ] }
+    stub_request(:post, URL).to_return(body: body.to_json)
+
+    assert_equal({ "repository" => { "issue" => nil } }, client.query("q"))
+  end
+
+  test "raises when NOT_FOUND is mixed with other errors" do
+    body = { data: { repository: nil }, errors: [ { type: "NOT_FOUND", message: "a" }, { type: "OTHER", message: "b" } ] }
+    stub_request(:post, URL).to_return(body: body.to_json)
+
+    assert_raises(Shiplog::Github::Error) { client.query("q") }
+  end
+
+  test "raises when NOT_FOUND comes without data" do
+    stub_request(:post, URL).to_return(body: { errors: [ { type: "NOT_FOUND", message: "a" } ] }.to_json)
+
+    assert_raises(Shiplog::Github::Error) { client.query("q") }
+  end
+
+  test "wraps network errors in Transient" do
+    [ Net::OpenTimeout, Net::ReadTimeout, Errno::ECONNRESET, Errno::ECONNREFUSED, OpenSSL::SSL::SSLError, SocketError ].each do |klass|
+      stub_request(:post, URL).to_raise(klass)
+
+      error = assert_raises(Shiplog::Github::Transient, klass.name) { client.query("q") }
+      assert_kind_of Shiplog::Github::Error, error
+    end
+  end
+
+  test "5xx after retry raises Transient" do
+    stub_request(:post, URL).to_return(status: 503)
+
+    assert_raises(Shiplog::Github::Transient) { client.query("q") }
+  end
+
+  test "RATE_LIMITED GraphQL error on HTTP 200 raises RateLimited using the reset header" do
+    body = { errors: [ { type: "RATE_LIMITED", message: "API rate limit exceeded" } ] }
+    stub_request(:post, URL).to_return(body: body.to_json, headers: { "x-ratelimit-reset" => "1790000000" })
+
+    error = assert_raises(Shiplog::Github::RateLimited) { client.query("q") }
+    assert_equal Time.at(1_790_000_000), error.reset_at
+  end
+
+  test "missing reset header defaults reset_at to 60 seconds from now" do
+    body = { errors: [ { type: "RATE_LIMITED", message: "x" } ] }
+    stub_request(:post, URL).to_return(body: body.to_json)
+
+    travel_to Time.utc(2026, 10, 26, 12) do
+      error = assert_raises(Shiplog::Github::RateLimited) { client.query("q") }
+      assert_equal Time.utc(2026, 10, 26, 12, 1), error.reset_at
+    end
+  end
+
+  test "403 without reset header or retry-after defaults reset_at to 60 seconds from now" do
+    stub_request(:post, URL).to_return(status: 403, headers: { "x-ratelimit-remaining" => "0", "x-ratelimit-reset" => "0" })
+
+    travel_to Time.utc(2026, 10, 26, 12) do
+      error = assert_raises(Shiplog::Github::RateLimited) { client.query("q") }
+      assert_equal Time.utc(2026, 10, 26, 12, 1), error.reset_at
+    end
   end
 end

@@ -3,7 +3,10 @@ require "test_helper"
 class Shiplog::RefreshJobTest < ActiveJob::TestCase
   URL = "https://api.github.com/graphql".freeze
 
-  setup { Shiplog.config.github_token = "tok" }
+  setup do
+    Shiplog.config.github_token = "tok"
+    Shiplog.config.repositories = [ "Acme/widgets" ]
+  end
 
   test "fetches a single issue, imports it and runs the drafter" do
     stub = stub_request(:post, URL).with { |req|
@@ -32,10 +35,31 @@ class Shiplog::RefreshJobTest < ActiveJob::TestCase
     assert_equal "merged", Shiplog::PullRequest.find_by!(node_id: "PR_kwDOSync103").state
   end
 
-  test "ignores a missing record" do
-    stub_request(:post, URL).to_return(body: { data: { repository: { issue: nil } } }.to_json)
+  test "a missing issue (data null plus NOT_FOUND error) is a no-op" do
+    body = {
+      data: { repository: { issue: nil } },
+      errors: [ { type: "NOT_FOUND", path: %w[repository issue], locations: [ { line: 3, column: 5 } ], message: "Could not resolve to an Issue with the number of 99." } ]
+    }
+    stub_request(:post, URL).to_return(body: body.to_json)
 
-    assert_nothing_raised { Shiplog::RefreshJob.perform_now("Acme/widgets", "issue", 99) }
+    assert_no_difference -> { Shiplog::Issue.count } do
+      assert_nothing_raised { Shiplog::RefreshJob.perform_now("Acme/widgets", "issue", 99) }
+    end
+  end
+
+  test "ignores repositories that are not configured" do
+    assert_no_difference -> { Shiplog::Repository.count } do
+      Shiplog::RefreshJob.perform_now("Other/repo", "issue", 1)
+    end
+    assert_not_requested :post, URL
+  end
+
+  test "retries transient failures with backoff" do
+    stub_request(:post, URL).to_raise(Net::ReadTimeout)
+
+    assert_enqueued_with(job: Shiplog::RefreshJob) do
+      Shiplog::RefreshJob.perform_now("Acme/widgets", "issue", 12)
+    end
   end
 
   test "rejects unknown kinds" do

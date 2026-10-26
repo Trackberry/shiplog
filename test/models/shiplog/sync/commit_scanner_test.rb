@@ -32,4 +32,13 @@ class Shiplog::Sync::CommitScannerTest < ActiveSupport::TestCase
     assert_nothing_raised { @scanner.call(since: nil) }
     assert_equal 0, @repository.commits.count
   end
+
+  test "ignores null history nodes" do
+    body = JSON.parse(github_fixture("commits"))
+    nodes = body.dig("data", "repository", "defaultBranchRef", "target", "history", "nodes")
+    nodes.unshift(nil)
+    stub_request(:post, "https://api.github.com/graphql").to_return(body: body.to_json)
+
+    assert_nothing_raised { @scanner.call(since: nil) }
+  end
 end

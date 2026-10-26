@@ -1,13 +1,16 @@
 module Shiplog
   module Github
     module Queries
-      FRAGMENTS = <<~GRAPHQL.freeze
+      PULL_REQUEST_FIELDS = <<~GRAPHQL.freeze
         fragment PullRequestFields on PullRequest {
           id number title body state mergedAt url updatedAt
           author { login }
           repository { nameWithOwner }
           labels(first: 30) { nodes { name } }
         }
+      GRAPHQL
+
+      ISSUE_FIELDS = <<~GRAPHQL.freeze
         fragment IssueFields on Issue {
           __typename id number title body state stateReason url createdAt updatedAt closedAt
           labels(first: 30) { nodes { name } }
@@ -15,14 +18,26 @@ module Shiplog
           assignees { totalCount }
           parent { id }
           closedByPullRequestsReferences(first: 20, includeClosedPrs: true) {
+            pageInfo { hasNextPage }
             nodes { ...PullRequestFields }
           }
         }
+      GRAPHQL
+
+      PULL_REQUEST_WITH_ISSUES = <<~GRAPHQL.freeze
         fragment PullRequestWithIssues on PullRequest {
           ...PullRequestFields
-          closingIssuesReferences(first: 20) { nodes { id } }
+          closingIssuesReferences(first: 20) {
+            pageInfo { hasNextPage }
+            nodes { id }
+          }
         }
       GRAPHQL
+
+      # GitHub rejects documents with unused fragments, so each query embeds
+      # exactly the fragments it (transitively) uses.
+      ISSUE_FRAGMENTS = (ISSUE_FIELDS + PULL_REQUEST_FIELDS).freeze
+      PULL_REQUEST_FRAGMENTS = (PULL_REQUEST_WITH_ISSUES + PULL_REQUEST_FIELDS).freeze
 
       ISSUES = <<~GRAPHQL.freeze
         query($owner: String!, $name: String!, $since: DateTime, $after: String) {
@@ -33,7 +48,7 @@ module Shiplog
             }
           }
         }
-        #{FRAGMENTS}
+        #{ISSUE_FRAGMENTS}
       GRAPHQL
 
       PULL_REQUESTS = <<~GRAPHQL.freeze
@@ -45,7 +60,7 @@ module Shiplog
             }
           }
         }
-        #{FRAGMENTS}
+        #{PULL_REQUEST_FRAGMENTS}
       GRAPHQL
 
       ISSUE = <<~GRAPHQL.freeze
@@ -54,7 +69,7 @@ module Shiplog
             issue(number: $number) { ...IssueFields }
           }
         }
-        #{FRAGMENTS}
+        #{ISSUE_FRAGMENTS}
       GRAPHQL
 
       PULL_REQUEST = <<~GRAPHQL.freeze
@@ -63,7 +78,7 @@ module Shiplog
             pullRequest(number: $number) { ...PullRequestWithIssues }
           }
         }
-        #{FRAGMENTS}
+        #{PULL_REQUEST_FRAGMENTS}
       GRAPHQL
 
       COMMITS = <<~GRAPHQL.freeze
@@ -86,6 +101,8 @@ module Shiplog
           }
         }
       GRAPHQL
+
+      ALL = { ISSUES:, PULL_REQUESTS:, ISSUE:, PULL_REQUEST:, COMMITS: }.freeze
     end
   end
 end

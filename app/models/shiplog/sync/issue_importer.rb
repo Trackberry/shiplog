@@ -6,8 +6,10 @@ module Shiplog
       def initialize(repository) = @repository = repository
 
       def import(node)
-        Issue.transaction do
-          issue = Issue.find_or_initialize_by(node_id: node["id"])
+        with_race_retry do
+          issue = Issue.find_by(node_id: node["id"])
+          issue&.lock!
+          issue ||= Issue.new(node_id: node["id"])
           next issue if stale?(issue, node)
 
           issue.assign_attributes(attributes_for(node))
@@ -32,13 +34,16 @@ module Shiplog
         }
       end
 
+      def pull_request_importer = (@pull_request_importer ||= PullRequestImporter.new(@repository))
+
       def replace_links(issue, node)
-        pull_requests = node.dig("closedByPullRequestsReferences", "nodes").to_a
-        importer = PullRequestImporter.new(@repository)
-        pull_requests.each { |pr| importer.import(pr) }
+        pull_requests = nodes_of(node, "closedByPullRequestsReferences")
+        pull_requests.each { |pr| pull_request_importer.import(pr) }
         ids = pull_requests.map { |pr| pr["id"] }
-        IssueLink.where(issue_node_id: issue.node_id).where.not(pull_request_node_id: ids).delete_all
-        ids.each { |id| IssueLink.find_or_create_by!(issue_node_id: issue.node_id, pull_request_node_id: id) }
+        if complete?(node, "closedByPullRequestsReferences")
+          IssueLink.where(issue_node_id: issue.node_id).where.not(pull_request_node_id: ids).delete_all
+        end
+        insert_links(ids.map { |id| { issue_node_id: issue.node_id, pull_request_node_id: id } })
       end
     end
   end

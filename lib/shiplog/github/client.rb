@@ -7,6 +7,11 @@ module Shiplog
     class Client
       ENDPOINT = URI("https://api.github.com/graphql")
       RETRYABLE_STATUSES = [ 502, 503, 504 ].freeze
+      NETWORK_ERRORS = [
+        Net::OpenTimeout, Net::ReadTimeout, Errno::ECONNRESET, Errno::ECONNREFUSED,
+        OpenSSL::SSL::SSLError, SocketError
+      ].freeze
+      DEFAULT_RESET_WINDOW = 60
 
       def initialize(token: Shiplog.config.resolved_github_token, retry_delay: 1)
         @token = token
@@ -36,6 +41,8 @@ module Shiplog
         http.open_timeout = 10
         http.read_timeout = 30
         http.request(build_request(payload))
+      rescue *NETWORK_ERRORS => error
+        raise Transient, "#{error.class}: #{error.message}"
       end
 
       def build_request(payload)
@@ -50,14 +57,22 @@ module Shiplog
       def handle(response)
         status = response.code.to_i
         raise_rate_limited(response) if rate_limited?(response, status)
+        raise Transient, "GitHub responded with HTTP #{status}" if status >= 500
         raise Error, "GitHub responded with HTTP #{status}" unless status.between?(200, 299)
 
         body = JSON.parse(response.body)
-        raise Error, body["errors"].map { |e| e["message"] }.join("; ") if body["errors"].present?
+        errors = body["errors"].to_a
+        raise_rate_limited(response) if errors.any? { |e| e["type"] == "RATE_LIMITED" }
+        return body.fetch("data") if errors.empty? || not_found_only?(body, errors)
 
-        body.fetch("data")
+        raise Error, errors.map { |e| e["message"] }.join("; ")
       rescue JSON::ParserError
         raise Error, "GitHub returned an unparseable response"
+      end
+
+      # A missing issue/PR number yields `data.repository.issue: null` plus a NOT_FOUND error.
+      def not_found_only?(body, errors)
+        body["data"].present? && errors.all? { |e| e["type"] == "NOT_FOUND" }
       end
 
       def rate_limited?(response, status)
@@ -69,8 +84,10 @@ module Shiplog
       def raise_rate_limited(response)
         reset_at = if response["retry-after"].present?
           Time.current + response["retry-after"].to_i
-        else
+        elsif response["x-ratelimit-reset"].to_i.positive?
           Time.at(response["x-ratelimit-reset"].to_i).utc
+        else
+          Time.current + DEFAULT_RESET_WINDOW
         end
         raise RateLimited.new(reset_at)
       end

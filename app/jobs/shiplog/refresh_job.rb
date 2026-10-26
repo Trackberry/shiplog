@@ -1,6 +1,13 @@
 module Shiplog
   class RefreshJob < ApplicationJob
+    retry_on Github::Transient, attempts: 5, wait: :polynomially_longer
+
     def perform(repository_full_name, kind, number)
+      unless Shiplog.config.repositories.include?(repository_full_name)
+        Rails.logger.info("[shiplog] Ignoring refresh for unconfigured repository #{repository_full_name}")
+        return
+      end
+
       repository = Repository.find_or_create_by!(full_name: repository_full_name)
       case kind.to_s
       when "issue" then import(repository, number, Github::Queries::ISSUE, "issue", Sync::IssueImporter)

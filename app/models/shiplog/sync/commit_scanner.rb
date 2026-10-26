@@ -13,7 +13,7 @@ module Shiplog
           history = fetch(since:, after:)
           return unless history
 
-          history["nodes"].each { |node| store(node) }
+          history["nodes"].to_a.compact.each { |node| store(node) }
           return unless history.dig("pageInfo", "hasNextPage")
 
           after = history.dig("pageInfo", "endCursor")

@@ -6,14 +6,18 @@ module Shiplog
         @client = client
         @owner, @name = repository.full_name.split("/", 2)
         @cursor = repository.sync_cursor
-        @newest = @cursor
+        @newest = nil
       end
 
+      # How far behind the newest-seen timestamp the stored cursor is kept, to absorb clock skew.
+      CURSOR_SAFETY_WINDOW = 5.minutes
+
       def call
+        @started_at = Time.current
         sync_issues
         sync_pull_requests
-        @repository.update!(sync_cursor: @newest, synced_at: Time.current, last_error: nil)
-      rescue Github::Error => error
+        @repository.update!(sync_cursor: next_cursor, synced_at: Time.current, last_error: nil)
+      rescue StandardError => error
         @repository.update!(last_error: error.message)
         raise
       end
@@ -49,11 +53,22 @@ module Shiplog
         after = nil
         loop do
           connection = @client.query(query, { owner: @owner, name: @name, after:, **variables }).dig("repository", field)
-          break if yield(connection["nodes"]) == :stop
+          break if yield(connection["nodes"].to_a.compact) == :stop
           break unless connection.dig("pageInfo", "hasNextPage")
 
           after = connection.dig("pageInfo", "endCursor")
         end
+      end
+
+      # The issue and PR phases share one cursor, so an issue updated while the PR
+      # phase runs could be newer than nothing we saw. Never advance past the sync
+      # start, and keep a safety window for clock skew. `since` is inclusive and the
+      # stale guard prevents regressions, so re-importing is harmless.
+      def next_cursor
+        return @cursor if @newest.nil?
+
+        candidate = [ @newest, @started_at ].min - CURSOR_SAFETY_WINDOW
+        @cursor && @cursor > candidate ? @cursor : candidate
       end
 
       def track(node)

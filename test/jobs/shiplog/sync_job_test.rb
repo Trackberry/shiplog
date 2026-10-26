@@ -63,4 +63,20 @@ class Shiplog::SyncJobTest < ActiveJob::TestCase
       Shiplog::SyncJob.perform_now
     end
   end
+
+  test "reports when the rate-limit retry cap is reached and raises" do
+    reset = Time.utc(2026, 10, 26, 13)
+    stub_request(:post, URL).to_return(status: 403, headers: { "x-ratelimit-remaining" => "0", "x-ratelimit-reset" => reset.to_i.to_s })
+    reported = []
+    subscriber = Struct.new(:reports) { def report(error, **) = reports << error }.new(reported)
+    Rails.error.subscribe(subscriber)
+    job = Shiplog::SyncJob.new
+    job.executions = Shiplog::ApplicationJob::MAX_RATE_LIMIT_RETRIES
+
+    assert_raises(Shiplog::Github::RateLimited) { job.perform_now }
+    assert_equal 1, reported.size
+    assert_kind_of Shiplog::Github::RateLimited, reported.first
+  ensure
+    Rails.error.unsubscribe(subscriber)
+  end
 end
