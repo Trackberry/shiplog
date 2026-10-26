@@ -86,12 +86,18 @@ class ActiveSupport::TestCase
   # restores it. Minitest 6 ships no stub, and this needs no extra gem.
   def with_stub(object, name, callable)
     singleton = object.singleton_class
-    own = singleton.method_defined?(name, false)
+    private_method = singleton.private_method_defined?(name, false)
+    own = private_method || singleton.method_defined?(name, false)
     original = singleton.instance_method(name) if own
     singleton.send(:define_method, name) { |*args, **kwargs, &block| callable.call(*args, **kwargs, &block) }
     yield
   ensure
-    own ? singleton.send(:define_method, name, original) : singleton.send(:remove_method, name)
+    if own
+      singleton.send(:define_method, name, original)
+      singleton.send(:private, name) if private_method
+    else
+      singleton.send(:remove_method, name)
+    end
   end
 
   # Runs the block with WebMock responses streamed as the chunks of `chunks` (any Enumerable, consumed lazily).

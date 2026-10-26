@@ -19,10 +19,10 @@ module Shiplog
         entry.title.presence || source_title(entry.subject)
       end
 
-      # The URL of an image's thumbnail: a 200x200 variant when the host has image_processing, else the original
-      # (the stylesheet sizes it).
+      # The URL of an image's thumbnail: a 200x200 variant when the host can make them (image_processing and a
+      # processor, see Shiplog.image_variants?), else the original (the stylesheet sizes it).
       def image_thumbnail_path(image)
-        source = Gem.loaded_specs.key?("image_processing") && image.variable? ? image.variant(resize_to_limit: [ 200, 200 ]) : image
+        source = Shiplog.image_variants? && image.variable? ? image.variant(resize_to_limit: [ 200, 200 ]) : image
         polymorphic_path(source)
       rescue ActionController::UrlGenerationError, NoMethodError, ArgumentError
         nil

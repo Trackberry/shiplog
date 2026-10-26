@@ -45,6 +45,7 @@ module Shiplog
     def reset_images_checks!
       @active_storage_tables = nil
       @images_off_logged = nil
+      @image_variants = nil
     end
 
     # Logged once at boot (see Shiplog::Engine): screenshots wanted but Active Storage missing. A missing
@@ -57,10 +58,26 @@ module Shiplog
       end
     end
 
+    # Whether the admin can show thumbnails as variants: the image_processing gem is loaded and so is a
+    # processor for it (ruby-vips, which must load, or mini_magick). Otherwise the originals are shown.
+    def image_variants?
+      return @image_variants unless @image_variants.nil?
+
+      @image_variants = Gem.loaded_specs.key?("image_processing") && (vips_loads? || Gem.loaded_specs.key?("mini_magick"))
+    end
+
     # Whether screenshots are in use: config.images and Active Storage.
     def images? = config.images && active_storage?
 
     private
+
+    def vips_loads?
+      return true if defined?(::Vips)
+
+      Gem.loaded_specs.key?("ruby-vips") && require("vips")
+    rescue LoadError
+      false
+    end
 
     def log_images_off(reason)
       @images_off_logged ||= Set.new
