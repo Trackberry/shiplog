@@ -56,4 +56,14 @@ class Shiplog::EntryTest < ActiveSupport::TestCase
     entry.status = "bogus"
     assert_not entry.valid?
   end
+
+  test "approved feature and change entries require released_on, roadmap entries do not" do
+    feature = shiplog_entries(:dark_mode_feature)
+    feature.released_on = nil
+    assert_not feature.valid?
+    assert feature.errors.of_kind?(:released_on, :blank)
+    assert shiplog_entries(:bulk_upload_roadmap).valid?
+    draft = shiplog_entries(:csv_change_draft)
+    assert draft.valid?
+  end
 end

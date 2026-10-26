@@ -5,6 +5,8 @@ module Shiplog
     enum :kind, %w[roadmap feature change].index_by(&:itself), validate: true
     enum :status, %w[draft approved discarded].index_by(&:itself), default: "draft", validate: true
 
+    validates :released_on, presence: true, if: -> { approved? && !roadmap? }
+
     def self.digest_for(subject)
       Digest::SHA256.hexdigest([ subject.title, subject.body ].join("\n"))
     end

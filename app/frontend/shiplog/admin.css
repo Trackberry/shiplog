@@ -40,3 +40,53 @@
 
 .shiplog-admin__flash { border: 1px solid var(--shiplog-admin-border); border-radius: 0.375rem; padding: 0.5rem 0.75rem; }
 .shiplog-admin__flash--alert { border-color: #cf222e; }
+
+.shiplog-admin__title { font-size: 1.5rem; margin: 0 0 1rem; }
+.shiplog-admin__muted { color: var(--shiplog-admin-muted); font-size: 0.875rem; }
+.shiplog-admin__empty { color: var(--shiplog-admin-muted); }
+
+.shiplog-admin-filters { display: flex; flex-wrap: wrap; gap: 0.5rem 2rem; margin-bottom: 1rem; }
+.shiplog-admin-filters__list { display: flex; gap: 0.75rem; list-style: none; margin: 0; padding: 0; }
+.shiplog-admin-filters__link[aria-current] { color: var(--shiplog-admin-fg); font-weight: 600; text-decoration: none; }
+
+.shiplog-admin-table { background: var(--shiplog-admin-surface); border: 1px solid var(--shiplog-admin-border); border-collapse: collapse; width: 100%; }
+.shiplog-admin-table th,
+.shiplog-admin-table td { border-bottom: 1px solid var(--shiplog-admin-border); padding: 0.5rem 0.75rem; text-align: left; vertical-align: top; }
+.shiplog-admin-table__actions { display: flex; gap: 0.5rem; }
+.shiplog-admin-table__actions form { margin: 0; }
+
+.shiplog-admin-pagination { display: flex; justify-content: space-between; margin-top: 1rem; }
+.shiplog-admin-pagination__next { margin-left: auto; }
+
+.shiplog-badge {
+  background: var(--shiplog-admin-bg);
+  border: 1px solid var(--shiplog-admin-border);
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  padding: 0.0625rem 0.5rem;
+}
+.shiplog-badge--warning { border-color: #bf8700; color: #9a6700; }
+.shiplog-badge--error { border-color: #cf222e; color: #cf222e; }
+
+.shiplog-button {
+  background: var(--shiplog-admin-surface);
+  border: 1px solid var(--shiplog-admin-border);
+  border-radius: 0.375rem;
+  color: var(--shiplog-admin-fg);
+  cursor: pointer;
+  display: inline-block;
+  font: inherit;
+  padding: 0.25rem 0.75rem;
+  text-decoration: none;
+}
+.shiplog-button--primary { background: var(--shiplog-admin-accent); border-color: var(--shiplog-admin-accent); color: #fff; }
+
+.shiplog-admin-split { display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); }
+.shiplog-admin-panel { background: var(--shiplog-admin-surface); border: 1px solid var(--shiplog-admin-border); border-radius: 0.5rem; padding: 1rem; }
+.shiplog-admin-panel h2 { font-size: 1.125rem; margin-top: 0; }
+.shiplog-admin-form label { display: block; font-weight: 600; margin-bottom: 0.25rem; }
+.shiplog-admin-form input[type=text],
+.shiplog-admin-form textarea { box-sizing: border-box; font: inherit; width: 100%; }
+.shiplog-admin-actions { border-top: 1px solid var(--shiplog-admin-border); display: grid; gap: 0.75rem; margin-top: 1rem; padding-top: 1rem; }
+.shiplog-admin-inline-form { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.shiplog-admin-source { background: var(--shiplog-admin-bg); overflow-x: auto; padding: 0.75rem; white-space: pre-wrap; word-break: break-word; }

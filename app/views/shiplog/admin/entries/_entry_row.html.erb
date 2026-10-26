@@ -1,0 +1,25 @@
+<tr class="shiplog-entry-row">
+  <td>
+    <%= link_to entry_heading(entry), edit_entry_path(entry) %>
+    <%= render "shiplog/admin/entries/badges", entry: %>
+    <% if entry.discarded? && entry.discard_reason.present? %>
+      <div class="shiplog-admin__muted"><%= entry.discard_reason %></div>
+    <% end %>
+  </td>
+  <td><%= t("shiplog.admin.entries.kinds.#{entry.kind}") %></td>
+  <td>
+    <% if entry.subject.url.present? %>
+      <%= link_to source_reference(entry.subject), entry.subject.url, rel: "noopener noreferrer", target: "_blank" %>
+    <% else %>
+      <%= source_reference(entry.subject) %>
+    <% end %>
+  </td>
+  <td class="shiplog-admin-table__actions">
+    <%= link_to t("shiplog.admin.entries.edit"), edit_entry_path(entry), class: "shiplog-button" %>
+    <% if entry.draft? %>
+      <%= button_to t("shiplog.admin.entries.approve"), entry_approval_path(entry), class: "shiplog-button shiplog-button--primary" %>
+    <% elsif entry.discarded? %>
+      <%= button_to t("shiplog.admin.entries.restore"), entry_discard_path(entry), method: :delete, class: "shiplog-button" %>
+    <% end %>
+  </td>
+</tr>

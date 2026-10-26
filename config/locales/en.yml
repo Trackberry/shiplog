@@ -19,3 +19,47 @@ en:
         drafts: Drafts
         board: Roadmap board
         sync: Sync
+      entries:
+        title: Entries
+        filters: Filter entries
+        all_kinds: All kinds
+        empty: No entries match.
+        pagination: Pagination
+        older: Older
+        newer: Newer
+        saved: Entry saved.
+        approved: Entry approved.
+        discarded: Entry discarded.
+        restored: Entry restored to draft.
+        rewrite_queued: Rewrite queued. Refresh in a moment.
+        edit: Edit
+        edit_title: "Edit %{kind}"
+        approve: Approve
+        discard: Discard
+        restore: Restore
+        save: Save
+        regenerate: Regenerate
+        regenerate_warning: Regenerating unpublishes this entry until re-approved.
+        source_changed: GitHub text changed since this draft
+        rewrite_error: Rewrite failed
+        public_text: Public text
+        source: GitHub source
+        back: Back to drafts
+        statuses:
+          draft: Drafts
+          approved: Approved
+          discarded: Discarded
+        kinds:
+          roadmap: Roadmap
+          feature: Feature
+          change: Change
+        columns:
+          entry: Entry
+          kind: Kind
+          source: Source
+          actions: Actions
+        fields:
+          title: Title
+          body: Text
+          released_on: Released on
+          reason: Reason
