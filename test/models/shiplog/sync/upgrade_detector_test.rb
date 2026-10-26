@@ -31,6 +31,7 @@ class Shiplog::Sync::UpgradeDetectorTest < ActiveSupport::TestCase
   end
 
   setup do
+    travel_to Time.utc(2026, 10, 26, 12)
     Shiplog.config.github_token = "tok"
     Shiplog.config.repositories = [
       "Trackberry/trackberry",
@@ -237,6 +238,7 @@ class Shiplog::Sync::UpgradeDetectorTest < ActiveSupport::TestCase
 
   test "handles at most 50 pull requests per call, newest first, and finishes the rest on the next call" do
     @pull_request.destroy!
+    @repository.update!(changes_scanned_at: Time.utc(2026, 8, 1))
     stub_request(:post, GRAPHQL).with(&blob_requests).to_return(body: { data: { repository: { object: { text: lockfile } } } }.to_json)
     60.times { |i| make_pull_request(number: 100 + i, merged_at: Time.utc(2026, 9, 1) + i.hours) }
 
@@ -246,6 +248,30 @@ class Shiplog::Sync::UpgradeDetectorTest < ActiveSupport::TestCase
 
     assert_equal 10, @detector.call
     assert_equal 0, @repository.pull_requests.awaiting_upgrade_check.count
+  end
+
+  test "marks pull requests merged before the drafting horizon checked without fetching them" do
+    old = make_pull_request(number: 1, merged_at: Time.utc(2024, 3, 1))
+    @repository.update!(changes_scanned_at: Time.utc(2026, 10, 20))
+    @pull_request.update!(merged_at: Time.utc(2026, 10, 21))
+    stub_blob(BASE, lockfile)
+    stub_blob(MERGE, lockfile)
+
+    assert_equal 1, @detector.call
+
+    assert old.reload.upgrades_checked_at
+    assert_requested(:post, GRAPHQL, times: 2)
+  end
+
+  test "without a last scan the horizon is the job's default window" do
+    old = make_pull_request(number: 1, merged_at: Time.utc(2026, 10, 18))
+    stub_blob(BASE, lockfile)
+    stub_blob(MERGE, lockfile)
+
+    assert_equal 1, @detector.call
+
+    assert old.reload.upgrades_checked_at
+    assert_requested(:post, GRAPHQL, times: 2)
   end
 
   test "a lockfile missing on one side records nothing" do

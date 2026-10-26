@@ -105,6 +105,52 @@ class Shiplog::ScanChangesJobTest < ActiveJob::TestCase
     assert_equal Time.utc(2026, 10, 26, 12), host.reload.changes_scanned_at
   end
 
+  # The reviewer's scenario: a first sync imported years of history, whose lockfile PRs are all still pending.
+  def seed_old_history
+    Shiplog.config.repositories = [ "Acme/widgets", { name: "Acme/gadgets", changelog: false, gem: "gadgets" } ]
+    stub_marker("object(expression", { data: { repository: { object: nil } } }.to_json)
+    host = Shiplog::Repository.create!(full_name: "Acme/widgets", changes_scanned_at: Time.utc(2026, 10, 25))
+    60.times do |i|
+      host.pull_requests.create!(node_id: "PR_lock_#{i}", number: 100 + i, title: "chore: bump #{i}", state: "merged",
+        merged_at: Time.utc(2024, 1, 1) + i.days, author_login: "ed", labels: [], github_updated_at: Time.utc(2024, 1, 1),
+        lockfile_changed: true, base_oid: "a", merge_oid: "b")
+    end
+    old = host.pull_requests.create!(node_id: "PR_old", number: 5, title: "Add old thing", state: "merged",
+      merged_at: Time.utc(2025, 3, 1), author_login: "ed", labels: [], github_updated_at: Time.utc(2025, 3, 1))
+    [ host, old ]
+  end
+
+  test "pending lockfile PRs from before the window do not move it back, and nothing old is drafted" do
+    host, old = seed_old_history
+
+    with_detection_disabled { 2.times { Shiplog::ScanChangesJob.perform_now } }
+
+    assert_equal Time.utc(2026, 10, 26, 12), host.reload.changes_scanned_at
+    assert_not old.entries.exists?
+    assert_equal 0, Shiplog::Entry.change.where(subject_type: "Shiplog::PullRequest", subject_id: host.pull_requests.select(:id)).count
+  end
+
+  test "detection does not fetch pending PRs merged before the window, and marks them checked" do
+    host, old = seed_old_history
+
+    2.times { Shiplog::ScanChangesJob.perform_now }
+
+    assert_not_requested(:post, GRAPHQL) { |req| JSON.parse(req.body).dig("variables", "expression").present? }
+    assert_equal 0, host.pull_requests.awaiting_upgrade_check.count
+    assert_equal Time.utc(2026, 10, 26, 12), host.reload.changes_scanned_at
+    assert_not old.entries.exists?
+  end
+
+  test "the window never ends before its start" do
+    host = Shiplog::Repository.create!(full_name: "Acme/widgets", changes_scanned_at: Time.utc(2026, 10, 25))
+    job = Shiplog::ScanChangesJob.new
+    original = Shiplog::ChangeCandidates.method(:oldest_pending)
+    Shiplog::ChangeCandidates.define_singleton_method(:oldest_pending) { |*, **| Time.utc(2024, 1, 1) }
+    assert_equal Time.utc(2026, 10, 25), job.send(:window_end, host, Time.utc(2026, 10, 26, 12), Time.utc(2026, 10, 25))
+  ensure
+    Shiplog::ChangeCandidates.define_singleton_method(:oldest_pending, original)
+  end
+
   test "a changelog: false repository is synced but never drafts changes" do
     Shiplog.config.repositories = [ { name: "Acme/widgets", changelog: false } ]
     repository = Shiplog::Repository.create!(full_name: "Acme/widgets", changes_scanned_at: Time.utc(2026, 10, 1))

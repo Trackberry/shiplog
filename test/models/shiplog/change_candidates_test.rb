@@ -197,4 +197,13 @@ class Shiplog::ChangeCandidatesTest < ActiveSupport::TestCase
 
     assert_not_includes candidates, pr
   end
+
+  test "oldest_pending ignores pending pull requests merged before since" do
+    Shiplog.config.repositories = [ "Trackberry/trackberry", { name: "Trackberry/market_data", changelog: false, gem: "market_data" } ]
+    pull_request(90, merged_at: Time.utc(2024, 1, 1), lockfile_changed: true)
+    recent = pull_request(91, merged_at: Time.utc(2026, 10, 12), lockfile_changed: true)
+
+    assert_equal recent.merged_at, Shiplog::ChangeCandidates.oldest_pending(@repository, since: SINCE)
+    assert_nil Shiplog::ChangeCandidates.oldest_pending(@repository, since: Time.utc(2026, 10, 13))
+  end
 end

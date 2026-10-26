@@ -37,6 +37,7 @@ module Shiplog
       def call
         return 0 unless @config.changelog_repository?(@repository.full_name) && tracked_gems.any?
 
+        skip_before_horizon
         pending = @repository.pull_requests.awaiting_upgrade_check.limit(MAX_PER_CALL).to_a
         pending.each { |pull_request| inspect_pull_request(pull_request) }
         pending.size
@@ -45,6 +46,13 @@ module Shiplog
       private
 
       def tracked_gems = @tracked_gems ||= @config.tracked_gems
+
+      # Nothing merged before the next scan's start is ever drafted, so fetching its lockfiles is wasted API calls:
+      # those pull requests are marked checked without being inspected.
+      def skip_before_horizon
+        @repository.pull_requests.awaiting_upgrade_check.where(merged_at: ...ScanChangesJob.window_start(@repository))
+          .reorder(nil).update_all(upgrades_checked_at: Time.current)
+      end
 
       def inspect_pull_request(pull_request)
         upgrades = detect(pull_request)

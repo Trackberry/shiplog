@@ -7,13 +7,14 @@ module Shiplog
     # Dropped from the upgrade bypass: the label Dependabot adds. Any other excluded label still excludes.
     UPGRADE_LABEL = "dependencies".freeze
 
-    # The merge time of the oldest merged pull request whose upgrade detection has not run yet, or nil. Such pull
-    # requests are held back from candidates, so a scan window must not move past it. Nil when no gem is tracked,
-    # since detection would never run.
-    def self.oldest_pending(repository)
+    # The merge time of the oldest merged pull request merged at or after `since` whose upgrade detection has not
+    # run yet, or nil. Such pull requests are held back from candidates, so a scan window must not move past it.
+    # Older ones are outside the window: they are never drafted, and must not drag it backwards. Nil when no gem
+    # is tracked, since detection would never run.
+    def self.oldest_pending(repository, since:)
       return unless Shiplog.config.tracked_gems.any?
 
-      repository.pull_requests.awaiting_upgrade_check.reorder(:merged_at).pick(:merged_at)
+      repository.pull_requests.awaiting_upgrade_check.where(merged_at: since..).reorder(:merged_at).pick(:merged_at)
     end
 
     def initialize(repository:, since:, before:)
