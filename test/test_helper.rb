@@ -26,7 +26,10 @@ class ActionDispatch::IntegrationTest
 end
 
 class ActiveSupport::TestCase
-  teardown { Shiplog.reset_config! }
+  teardown do
+    Shiplog.reset_config!
+    Shiplog.reset_images_checks!
+  end
 
   # Runs the block with an extra, otherwise empty locale (a host locale that lacks Rails' date formats).
   # The I18n backend state is restored afterwards.
@@ -64,6 +67,18 @@ class ActiveSupport::TestCase
   def image_bytes(type) = file_fixture(image_fixture_name(type)).binread
 
   def image_fixture_name(type) = "images/#{{ svg: "drawing.svg", html: "page.html" }.fetch(type) { "pixel.#{type}" }}"
+
+  # Runs the block with `object.name` replaced by `callable` (a lambda taking the method's arguments), then
+  # restores it. Minitest 6 ships no stub, and this needs no extra gem.
+  def with_stub(object, name, callable)
+    singleton = object.singleton_class
+    own = singleton.method_defined?(name, false)
+    original = singleton.instance_method(name) if own
+    singleton.send(:define_method, name) { |*args, **kwargs, &block| callable.call(*args, **kwargs, &block) }
+    yield
+  ensure
+    own ? singleton.send(:define_method, name, original) : singleton.send(:remove_method, name)
+  end
 
   # Runs the block as a host without Active Storage would see Shiplog.
   def without_active_storage

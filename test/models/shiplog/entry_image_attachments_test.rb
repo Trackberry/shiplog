@@ -44,12 +44,12 @@ class Shiplog::EntryImageAttachmentsTest < ActiveJob::TestCase
     Shiplog.log_images_status
     assert_empty output.string
 
-    without_active_storage { Shiplog.log_images_status }
+    with_stub(Shiplog, :active_storage_loaded?, ->(*) { false }) { Shiplog.log_images_status }
     assert_match(/\[shiplog\] Screenshots are off: Active Storage is not loaded/, output.string)
 
     output.truncate(0)
     Shiplog.config.images = false
-    without_active_storage { Shiplog.log_images_status }
+    with_stub(Shiplog, :active_storage_loaded?, ->(*) { false }) { Shiplog.log_images_status }
     assert_empty output.string
   ensure
     Rails.logger = original

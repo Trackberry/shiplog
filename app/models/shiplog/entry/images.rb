@@ -7,7 +7,7 @@ module Shiplog::Entry::Images
   ALT_MAX_LENGTH = 300
 
   included do
-    has_many_attached :images if Shiplog.active_storage?
+    has_many_attached :images if Shiplog.active_storage_loaded?
 
     scope :with_images_loaded, -> { Shiplog.images? ? includes(images_attachments: :blob) : all }
   end
