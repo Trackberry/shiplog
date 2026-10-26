@@ -123,8 +123,7 @@ class Shiplog::HeadTagsTest < ActionDispatch::IntegrationTest
   end
 
   test "it validates its keys on a host page too" do
-    helper = ApplicationController.new.view_context.extend(Shiplog::HeadHelper)
-    assert_raises(ArgumentError) { helper.shiplog_head_tags(except: [ :nope ]) }
+    assert_raises(ArgumentError) { ApplicationController.new.view_context.shiplog_head_tags(except: [ :nope ]) }
   end
 
   test "a partial in the host app overrides the engine's" do
@@ -258,30 +257,51 @@ class Shiplog::HeadTagsTest < ActionDispatch::IntegrationTest
 
   # Old layouts and the migration to the helper.
 
-  test "no tag is emitted twice when a layout renders the content_for blocks and the helper" do
-    Shiplog.config.og_image = ->(_entry, _locale) { "https://cdn.example.com/card.png" }
-    Shiplog.config.public_layout = "head_both"
-
-    [ "legacy_first", "helper_first" ].each do |order|
-      [ "/changelog/dark-mode", "/changelog", "/roadmap", "/changelog?q=dark" ].each do |path|
-        get path, params: { order: }
-        assert_unique og
-        assert_unique twitter
-        assert_equal 1, css_select("head meta[name=description]").size, "#{path} #{order}" if path.include?("dark-mode")
-        assert_operator css_select("head meta[name=robots]").size, :<=, 1, "#{path} #{order}"
-        assert_operator feeds.size, :<=, 1, "#{path} #{order}"
-        assert_operator json_ld.size, :<=, 1, "#{path} #{order}"
-        assert_operator canonicals.size, :<=, 1
-      end
-    end
-  end
-
-  test "helper alone produces the full set, which the legacy blocks do not (canonical and Twitter are new)" do
+  test "the legacy content_for blocks alone still produce what they did in 0.3.0" do
     Shiplog.config.public_layout = "head_legacy"
     get "/changelog/dark-mode"
+
+    assert_equal [ "Switch to a dark theme." ], meta_content("name", "description")
+    assert_equal({ "og:title" => "Dark mode", "og:description" => "Switch to a dark theme.", "og:type" => "article",
+      "og:url" => "http://www.example.com/changelog/dark-mode" }, og.to_h)
+    assert_unique og
+    assert_equal 1, feeds.size
+    assert_equal 1, json_ld.size
     assert_empty canonicals
     assert_empty twitter
-    assert_equal 1, og.count { |property, _| property == "og:title" }
+  end
+
+  test "shiplog_head_tags alone yields exactly one of each tag, and never reads the legacy blocks" do
+    Shiplog.config.og_image = ->(_entry, _locale) { "https://cdn.example.com/card.png" }
+    get "/changelog/dark-mode"
+
+    assert_unique og
+    assert_unique twitter
+    assert_equal 1, css_select("head meta[name=description]").size
+    assert_equal 1, canonicals.size
+    assert_equal 1, feeds.size
+    assert_equal 1, json_ld.size
+    assert_equal 1, css_select("head meta[property='og:image']").size
+  end
+
+  test "a layout that renders both the blocks and the helper duplicates the tags, which is why you use one" do
+    Shiplog.config.public_layout = "head_both"
+    get "/changelog/dark-mode"
+    assert_equal 2, css_select("head meta[name=description]").size
+  end
+
+  test "a host controller without the helper renders a layout calling shiplog_head_tags, with no Shiplog tags" do
+    get "/plain"
+    assert_response :ok
+    assert_empty css_select("head link[rel=canonical], head meta[property^='og:'], head meta[name^=twitter], head script[type='application/ld+json']")
+    assert_select "#plain-page"
+  end
+
+  test "only shiplog_head_tags is added to every view" do
+    assert_includes ActionView::Base.instance_method(:shiplog_head_tags).owner.name, "HeadTagsHelper"
+    assert_not ActionView::Base.method_defined?(:shiplog_head_page)
+    assert_not ActionView::Base.method_defined?(:shiplog_entry_og_image)
+    assert_equal [ :shiplog_head_tags ], Shiplog::HeadTagsHelper.public_instance_methods(false)
   end
 
   test "the engine's own layout renders everything through the helper" do

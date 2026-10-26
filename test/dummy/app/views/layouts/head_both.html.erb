@@ -2,17 +2,9 @@
 <html>
   <head>
     <title><%= content_for(:title) %></title>
-    <% if params[:order] == "helper_first" %>
-      <%= shiplog_head_tags %>
-    <% end %>
     <%= tag.meta name: "description", content: content_for(:shiplog_description) if content_for?(:shiplog_description) %>
-    <%= tag.meta name: "robots", content: content_for(:shiplog_robots) if content_for?(:shiplog_robots) %>
     <%= content_for(:shiplog_og) %>
-    <%= content_for(:shiplog_feed) %>
-    <%= content_for(:shiplog_structured_data) %>
-    <% unless params[:order] == "helper_first" %>
-      <%= shiplog_head_tags %>
-    <% end %>
+    <%= shiplog_head_tags %>
   </head>
   <body><%= yield %></body>
 </html>
