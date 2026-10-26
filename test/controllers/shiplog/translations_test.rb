@@ -97,6 +97,29 @@ class Shiplog::TranslationsTest < ActionDispatch::IntegrationTest
     assert_equal "en", REXML::Document.new(response.body).root.attributes["xml:lang"]
   end
 
+  test "feed entries without a current translation are marked as English under a translated locale" do
+    translate!(@dark, "Modo oscuro", "Cambia a un tema oscuro.")
+    translate!(@csv, "Validación antigua", "Texto").update_columns(source_digest: "older")
+
+    in_spanish { get "/changelog.atom" }
+
+    doc = REXML::Document.new(response.body)
+    ns = { "a" => "http://www.w3.org/2005/Atom" }
+    entries = REXML::XPath.match(doc, "//a:entry", ns).index_by { |node| REXML::XPath.first(node, "a:id", ns).text.split("/").last }
+    translated = entries.fetch("dark-mode")
+    assert_nil REXML::XPath.first(translated, "a:title", ns).attributes["xml:lang"]
+    assert_nil REXML::XPath.first(translated, "a:content", ns).attributes["xml:lang"]
+    stale = entries.fetch("better-csv-validation")
+    assert_equal "en", REXML::XPath.first(stale, "a:title", ns).attributes["xml:lang"]
+    assert_equal "en", REXML::XPath.first(stale, "a:content", ns).attributes["xml:lang"]
+  end
+
+  test "feed entries carry no language mark under the default locale" do
+    get "/changelog.atom"
+
+    assert_no_match(/<(title|content)[^>]* xml:lang/, response.body)
+  end
+
   test "English shows when the translation is missing, for another locale, or stale" do
     translate!(@dark, "Modo oscuro", "Cambia a un tema oscuro.")
     stale = translate!(@csv, "Mejor validación de CSV", "Texto")

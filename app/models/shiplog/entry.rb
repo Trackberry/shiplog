@@ -51,7 +51,9 @@ module Shiplog
     end
 
     # Loads the translations of `entries` for the current locale in one query, and none under a locale that is
-    # not translated (then the entries show English and nothing is queried). Only that locale's rows are loaded.
+    # not translated (then the entries show English and nothing is queried). Only that locale's rows are loaded
+    # into the `translations` association, so after this call it holds the current locale's rows, not all of them
+    # (use Entry#translation, not `translations`, to read them).
     def self.preload_translations(entries, locale: I18n.locale)
       entries = Array(entries).compact
       return unless entries.any? && translated_locale?(locale)

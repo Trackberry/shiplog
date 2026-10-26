@@ -10,12 +10,15 @@ atom_feed(language: I18n.locale.to_s, url: shiplog_absolute_url(:changelog_feed)
   updated_at = ->(entry) { [ entry.updated_at, entry.translation&.updated_at ].compact.max }
   feed.updated(@entries.map(&updated_at).max || Time.current)
 
+  # Under a translated locale, an entry without a current translation is in English (the default locale): say so.
+  english = ->(entry) { Shiplog::Entry.translated_locale?(I18n.locale) && entry.translation.nil? ? { "xml:lang" => I18n.default_locale.to_s } : {} }
+
   @entries.each do |entry|
     feed.entry(entry, id: "tag:#{shiplog_tag_host},2005:#{shiplog_entry_path(entry)}", url: shiplog_entry_url(entry),
         published: entry.released_on.in_time_zone, updated: updated_at.(entry)) do |item|
-      item.title(entry.display_title.to_s)
+      item.title(entry.display_title.to_s, english.(entry))
       item.category(term: entry.area.slug, label: entry.area.name) if entry.area
-      item.content(shiplog_feed_content(entry), type: "html")
+      item.content(shiplog_feed_content(entry), { type: "html" }.merge(english.(entry)))
     end
   end
 end
