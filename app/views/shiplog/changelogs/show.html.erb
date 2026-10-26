@@ -1,10 +1,9 @@
-<% content_for :title, t("shiplog.changelog.title", default: "Changelog") %>
-<% content_for :shiplog_feed, auto_discovery_link_tag(:atom, shiplog_absolute_url(:changelog_feed), title: t("shiplog.feed.link_title", default: "Changelog (Atom)")) %>
+<% changelog_title = t("shiplog.changelog.title", default: "Changelog") %>
+<% list_url = shiplog_absolute_url(:changelog, area: @area&.slug, page: (@page if @page > 1)) %>
+<% content_for :title, changelog_title %>
+<% shiplog_head_page :changelog, title: changelog_title, url: list_url, query: @query, json_ld: shiplog_changelog_json_ld(@months.values.flatten, name: changelog_title, url: list_url) %>
 <%= render layout: "shiplog/page", locals: { name: "changelog" } do %>
   <%= render "shiplog/page_header", title: t("shiplog.changelog.title", default: "Changelog"), lede: t("shiplog.changelog.lede", default: "New features and improvements, as they ship.") %>
-  <% if @query %>
-    <% content_for :shiplog_robots, "noindex" %>
-  <% end %>
   <% if Shiplog.config.changelog_search %>
     <%= render "shiplog/changelogs/search", query: @query, count: @result_count %>
   <% end %>

@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <%= tag.meta name: "description", content: content_for(:shiplog_description) if content_for?(:shiplog_description) %>
+    <%= content_for(:shiplog_og) %>
+    <%= content_for(:shiplog_feed) %>
+    <%= content_for(:shiplog_structured_data) %>
+  </head>
+  <body><%= yield %></body>
+</html>

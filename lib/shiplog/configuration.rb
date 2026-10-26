@@ -34,6 +34,13 @@ module Shiplog
     attr_accessor :feedback_path
     # Whether the public changelog has a search box and honours ?q= (default true).
     attr_accessor :changelog_search
+    # Whether the public pages carry schema.org JSON-LD (rendered by shiplog_head_tags; default true).
+    attr_accessor :structured_data
+    # The image shared with a permalink page when the entry has no screenshot: nil (default) or a callable
+    # `->(entry, locale) { "https://cdn.example.com/card.png" }` evaluated in the view (instance_exec, so
+    # `main_app` route helpers work). A path is made absolute with canonical_url or the request's origin; an
+    # error or a non-http(s) value is logged and the page renders without the image. See shiplog_head_tags.
+    attr_reader :og_image
     # Called with the controller on each changelog index or permalink view (200 or 304 answers), e.g. to stamp
     # the visitor's "last seen" time. It runs BEFORE the page renders (so a badge in the same response is
     # current), on every visit, and may write: keep it cheap, e.g. write only when the stored time is older than
@@ -70,7 +77,7 @@ module Shiplog
         stylesheet, roadmap_shipped_count, cache_version, product_name, canonical_url,
         extra_pages.map { |page| [ stable.(page[:label]), stable.(page[:path]) ] },
         repository_labels.sort_by { |name, _| name.to_s }.map { |name, label| [ name, stable.(label) ] },
-        stable.(feedback_path), changelog_search, images, max_images_per_entry, locales
+        stable.(feedback_path), changelog_search, images, max_images_per_entry, locales, structured_data, stable.(og_image)
       ]
       Digest::SHA256.hexdigest(JSON.generate(data))
     end
@@ -156,6 +163,11 @@ module Shiplog
       @canonical_url = normalize_canonical_url(value)
     end
 
+    def og_image=(value)
+      raise ArgumentError, "og_image must be nil or a callable like ->(entry, locale) { url }, got #{value.inspect}" unless value.nil? || value.respond_to?(:call)
+      @og_image = value
+    end
+
     def on_changelog_seen=(value)
       raise ArgumentError, "on_changelog_seen must be nil or a callable, got #{value.inspect}" unless value.nil? || value.respond_to?(:call)
       @on_changelog_seen = value
@@ -227,6 +239,7 @@ module Shiplog
       @repository_labels = {}.freeze
       @roadmap_shipped_count = 4
       @changelog_search = true
+      @structured_data = true
       @max_areas = 8
       @images = true
       @max_images_per_entry = 4

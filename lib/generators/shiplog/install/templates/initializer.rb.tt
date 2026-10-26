@@ -122,6 +122,10 @@ Shiplog.configure do |config|
   # The public changelog's search box and ?q= filtering. Set to false to turn search off.
   # config.changelog_search = true
 
+  # schema.org structured data (JSON-LD) on the public pages: an Article on each permalink, a CollectionPage on
+  # the changelog and the roadmap. Set to false to turn it off.
+  # config.structured_data = true
+
   # "What's new". Shiplog doesn't know your users, so you supply the "last seen" time. This is called with the
   # controller on every changelog index or permalink view, BEFORE the page renders (a 304 revisit included), so a
   # navbar badge in the same response is current. It may write and runs on every visit: keep it cheap, and write
@@ -135,9 +139,18 @@ Shiplog.configure do |config|
 
   # The 0.3.0 migration gives entries approved so far their permalink slug. The public pages never write (a GET
   # may hit a read replica), so an entry approved by older code during a deploy window has no permalink until
-  # `bin/rails shiplog:backfill_slugs` runs. Permalink pages set `content_for :shiplog_og` (Open Graph tags),
-  # `content_for :shiplog_description` and `content_for :shiplog_feed` (the Atom discovery link); Shiplog's own
-  # layout renders them, so emit them in your layout's <head> when you set `config.public_layout`.
+  # `bin/rails shiplog:backfill_slugs` runs.
+
+  # With your own config.public_layout, add `<%%= shiplog_head_tags %%>` to its <head>: it renders the description,
+  # canonical link, robots, Open Graph, Twitter, Atom discovery and JSON-LD tags of the Shiplog pages (and nothing
+  # on your other pages). `except: [:feed, ...]` leaves out what your layout writes itself. The older
+  # `content_for :shiplog_og`, `:shiplog_description`, `:shiplog_feed`, `:shiplog_robots` and
+  # `:shiplog_structured_data` blocks still work but are superseded: use one or the other, never both.
+
+  # The image shared with a permalink page that has no screenshot (og:image, twitter:image, JSON-LD image): a
+  # callable evaluated in the view, so route helpers work. Return an http(s) URL or a path (made absolute); an
+  # error or any other value is logged and the page gets no image. List pages and the roadmap get none from Shiplog.
+  # config.og_image = ->(entry, locale) { main_app.url_for(controller: "/og_images", action: :show, id: entry.slug) }
 
   # Product areas. The rewriter's reply may name an area (an existing one, or a new name of 1-3 words); Shiplog
   # creates it while fewer than max_areas exist, so the AI cannot sprawl. The changelog offers an area filter

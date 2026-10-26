@@ -24,6 +24,8 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
     assert_equal({}, config.repository_labels)
     assert_equal 4, config.roadmap_shipped_count
     assert_equal true, config.changelog_search
+    assert_equal true, config.structured_data
+    assert_nil config.og_image
     assert_nil config.feedback_path
     assert_equal 8, config.max_areas
   end
@@ -260,9 +262,30 @@ class Shiplog::ConfigurationTest < ActiveSupport::TestCase
     base = digest_config.render_digest
     [ { classes: { card: "other" } }, { stylesheet: false }, { roadmap_shipped_count: 2 }, { feedback_path: "/other" },
       { repository_labels: { "Acme/ios" => "iOS" } }, { extra_pages: [ { label: "News", path: "/n" } ] },
-      { cache_version: "2" }, { changelog_search: false }, { product_name: "Acme" },
-      { canonical_url: "https://trackberry.com" } ].each do |change|
+      { cache_version: "2" }, { changelog_search: false }, { structured_data: false }, { product_name: "Acme" },
+      { canonical_url: "https://trackberry.com" }, { og_image: ->(_entry, _locale) { "/card.png" } } ].each do |change|
       assert_not_equal base, digest_config(**change).render_digest, "expected #{change.inspect} to change the digest"
+    end
+  end
+
+  test "render_digest represents og_image by a marker, whatever the callable" do
+    first = digest_config(og_image: ->(_entry, _locale) { "/a.png" }).render_digest
+    assert_equal first, digest_config(og_image: ->(_entry, _locale) { "/b.png" }).render_digest
+  end
+
+  test "og_image accepts nil or a callable" do
+    config = Shiplog::Configuration.new
+    callable = ->(_entry, _locale) { "/card.png" }
+    config.og_image = callable
+    assert_same callable, config.og_image
+    config.og_image = nil
+    assert_nil config.og_image
+  end
+
+  test "og_image rejects anything else" do
+    [ "/card.png", :card, 42, {} ].each do |value|
+      error = assert_raises(ArgumentError, value.inspect) { Shiplog::Configuration.new.og_image = value }
+      assert_includes error.message, "og_image"
     end
   end
 
