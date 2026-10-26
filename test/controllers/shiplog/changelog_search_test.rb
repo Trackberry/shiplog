@@ -41,8 +41,8 @@ class Shiplog::ChangelogSearchTest < ActionDispatch::IntegrationTest
     get "/changelog", params: { q: "#{"a" * 99} validation" }
     assert_empty titles
     get "/changelog", params: { q: "#{"b" * 97} dark mode" }
-    assert_select ".shiplog-search__summary", text: /#{"b" * 97} da”/
-    assert_select ".shiplog-search__summary", text: /dark/, count: 0
+    assert_select ".shiplog-search__empty", text: /#{"b" * 97} da”/
+    assert_select ".shiplog-search__empty", text: /dark/, count: 0
   end
 
   test "escapes LIKE wildcards" do
@@ -106,7 +106,8 @@ class Shiplog::ChangelogSearchTest < ActionDispatch::IntegrationTest
     assert_response :ok
     assert_select "p.shiplog-search__empty", text: /No entries match “zzz”/
     assert_select "p.shiplog-empty", 0
-    assert_select ".shiplog-search__summary", text: /0 results for “zzz”/
+    assert_select ".shiplog-search__summary", text: /results for/, count: 0
+    assert_select "a.shiplog-search__clear[href=?]", "/changelog"
   end
 
   test "page beyond the results is not found" do

@@ -7,7 +7,10 @@
 </form>
 <% if query %>
   <p class="<%= shiplog_class(:search_summary) %>">
-    <%= t("shiplog.changelog.search.summary", count: count, query: query, default: { one: "%{count} result for “%{query}”", other: "%{count} results for “%{query}”" }) %>
+    <%# with no results the page says so below; a "0 results" line would repeat it %>
+    <% if count.to_i.positive? %>
+      <%= t("shiplog.changelog.search.summary", count: count, query: query, default: { one: "%{count} result for “%{query}”", other: "%{count} results for “%{query}”" }) %>
+    <% end %>
     <%= link_to t("shiplog.changelog.search.clear", default: "Clear search"), changelog_path, class: shiplog_class(:search_clear) %>
   </p>
 <% end %>
