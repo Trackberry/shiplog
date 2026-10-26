@@ -1,0 +1,51 @@
+Shiplog.configure do |config|
+  # GitHub repositories to sync ("owner/name"). Sub-issues may cross repositories of the same owner.
+  config.repositories = %w[acme/app acme/app-ios]
+
+  # A String, or a callable evaluated on every GitHub request (e.g. to mint a GitHub App installation token).
+  config.github_token = -> { Rails.application.credentials.dig(:github, :shiplog_token) }
+
+  # Secret configured on the GitHub webhook. Without it every webhook delivery is rejected.
+  config.webhook_secret = Rails.application.credentials.dig(:github, :shiplog_webhook_secret)
+
+  # Only issues with this label reach the roadmap.
+  # config.public_label = "public"
+
+  # Open public issues with one of these labels (or a milestone) are shown as "Coming soon".
+  # config.soon_labels = %w[soon]
+
+  # Pull requests with one of these labels never become changelog entries.
+  # config.excluded_labels = %w[internal dependencies refactor chore]
+
+  # Authors (Regexp, String or anything responding to ===) whose pull requests and commits are skipped.
+  # config.excluded_authors = [/\[bot\]\z/]
+
+  # Conventional-commit types eligible for the changelog.
+  # config.commit_types = %w[feat fix perf]
+
+  # Callable that receives the prompt (String) and returns a String containing JSON:
+  # {"title": "...", "body": "...", "customer_facing": true}
+  # config.rewriter = ->(prompt) { RubyLLM.chat.ask(prompt).content }
+
+  # Used in the built-in prompts.
+  # config.product_name = "Acme"
+  # config.audience = "small business owners who invoice customers"
+  # config.tone = "Friendly, concise, no jargon. Address the customer as 'you'."
+
+  # Optional ->(kind:, context:) { String } that replaces the built-in prompts.
+  # config.prompt_builder = nil
+
+  # Read once, when the public controllers load: changing it later has no effect.
+  # config.public_parent_controller = "ActionController::Base"
+  # config.public_layout = "shiplog/application"
+
+  # Checked by the admin controllers in addition to your route constraint; return false for a 403.
+  # config.authorize_admin = ->(controller) { true }
+
+  # Recorded as the approver of an entry.
+  # config.current_admin = ->(controller) { controller.try(:current_user)&.try(:email) }
+
+  # Public paths, read when routes are drawn.
+  # config.roadmap_path = "roadmap"
+  # config.changelog_path = "changelog"
+end
