@@ -17,7 +17,10 @@ class EntryImagesSystemTest < ApplicationSystemTestCase
 
     visit "/changelog/dark-mode"
     assert_selector "article.shiplog-permalink img.shiplog-entry__image[alt='The dark theme'][loading=lazy]"
-    loaded = evaluate_script("document.querySelector('img.shiplog-entry__image').complete && document.querySelector('img.shiplog-entry__image').naturalWidth")
-    assert_equal 1, loaded
+    # The image loads lazily and asynchronously: wait for it instead of reading `complete` once.
+    page.document.synchronize(5) do
+      loaded = evaluate_script("document.querySelector('img.shiplog-entry__image').complete && document.querySelector('img.shiplog-entry__image').naturalWidth")
+      raise Capybara::ExpectationNotMet, "the image has not loaded (naturalWidth: #{loaded.inspect})" unless loaded == 1
+    end
   end
 end
