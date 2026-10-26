@@ -88,6 +88,24 @@ class Shiplog::HeadTagsTest < ActionDispatch::IntegrationTest
     assert_equal [ "https://example.com/changelog.atom" ], feeds.map { |link| link["href"] }
   end
 
+  test "except canonical drops the link only: og:url keeps Shiplog's canonical, which honours canonical_url" do
+    Shiplog.config.public_layout = "head_canonical_host"
+    Shiplog.config.canonical_url = "https://example.com"
+    get "/changelog/dark-mode"
+
+    assert_empty canonicals
+    assert_equal [ "https://example.com/changelog/dark-mode" ], meta_content("property", "og:url")
+  end
+
+  test "on a search page content_for(:shiplog_robots) is noindex, for a host that writes its own canonical" do
+    Shiplog.config.public_layout = "head_canonical_host"
+    get "/changelog", params: { q: "dark" }
+    assert_equal [ "noindex" ], meta_content("name", "probe-robots")
+
+    get "/changelog"
+    assert_empty meta_content("name", "probe-robots")
+  end
+
   test "except removes only its own tags" do
     {
       description: -> { meta_content("name", "description") },
@@ -120,6 +138,26 @@ class Shiplog::HeadTagsTest < ActionDispatch::IntegrationTest
     get "/news"
     assert_response :ok
     assert_empty css_select("head link[rel=canonical], head meta[property^='og:'], head meta[name^=twitter], head script[type='application/ld+json']")
+  end
+
+  test "it is empty in a view that lacks the engine's helper, such as a component, even under a Shiplog controller" do
+    controller = Shiplog::PublicController.new
+    component_class = Class.new(ActionView::Base)
+    view = component_class.with_empty_template_cache.new(ActionView::LookupContext.new([]), {}, controller)
+
+    assert_not view.respond_to?(:shiplog_render_head_tags, true)
+    assert_equal "", view.shiplog_head_tags
+  end
+
+  test "the public controllers carry the marker that shiplog_head_tags checks, and host controllers don't" do
+    assert Shiplog::PublicController.new.respond_to?(:shiplog_public_page?)
+    assert_not ApplicationController.new.respond_to?(:shiplog_public_page?)
+  end
+
+  test "the constant of shiplog_head_tags does not leak into the host's views" do
+    assert_not ActionView::Base.const_defined?(:EXCEPT_KEYS)
+    assert_not Shiplog::HeadTagsHelper.const_defined?(:EXCEPT_KEYS)
+    assert_includes Shiplog::HeadTags::EXCEPT_KEYS, :canonical
   end
 
   test "it validates its keys on a host page too" do
@@ -177,6 +215,22 @@ class Shiplog::HeadTagsTest < ActionDispatch::IntegrationTest
     assert_equal [ image.first ], JSON.parse(json_ld.first.text)["image"]
     assert_unique og
     assert_unique twitter
+  end
+
+  test "a first screenshot whose URL does not resolve is skipped by the og:image, like the JSON-LD image" do
+    Shiplog.config.og_image = ->(_entry, _locale) { "https://cdn.example.com/card.png" }
+    @dark.add_images([ { io: StringIO.new(image_bytes(:png)), filename: "broken.png", content_type: "image/png" },
+                       { io: StringIO.new(image_bytes(:png)), filename: "second.png", content_type: "image/png" } ])
+    unresolvable = Module.new do
+      def shiplog_image_url(image) = (super unless image.filename.to_s == "broken.png")
+    end
+    Shiplog::PermalinkHelper.prepend(unresolvable)
+    get "/changelog/dark-mode"
+
+    image = meta_content("property", "og:image")
+    assert_equal 1, image.size
+    assert_match %r{/second\.png\z}, image.first
+    assert_equal image, JSON.parse(json_ld.first.text)["image"]
   end
 
   test "config.og_image is used when the entry has no screenshot" do
@@ -257,7 +311,7 @@ class Shiplog::HeadTagsTest < ActionDispatch::IntegrationTest
 
   # Old layouts and the migration to the helper.
 
-  test "the legacy content_for blocks alone still produce what they did in 0.3.0" do
+  test "the legacy content_for blocks alone still produce what they did in 0.3.0 while config.og_image is unset" do
     Shiplog.config.public_layout = "head_legacy"
     get "/changelog/dark-mode"
 
@@ -269,6 +323,15 @@ class Shiplog::HeadTagsTest < ActionDispatch::IntegrationTest
     assert_equal 1, json_ld.size
     assert_empty canonicals
     assert_empty twitter
+  end
+
+  test "the legacy :shiplog_og block includes the config.og_image fallback image" do
+    Shiplog.config.public_layout = "head_legacy"
+    Shiplog.config.og_image = ->(_entry, _locale) { "https://cdn.example.com/card.png" }
+    get "/changelog/dark-mode"
+
+    assert_equal [ "https://cdn.example.com/card.png" ], meta_content("property", "og:image")
+    assert_unique og
   end
 
   test "shiplog_head_tags alone yields exactly one of each tag, and never reads the legacy blocks" do
