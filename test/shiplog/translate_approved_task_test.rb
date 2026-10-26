@@ -114,4 +114,33 @@ class Shiplog::TranslateApprovedTaskTest < ActiveSupport::TestCase
     run_task
     assert_equal [ [ @approved.first.id, "fr" ] ], enqueued_pairs
   end
+
+  def enqueued_area_jobs = enqueued_jobs.select { |job| job["job_class"] == "Shiplog::TranslateAreaJob" }
+
+  test "it also enqueues a job for areas missing a translation in any configured locale" do
+    missing = Shiplog::Area.create!(name: "Billing")
+    partial = Shiplog::Area.create!(name: "Reports")
+    done = Shiplog::Area.create!(name: "Labels")
+    partial.update_columns(name_translations: { "es" => "Informes" })
+    done.update_columns(name_translations: { "es" => "Etiquetas", "fr" => "Etiquettes" })
+    clear_enqueued_jobs
+
+    out = run_task
+
+    ids = enqueued_area_jobs.map { |job| job["arguments"].first["_aj_globalid"][%r{/(\d+)\z}, 1].to_i }
+    assert_equal [ missing.id, partial.id ].sort, ids.sort
+    assert_match(/2 areas/, out)
+  end
+
+  test "it enqueues no area jobs without locales or without a rewriter" do
+    Shiplog::Area.create!(name: "Billing")
+    clear_enqueued_jobs
+    Shiplog.config.locales = []
+    run_task
+    Shiplog.config.locales = [ :es ]
+    Shiplog.config.rewriter = nil
+    run_task
+
+    assert_empty enqueued_area_jobs
+  end
 end

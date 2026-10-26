@@ -34,6 +34,9 @@ class Shiplog030 < ActiveRecord::Migration[8.1]
       t.string :name, null: false
       t.string :slug, null: false
       t.integer :position, null: false, default: 0
+      # The name in each of config.locales, keyed by locale string ({ "es" => "Listas de embalaje" }); empty
+      # until translated. Slugs stay English, so ?area= URLs are shared across locales.
+      t.jsonb :name_translations, null: false, default: {}
       t.timestamps
     end
     add_index :shiplog_areas, :slug, unique: true

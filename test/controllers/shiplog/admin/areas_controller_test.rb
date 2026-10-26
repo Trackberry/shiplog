@@ -279,4 +279,106 @@ class Shiplog::Admin::AreasControllerTest < ActionDispatch::IntegrationTest
       assert_select ".shiplog-admin__flash--notice", text: "Detection queued. Refresh in a moment."
     end
   end
+
+  # --- translated names ---
+
+  test "no translation fields or button without configured locales" do
+    get "#{ADMIN}/areas"
+
+    assert_select "input[name^='area[name_translations]']", 0
+    assert_select "form[action=?]", "#{ADMIN}/areas/translation", 0
+  end
+
+  test "shows a small field per configured locale for each area, and the Translate names button" do
+    Shiplog.config.locales = [ :es, :fr ]
+    @billing.update_columns(name_translations: { "es" => "Facturacion" })
+    get "#{ADMIN}/areas"
+
+    assert_select "tr.shiplog-area-row", 3
+    assert_select "tr#shiplog-area-#{@billing.id} input[name='area[name_translations][es]'][value=?][lang=es]", "Facturacion"
+    assert_select "tr#shiplog-area-#{@billing.id} input[name='area[name_translations][fr]']"
+    assert_select "input[name^='area[name_translations]']", 6
+    assert_select "form[action=?] button", "#{ADMIN}/areas/translation", text: "Translate names"
+  end
+
+  test "an admin edit of a translated name is kept" do
+    Shiplog.config.locales = [ :es ]
+    patch "#{ADMIN}/areas/#{@billing.id}", params: { area: { name: "Billing", name_translations: { es: "  Facturacion  de clientes ", xx: "ignored" } } }
+
+    assert_redirected_to "#{ADMIN}/areas"
+    assert_equal({ "es" => "Facturacion de clientes" }, @billing.reload.name_translations)
+    assert_equal "Billing", @billing.name
+  end
+
+  test "emptying a field removes that translation" do
+    Shiplog.config.locales = [ :es ]
+    @billing.update_columns(name_translations: { "es" => "Facturacion" })
+    patch "#{ADMIN}/areas/#{@billing.id}", params: { area: { name: "Billing", name_translations: { es: "" } } }
+
+    assert_equal({}, @billing.reload.name_translations)
+  end
+
+  test "an invalid translated name is refused with a flash" do
+    Shiplog.config.locales = [ :es ]
+    patch "#{ADMIN}/areas/#{@billing.id}", params: { area: { name: "Billing", name_translations: { es: "<b>x</b>" } } }
+
+    assert_empty @billing.reload.name_translations
+    follow_redirect!
+    assert_select ".shiplog-admin__flash--alert"
+  end
+
+  test "a rename drops the translations (whatever the form sent) and enqueues a translation" do
+    Shiplog.config.locales = [ :es ]
+    Shiplog.config.rewriter = ->(_prompt) { "{}" }
+    @billing.update_columns(name_translations: { "es" => "Facturacion" })
+
+    assert_enqueued_with(job: Shiplog::TranslateAreaJob, args: [ @billing ]) do
+      patch "#{ADMIN}/areas/#{@billing.id}", params: { area: { name: "Payments", name_translations: { es: "Facturacion" } } }
+    end
+    assert_equal({}, @billing.reload.name_translations)
+  end
+
+  test "Translate names enqueues a forced job for the areas missing a translation only" do
+    Shiplog.config.locales = [ :es ]
+    Shiplog.config.rewriter = ->(_prompt) { "{}" }
+    @billing.update_columns(name_translations: { "es" => "Facturacion" })
+    clear_enqueued_jobs
+
+    post "#{ADMIN}/areas/translation"
+
+    assert_redirected_to "#{ADMIN}/areas"
+    assert_enqueued_jobs 2, only: Shiplog::TranslateAreaJob
+    assert_enqueued_with(job: Shiplog::TranslateAreaJob, args: [ @reports, { force: true } ])
+    assert_enqueued_with(job: Shiplog::TranslateAreaJob, args: [ @empty, { force: true } ])
+    follow_redirect!
+    assert_select ".shiplog-admin__flash--notice", text: /2 areas/
+  end
+
+  test "Translate names without locales or a rewriter enqueues nothing and says so" do
+    Shiplog.config.locales = [ :es ]
+    Shiplog.config.rewriter = nil
+    assert_no_enqueued_jobs(only: Shiplog::TranslateAreaJob) { post "#{ADMIN}/areas/translation" }
+    follow_redirect!
+    assert_select ".shiplog-admin__flash--alert", text: /config\.rewriter/
+
+    Shiplog.config.locales = []
+    Shiplog.config.rewriter = ->(_prompt) { "{}" }
+    assert_no_enqueued_jobs(only: Shiplog::TranslateAreaJob) { post "#{ADMIN}/areas/translation" }
+    follow_redirect!
+    assert_select ".shiplog-admin__flash--alert", text: /config\.locales/
+  end
+
+  test "the translation texts have English defaults under a locale without translations (no translation_missing)" do
+    Shiplog.config.locales = [ :es ]
+    Shiplog.config.rewriter = ->(_prompt) { "{}" }
+    missing = /translation[ _]missing: fr\.shiplog\.admin\.areas/i
+    with_extra_locale(:fr) do
+      get "#{ADMIN}/areas"
+      assert_no_match(missing, response.body)
+      assert_select "form[action=?] button", "#{ADMIN}/areas/translation", text: "Translate names"
+      post "#{ADMIN}/areas/translation"
+      follow_redirect!
+      assert_no_match(missing, response.body)
+    end
+  end
 end

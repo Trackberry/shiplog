@@ -16,6 +16,7 @@ Shiplog::Admin::Engine.routes.draw do
     end
   end
   resource :area_detection, only: :create, path: "areas/detection"
+  resource :area_translation, only: :create, path: "areas/translation"
   resources :areas, only: %i[index update destroy] do
     scope module: :areas do
       resource :merge, only: :create

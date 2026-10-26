@@ -80,6 +80,13 @@ es:
         last_detection: "Última detección: %{time}, %{count} asignadas"
         last_error: "La última detección falló (%{time}): %{error}"
         detection_queued: Detección en cola. Actualiza en un momento.
+        translate_names: Traducir nombres
+        translate_names_help: Pide a la IA los nombres de las áreas que no tienen traducción en algún idioma. Reemplaza los nombres de esas áreas en todos los idiomas.
+        no_locales: Traducir los nombres necesita config.locales, que está vacío.
+        no_rewriter_translate: Traducir los nombres necesita config.rewriter, que no está configurado.
+        translation_queued:
+          one: Traducción en cola para %{count} área. Actualiza en un momento.
+          other: Traducción en cola para %{count} áreas. Actualiza en un momento.
         empty: Todavía no hay áreas. Detecta áreas para que se propongan a partir de tus entradas.
         columns:
           name: Nombre

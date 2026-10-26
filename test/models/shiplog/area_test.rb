@@ -1,6 +1,8 @@
 require "test_helper"
 
 class Shiplog::AreaTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
   def area(name) = Shiplog::Area.create!(name:)
 
   test "the slug is made from the name, and the position goes last" do
@@ -209,5 +211,109 @@ class Shiplog::AreaTest < ActiveSupport::TestCase
     shiplog_entries(:csv_change_draft).update!(area: billing)
 
     assert_equal({ billing.id => 2 }, Shiplog::Area.entry_counts)
+  end
+
+  # --- translated names ---
+
+  test "display_name returns the translation for a configured locale and the name otherwise" do
+    Shiplog.config.locales = [ :es ]
+    packing = area("Packing Lists")
+    packing.update_columns(name_translations: { "es" => "Listas de embalaje", "fr" => "Listes" })
+
+    assert_equal "Packing Lists", packing.display_name
+    assert_equal "Listas de embalaje", packing.display_name(:es)
+    assert_equal "Listas de embalaje", I18n.with_locale(:es) { packing.display_name }
+    assert_equal "Packing Lists", packing.display_name(:fr), "fr is not in config.locales"
+    assert_equal "Packing Lists", packing.display_name(:en)
+    packing.update_columns(name_translations: { "es" => "" })
+    assert_equal "Packing Lists", packing.display_name(:es)
+  end
+
+  test "name_translations defaults to an empty hash and the slug stays English" do
+    packing = area("Packing Lists")
+    packing.update!(name_translations: { "es" => "Listas de embalaje" })
+
+    assert_equal "packing-lists", packing.reload.slug
+    assert_equal({}, area("Billing").name_translations)
+  end
+
+  test "validates the translated names like area names, and drops blank ones" do
+    packing = area("Packing Lists")
+
+    assert_not packing.update(name_translations: { "es" => "a" * 41 })
+    assert_not packing.update(name_translations: { "es" => "<b>x</b>" })
+    assert packing.update(name_translations: { "es" => "  Listas  de embalaje ", "fr" => "" })
+    assert_equal({ "es" => "Listas de embalaje" }, packing.name_translations)
+  end
+
+  test "enqueues the translation job on create when locales and a rewriter are set" do
+    Shiplog.config.locales = [ :es ]
+    Shiplog.config.rewriter = ->(_prompt) { "{}" }
+
+    created = nil
+    assert_enqueued_jobs 1, only: Shiplog::TranslateAreaJob do
+      created = area("Billing")
+    end
+    assert_enqueued_with(job: Shiplog::TranslateAreaJob, args: [ created ]) { created.update!(name: "Payments") }
+  end
+
+  test "resolve_or_create enqueues for a new area only" do
+    Shiplog.config.locales = [ :es ]
+    Shiplog.config.rewriter = ->(_prompt) { "{}" }
+
+    assert_enqueued_jobs 1, only: Shiplog::TranslateAreaJob do
+      Shiplog::Area.resolve_or_create("Reports")
+      Shiplog::Area.resolve_or_create("reports")
+    end
+  end
+
+  test "enqueues nothing without locales or without a rewriter" do
+    Shiplog.config.rewriter = ->(_prompt) { "{}" }
+    assert_no_enqueued_jobs(only: Shiplog::TranslateAreaJob) { area("Billing") }
+
+    Shiplog.config.locales = [ :es ]
+    Shiplog.config.rewriter = nil
+    assert_no_enqueued_jobs(only: Shiplog::TranslateAreaJob) { area("Reports") }
+  end
+
+  test "a rename drops the stored translations and enqueues a new translation" do
+    Shiplog.config.locales = [ :es ]
+    Shiplog.config.rewriter = ->(_prompt) { "{}" }
+    packing = area("Packing Lists")
+    packing.update_columns(name_translations: { "es" => "Listas de embalaje" })
+    clear_enqueued_jobs
+
+    assert_enqueued_jobs 1, only: Shiplog::TranslateAreaJob do
+      packing.update!(name: "Packing & Labels")
+    end
+    assert_equal({}, packing.reload.name_translations)
+  end
+
+  test "saving without a rename keeps the translations and enqueues nothing" do
+    Shiplog.config.locales = [ :es ]
+    Shiplog.config.rewriter = ->(_prompt) { "{}" }
+    packing = area("Packing Lists")
+    packing.update_columns(name_translations: { "es" => "Listas de embalaje" })
+    clear_enqueued_jobs
+
+    assert_no_enqueued_jobs(only: Shiplog::TranslateAreaJob) { packing.update!(position: 5, name_translations: { "es" => "Mi edicion" }) }
+    assert_equal({ "es" => "Mi edicion" }, packing.reload.name_translations)
+  end
+
+  test "a rename without locales leaves nothing to enqueue" do
+    packing = area("Packing Lists")
+    assert_no_enqueued_jobs(only: Shiplog::TranslateAreaJob) { packing.update!(name: "Other") }
+  end
+
+  test "missing_translation? is true when any configured locale has no name" do
+    Shiplog.config.locales = [ :es, :fr ]
+    packing = area("Packing Lists")
+    assert packing.missing_translation?
+    packing.update_columns(name_translations: { "es" => "A" })
+    assert packing.missing_translation?
+    packing.update_columns(name_translations: { "es" => "A", "fr" => "B" })
+    assert_not packing.missing_translation?
+    Shiplog.config.locales = []
+    assert_not area("Other").missing_translation?
   end
 end

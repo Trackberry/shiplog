@@ -10,10 +10,13 @@ module Shiplog
     has_many :entries, class_name: "Shiplog::Entry", dependent: nil
 
     before_validation :normalize
+    before_save :drop_translations_on_rename
+    after_commit :enqueue_translation, on: %i[create update], if: :saved_change_to_name?
     before_destroy :release_entries, prepend: true
 
     validates :name, presence: true, length: { maximum: NAME_MAX_LENGTH }, format: { with: NAME_FORMAT }
     validates :slug, presence: true
+    validate :name_translations_are_valid
     validates :name, uniqueness: { case_sensitive: false }
     validates :slug, uniqueness: true
 
@@ -45,6 +48,17 @@ module Shiplog
         slug.first(NAME_MAX_LENGTH)
       end
 
+      # Enqueues a TranslateAreaJob for every area that has no name in some configured locale (`force:` as given),
+      # and returns how many. Nothing without config.locales and config.rewriter.
+      def enqueue_missing_translations(force: false)
+        return 0 unless translatable?
+
+        ordered.select(&:missing_translation?).each { |area| TranslateAreaJob.perform_later(area, force:) }.size
+      end
+
+      # Whether area names can be translated at all: locales are configured and there is a rewriter to ask.
+      def translatable? = Shiplog.config.locales.any? && Shiplog.config.rewriter.present?
+
       # `resolve`, else a new area when the name is valid and fewer than config.max_areas areas exist. Nil
       # otherwise, so a caller never ends up with an invalid or surplus area. The cap is checked under a
       # transaction-level advisory lock, so concurrent callers cannot create areas past it.
@@ -64,6 +78,19 @@ module Shiplog
       rescue ActiveRecord::RecordNotUnique
         resolve(name) # another process created it first
       end
+    end
+
+    # The name for a locale: its translation when the locale is one of config.locales and has one, else the name.
+    # Slugs are always English, so ?area= URLs are the same in every locale.
+    def display_name(locale = I18n.locale)
+      return name unless Entry.translated_locale?(locale)
+
+      name_translations[locale.to_s].presence || name
+    end
+
+    # Whether some configured locale has no translated name yet.
+    def missing_translation?
+      Shiplog.config.locales.any? { |locale| name_translations[locale.to_s].blank? }
     end
 
     # Moves one place up or down in the order and renumbers all positions 0..n. Anything else is ignored. The
@@ -94,8 +121,31 @@ module Shiplog
 
     def normalize
       self.name = name.squish if name
+      if name_translations.is_a?(Hash)
+        self.name_translations = name_translations.to_h { |locale, value| [ locale.to_s, value.is_a?(String) ? Rewriter.sanitize(value).squish : value ] }
+          .reject { |_locale, value| value.nil? || value == "" }
+      end
       self.slug = self.class.slug_for(name)
       self.position = (self.class.maximum(:position) || -1) + 1 if new_record? && position.to_i.zero? && self.class.exists?
+    end
+
+    # A renamed area's translations are of the old name: drop them (the job translates the new one), unless the
+    # same save sets translations itself.
+    def drop_translations_on_rename
+      self.name_translations = {} if persisted? && name_changed? && !name_translations_changed?
+    end
+
+    def name_translations_are_valid
+      return errors.add(:name_translations, :invalid) unless name_translations.is_a?(Hash)
+
+      name_translations.each do |locale, value|
+        valid = value.is_a?(String) && value.length <= NAME_MAX_LENGTH && NAME_FORMAT.match?(value)
+        errors.add(:name_translations, "#{locale}: #{value.inspect.truncate(60)} is not a valid name") unless valid
+      end
+    end
+
+    def enqueue_translation
+      TranslateAreaJob.perform_later(self) if self.class.translatable?
     end
 
     # Entries of a deleted area have no area (the foreign key nullifies it too); the admin's choice went with it.

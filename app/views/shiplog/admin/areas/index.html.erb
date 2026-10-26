@@ -8,6 +8,11 @@
       <%= form.check_box :recheck, {}, "1", nil %>
       <%= form.label :recheck, t("shiplog.admin.areas.recheck", default: "Re-check unplaced entries"), title: t("shiplog.admin.areas.recheck_help", default: "Ask the AI again about entries it left without an area, e.g. after renaming, merging or adding areas.") %>
     <% end %>
+    <% if Shiplog.config.locales.any? %>
+      <%= form_with url: area_translation_path, class: "shiplog-admin-inline-form" do |form| %>
+        <%= form.button t("shiplog.admin.areas.translate_names", default: "Translate names"), type: "submit", class: "shiplog-button", title: t("shiplog.admin.areas.translate_names_help", default: "Ask the AI for the names of areas that have no translation in some language. This replaces the names of those areas in every language.") %>
+      <% end %>
+    <% end %>
   </div>
 
   <% if @detection %>
@@ -39,6 +44,10 @@
               <%= form_with model: area, url: area_path(area), method: :patch, class: "shiplog-admin-inline-form" do |form| %>
                 <%= form.label :name, t("shiplog.admin.areas.name_label", default: "Name"), class: "shiplog-admin__visually-hidden" %>
                 <%= form.text_field :name, maxlength: Shiplog::Area::NAME_MAX_LENGTH %>
+                <% Shiplog.config.locales.each do |locale| %>
+                  <%= label_tag "area_#{area.id}_name_#{locale}", locale.to_s, class: "shiplog-admin__muted" %>
+                  <%= text_field_tag "area[name_translations][#{locale}]", area.name_translations[locale.to_s], id: "area_#{area.id}_name_#{locale}", lang: locale.to_s, maxlength: Shiplog::Area::NAME_MAX_LENGTH, size: 16, placeholder: area.name %>
+                <% end %>
                 <%= form.submit t("shiplog.admin.areas.rename", default: "Rename"), class: "shiplog-button" %>
               <% end %>
               <span class="shiplog-admin__muted"><%= area.slug %></span>

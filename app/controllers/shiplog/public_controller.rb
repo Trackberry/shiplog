@@ -38,10 +38,10 @@ module Shiplog
       head(:not_found) unless @area
     end
 
-    # What the markup shows of the areas: names, slugs and order of every area (the tags and the filter), which
+    # What the markup shows of the areas: names, translated names, slugs and order of every area (the tags and the filter), which
     # entries' updated_at don't reflect when an area is renamed or entries are moved in bulk.
     def shiplog_area_etag_parts
-      [ @area&.id, Area.ordered.pluck(:id, :name, :slug, :position) ]
+      [ @area&.id, Area.ordered.pluck(:id, :name, :slug, :position, :name_translations) ]
     end
 
     # What the markup shows of the entries' screenshots: their blob ids, order and alt texts. Nothing while

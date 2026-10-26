@@ -8,7 +8,7 @@ unless Rake::Task.task_defined?("shiplog:backfill_slugs")
       puts "Shiplog: gave #{count} #{count == 1 ? "entry" : "entries"} a slug."
     end
 
-    desc "Translate approved entries that have no current translation into config.locales (entries approved before 0.3.0 get none). BATCH_SIZE=100"
+    desc "Translate approved entries and area names that have no current translation into config.locales (entries approved before 0.3.0 get none). BATCH_SIZE=100"
     task translate_approved: :environment do
       if Shiplog.config.locales.empty?
         puts "Shiplog: config.locales is empty, nothing to translate."
@@ -21,6 +21,8 @@ unless Rake::Task.task_defined?("shiplog:backfill_slugs")
         result[:enqueued].each do |locale, count|
           puts "Shiplog: #{locale}: #{count} enqueued, #{approved - count} current."
         end
+        areas = Shiplog::Area.enqueue_missing_translations
+        puts "Shiplog: #{areas} #{areas == 1 ? "area" : "areas"} enqueued for name translation."
       end
     end
   end
