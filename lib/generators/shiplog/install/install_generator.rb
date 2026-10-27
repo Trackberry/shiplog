@@ -73,7 +73,15 @@ module Shiplog
         announcement_title: "mt-2 mb-4 text-2xl font-semibold text-gray-900 dark:text-white",
         announcement_body: "leading-relaxed text-gray-700 dark:text-gray-300 [&_h3]:mt-6 [&_h3]:mb-2 [&_h3]:text-lg [&_h3]:font-semibold [&_h4]:mt-4 [&_h4]:font-semibold [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-indigo-600 [&_a]:underline dark:[&_a]:text-indigo-400 [&_p]:my-2",
         month_announcement: "-mt-1 mb-3",
-        month_announcement_link: "text-sm font-semibold text-indigo-600 hover:underline dark:text-indigo-400"
+        month_announcement_link: "text-sm font-semibold text-indigo-600 hover:underline dark:text-indigo-400",
+        newsletter: "my-10 rounded-xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-800 dark:bg-gray-900/50",
+        newsletter_title: "text-lg font-semibold",
+        newsletter_hint: "mt-1 mb-3 text-sm text-gray-500 dark:text-gray-400",
+        newsletter_form: "flex flex-wrap items-center gap-2",
+        newsletter_label: "text-sm font-medium",
+        newsletter_input: "min-w-0 flex-1 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-900",
+        newsletter_button: "rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 [&.shiplog-newsletter__button--secondary]:bg-transparent [&.shiplog-newsletter__button--secondary]:text-gray-700 [&.shiplog-newsletter__button--secondary]:ring-1 [&.shiplog-newsletter__button--secondary]:ring-gray-300 dark:[&.shiplog-newsletter__button--secondary]:text-gray-300",
+        newsletter_notice: "mb-3 text-sm [&.shiplog-newsletter__notice--error]:text-red-600"
       }.freeze
 
       def copy_initializer

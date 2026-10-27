@@ -1,6 +1,6 @@
 <%# locals: (entry:) %>
 <%# An announcement's preview (its Markdown rendered as on the public page), where it is published, whether the
-    host was told (config.on_announcement_approved) and the export links. %>
+    host was told (config.on_announcement_approved), the export links and, with config.newsletter, the newsletter. %>
 <section class="shiplog-admin-panel">
   <h2><%= t("shiplog.admin.announcements.publishing") %></h2>
   <% if entry.approved? %>
@@ -39,6 +39,10 @@
       </span>
     <% end %>
   </p>
+
+  <% if Shiplog.newsletter? %>
+    <%= render "shiplog/admin/entries/newsletter", entry: %>
+  <% end %>
 
   <h3><%= t("shiplog.admin.announcements.preview") %></h3>
   <div class="shiplog-admin-preview">

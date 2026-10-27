@@ -1,0 +1,4 @@
+<%# Too many subscribe attempts from one address or one IP (status 429) %>
+<%= render layout: "shiplog/newsletter/page", locals: { heading: t("shiplog.newsletter.rate_limited.heading", default: "Too many attempts") } do %>
+  <p><%= t("shiplog.newsletter.rate_limited.text", default: "Please try again in an hour.") %></p>
+<% end %>

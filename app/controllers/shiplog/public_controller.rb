@@ -11,6 +11,7 @@ module Shiplog
     helper Shiplog::PermalinkHelper
     helper Shiplog::StructuredDataHelper
     helper Shiplog::HeadHelper
+    helper Shiplog::NewsletterHelper
     layout -> { Shiplog.config.public_layout }
 
     # Marks the controllers of the public pages, for shiplog_head_tags: checking this instead of the class keeps

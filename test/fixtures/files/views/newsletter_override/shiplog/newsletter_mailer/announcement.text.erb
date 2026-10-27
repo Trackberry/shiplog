@@ -1,0 +1,8 @@
+<%# The host's own text part: an override supplies both parts, since Rails takes a mailer's templates from the first
+    view path that has any. %>
+<%= @content.title %> (<%= @content.month %>)
+<% @content.highlights.each do |highlight| %>
+* <%= highlight.title %>: <%= highlight.url %>
+<% end %>
+Unsubscribe: <%= @unsubscribe_url %>
+<%= @content.address %>

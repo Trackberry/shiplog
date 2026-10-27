@@ -9,5 +9,8 @@
     <h2 class="<%= shiplog_class(:announcement_title) %>"><%= @entry.display_title %></h2>
     <div class="<%= shiplog_class(:announcement_body) %>"><%= Shiplog::Markdown.to_html(@entry.display_body, heading_offset: 1) %></div>
   </article>
+  <% if Shiplog.newsletter? %>
+    <%= render "shiplog/newsletter/form", source: request.path %>
+  <% end %>
   <%= link_to t("shiplog.announcements.back", default: "← Back to the changelog"), changelog_path(anchor: shiplog_month_anchor(@entry.released_on)), class: shiplog_class(:permalink_back) %>
 <% end %>

@@ -24,6 +24,12 @@ unless Rake::Task.task_defined?("shiplog:backfill_slugs")
       abort "Shiplog: MONTH must look like 2026-10, got #{ENV["MONTH"].inspect}."
     end
 
+    desc "Delete the newsletter subscribers who never confirmed within 30 days and the delivery rows older than 180 days (what Shiplog::PurgeNewsletterJob does)"
+    task purge_newsletter: :environment do
+      counts = Shiplog::PurgeNewsletterJob.perform_now
+      puts "Shiplog: purged #{counts[:subscribers]} unconfirmed newsletter #{counts[:subscribers] == 1 ? "subscriber" : "subscribers"} and #{counts[:deliveries]} old delivery #{counts[:deliveries] == 1 ? "row" : "rows"}."
+    end
+
     desc "Translate approved entries and area names that have no current translation into config.locales (entries approved before 0.3.0 get none). BATCH_SIZE=100"
     task translate_approved: :environment do
       if Shiplog.config.locales.empty?

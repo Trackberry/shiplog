@@ -28,6 +28,28 @@ module Shiplog
     # Whether Shiplog renders announcement pages (config.announcements is :page).
     def announcement_pages? = config.announcements == :page
 
+    # Whether the newsletter is on: config.newsletter, and announcements (there is nothing else to send).
+    def newsletter? = config.newsletter && announcements?
+
+    # Logged once at boot (see Shiplog::Engine), while the newsletter is on: what keeps it from sending, a
+    # recipients callable without the unsubscribe hook (unsubscribes would not reach the host's list), and a
+    # cache that counts nothing (the subscribe form's rate limits are then off).
+    def log_newsletter_status
+      return unless newsletter?
+
+      missing = []
+      missing << "newsletter_from" if Newsletter.from.blank?
+      missing << "newsletter_address" if config.newsletter_address.blank?
+      missing << "canonical_url (or action_mailer.default_url_options)" if Newsletter.base_url.blank?
+      Rails.logger&.warn("[shiplog] config.newsletter is on, but the newsletter cannot be sent until these are set: #{missing.join(", ")}.") if missing.any?
+      if config.newsletter_recipients && config.on_newsletter_unsubscribe.nil?
+        Rails.logger&.warn("[shiplog] config.newsletter_recipients is set but config.on_newsletter_unsubscribe is not: Shiplog suppresses an address that unsubscribes, but your own list will not know.")
+      end
+      if Rails.cache.is_a?(ActiveSupport::Cache::NullStore)
+        Rails.logger&.warn("[shiplog] Rails.cache is a null store, so the newsletter's subscribe form is not rate limited. Configure a cache store.")
+      end
+    end
+
     ACTIVE_STORAGE_TABLES = %w[active_storage_attachments active_storage_blobs].freeze
 
     # Whether the host loaded Active Storage (its engine and the model macros). The declaration on Entry needs

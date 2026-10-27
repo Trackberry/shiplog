@@ -1,0 +1,12 @@
+<%# The double opt-in email's text part. %>
+<%= t("shiplog.newsletter.mail.confirm_heading") %>
+
+<%= t("shiplog.newsletter.mail.confirm_intro", product: @product_name, email: @subscriber.email) %>
+
+<%= t("shiplog.newsletter.mail.confirm_button") %>: <%= @confirmation_url %>
+
+<%= t("shiplog.newsletter.mail.confirm_expiry") %>
+<% if Shiplog.config.newsletter_address.present? %>
+
+<%= Shiplog.config.newsletter_address %>
+<% end %>

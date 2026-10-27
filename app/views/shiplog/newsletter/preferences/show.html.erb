@@ -1,0 +1,23 @@
+<%# A subscriber's preferences (reached through the footer's token): language, unsubscribe or resubscribe, delete %>
+<% path = newsletter_preferences_path(@subscriber.token) %>
+<%= render layout: "shiplog/newsletter/page", locals: { heading: t("shiplog.newsletter.preferences.heading", default: "Your subscription") } do %>
+  <p>
+    <%= t("shiplog.newsletter.preferences.email", default: "Email") %>: <strong><%= @subscriber.email %></strong><br>
+    <%= t("shiplog.newsletter.preferences.status", default: "Status") %>: <%= t("shiplog.newsletter.preferences.statuses.#{@subscriber.status}", default: @subscriber.status) %>
+  </p>
+  <%= form_with url: path, method: :patch, class: shiplog_class(:newsletter_form), data: { turbo: false } do |form| %>
+    <%= form.label :locale, t("shiplog.newsletter.preferences.language", default: "Language"), class: shiplog_class(:newsletter_label) %>
+    <%= form.select :locale, Shiplog::NewsletterSubscriber.allowed_locales.map { |locale| [ Shiplog::Translator.language_name(locale), locale ] },
+          { selected: @subscriber.locale }, class: shiplog_class(:newsletter_input) %>
+    <%= form.button t("shiplog.newsletter.preferences.save", default: "Save"), type: "submit", class: shiplog_class(:newsletter_button) %>
+  <% end %>
+  <div class="shiplog-newsletter__actions">
+    <% if @subscriber.unsubscribed? %>
+      <%= button_to t("shiplog.newsletter.preferences.resubscribe", default: "Resubscribe"), path, method: :patch, params: { subscribed: "1" }, class: shiplog_class(:newsletter_button), form: { data: { turbo: false } } %>
+    <% else %>
+      <%= button_to t("shiplog.newsletter.preferences.unsubscribe", default: "Unsubscribe"), path, method: :patch, params: { subscribed: "0" }, class: shiplog_class(:newsletter_button), form: { data: { turbo: false } } %>
+    <% end %>
+    <%= button_to t("shiplog.newsletter.preferences.delete", default: "Delete my data"), path, method: :delete, class: shiplog_class(:newsletter_button, :secondary), form: { data: { turbo: false } } %>
+  </div>
+  <p class="<%= shiplog_class(:newsletter_hint) %>"><%= t("shiplog.newsletter.preferences.delete_help", default: "Deleting your data removes your address from our records entirely, including the record that you unsubscribed.") %></p>
+<% end %>

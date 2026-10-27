@@ -63,7 +63,15 @@ module Shiplog
       announcement_title: "shiplog-announcement__title",
       announcement_body: "shiplog-announcement__body",
       month_announcement: "shiplog-month__announcement",
-      month_announcement_link: "shiplog-month__announcement-link"
+      month_announcement_link: "shiplog-month__announcement-link",
+      newsletter: "shiplog-newsletter",
+      newsletter_title: "shiplog-newsletter__title",
+      newsletter_hint: "shiplog-newsletter__hint",
+      newsletter_form: "shiplog-newsletter__form",
+      newsletter_label: "shiplog-newsletter__label",
+      newsletter_input: "shiplog-newsletter__input",
+      newsletter_button: "shiplog-newsletter__button",
+      newsletter_notice: "shiplog-newsletter__notice"
     }.freeze
 
     KEYS = BEM.keys.freeze

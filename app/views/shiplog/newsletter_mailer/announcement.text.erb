@@ -1,0 +1,38 @@
+<%# The newsletter's text part: title, month, the intro, the highlights ("Title — sentence", then the URL) and the rest
+    of the body when the split rule applies (see Shiplog::Newsletter::Content), else the whole body; then the links. %>
+<%= @content.title %>
+<%= t("shiplog.categories.announcement", default: "Monthly update") %> · <%= @content.month %>
+<% if @content.view_url %>
+
+<%= t("shiplog.newsletter.mail.view_in_browser") %>: <%= @content.view_url %>
+<% end %>
+<% if @content.highlights_shown? %>
+<% if @content.intro_text.present? %>
+
+<%= @content.intro_text %>
+<% end %>
+<% @content.highlights.each do |highlight| %>
+
+<%= highlight.title %><% if highlight.summary.present? %> — <%= highlight.summary %><% end %>
+<%= highlight.url %>
+<% end %>
+<% if @content.rest_text.present? %>
+
+<%= @content.rest_text %>
+<% end %>
+<% else %>
+
+<%= @content.text %>
+<% end %>
+<% if @content.changelog_url %>
+
+<%= t("shiplog.newsletter.mail.changelog_button") %>: <%= @content.changelog_url %>
+<% end %>
+
+--
+<%= t("shiplog.newsletter.mail.reason", product: @content.product_name) %>
+<%= t("shiplog.newsletter.mail.unsubscribe") %>: <%= @unsubscribe_url %>
+<%= t("shiplog.newsletter.mail.preferences") %>: <%= @preferences_url %>
+<% if @content.address.present? %>
+<%= @content.address %>
+<% end %>

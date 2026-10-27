@@ -125,6 +125,16 @@ All settings live in `config/initializers/shiplog.rb`:
 | `announcements` | `:page` | Where [monthly announcements](#monthly-announcements) are published: `:page`, `:external` or `false`. Anything else raises `ArgumentError`. Part of the ETag. |
 | `announcement_url` | `nil` | With `announcements = :external`, `->(announcement, locale) { url }` evaluated in the view: where the month heading's summary link goes. |
 | `on_announcement_approved` | `nil` | `->(announcement) { ... }`, called once an announcement is approved and translated. See [Monthly announcements](#monthly-announcements). |
+| `newsletter` | `false` | Emails the approved announcement to your opted-in users and to the visitors who subscribed. `true` or `false`, anything else raises `ArgumentError`. Needs announcements. Part of the ETag. See [Newsletter](#newsletter). |
+| `newsletter_recipients` | `nil` | `-> { User.where(newsletter: true) }`: your users who opted in, each responding to `email`, `locale` and `id` (a relation is read in batches). Never stored. |
+| `newsletter_unsubscribe_url` | `nil` | `->(recipient) { url }`: your own settings page, linked as "Preferences" in your users' emails. Must be an absolute http(s) URL; a failure is logged and the footer links Shiplog's page. |
+| `on_newsletter_unsubscribe` | `nil` | `->(email) { ... }`, called with the lowercased address on every unsubscribe (one-click, link or preferences page) so your list follows; Shiplog suppresses the address itself either way. Errors are logged. Warned about at boot when missing with `newsletter_recipients`. |
+| `newsletter_from` | `nil` | The sender, e.g. `"Acme <updates@acme.com>"`; also used by the confirmation email. Falls back to `ActionMailer::Base.default[:from]`. Required to send. |
+| `newsletter_address` | `nil` | The postal address in the footer, required to send (CAN-SPAM). |
+| `newsletter_logo_url` | `nil` | The logo in the email, an absolute http(s) URL shown 140px wide. Anything else raises `ArgumentError`. |
+| `newsletter_accent` | `nil` | The colour of buttons and links in the email, `"#rrggbb"` (default `#0969da`). Anything else raises `ArgumentError`. |
+| `newsletter_mailer_options` | `{}` | A Hash merged into every newsletter message's `mail(...)`: `{ message_stream: "broadcast" }` for a Postmark broadcast stream, `delivery_method_options`, ... Keys that would change the recipients, the sender or the content (`to`, `cc`, `bcc`, `from`, `reply_to`, `subject`, `body`, `template_name`, ...) raise `ArgumentError`. Not applied to the confirmation email. |
+| `newsletter_batch_size` | `500` | How many recipients a send reads at a time (1 to 10,000); rows are claimed and emailed 100 at a time within. |
 | `max_areas` | `8` | How many [product areas](#product-areas) the AI may create. Past it, entries can only join existing areas. A non-negative Integer; `0` stops the AI creating areas. |
 
 Example:
@@ -213,6 +223,7 @@ Webhooks can be missed, so schedule these jobs:
 - `Shiplog::SyncJob`: reconciles issues and pull requests and creates missing drafts. Every 30 minutes is a good start. The first run backfills everything.
 - `Shiplog::ScanChangesJob`: looks at default-branch commits without a pull request, then drafts small changes. Run it weekly.
 - `Shiplog::DraftAnnouncementJob`: drafts the previous month's [announcement](#monthly-announcements). Run it early each month, after the month's last weekly scan if you can.
+- `Shiplog::PurgeNewsletterJob` (with `config.newsletter`): deletes the [newsletter](#newsletter) subscribers who never confirmed within 30 days and the delivery rows older than 180 days. Run it weekly.
 
 GoodJob (`config/initializers/good_job.rb` or `config/application.rb`):
 
@@ -221,7 +232,8 @@ config.good_job.enable_cron = true
 config.good_job.cron = {
   shiplog_sync: { cron: "*/30 * * * *", class: "Shiplog::SyncJob" },
   shiplog_scan_changes: { cron: "0 6 * * 1", class: "Shiplog::ScanChangesJob" },
-  shiplog_announcement: { cron: "0 7 2 * *", class: "Shiplog::DraftAnnouncementJob" }
+  shiplog_announcement: { cron: "0 7 2 * *", class: "Shiplog::DraftAnnouncementJob" },
+  shiplog_purge_newsletter: { cron: "0 5 * * 1", class: "Shiplog::PurgeNewsletterJob" }
 }
 ```
 
@@ -238,6 +250,9 @@ production:
   shiplog_announcement:
     class: Shiplog::DraftAnnouncementJob
     schedule: at 7am on the 2nd day of every month
+  shiplog_purge_newsletter:
+    class: Shiplog::PurgeNewsletterJob
+    schedule: every monday at 5am
 ```
 
 You can also trigger a sync from the admin Sync page. Rewriting always runs in `Shiplog::RewriteEntryJob`, never in a request.
@@ -562,6 +577,83 @@ end
 
 **Links** in the draft are the entries' permalink URLs, absolute when `config.canonical_url` is set (set it: the text travels to the feed, exports and your hook). With the engine mounted under an optional segment (`scope "(:locale)"`), they are the default locale's URLs.
 
+## Newsletter
+
+Optional, off by default. The approved announcement goes out by email, in each recipient's language, to your users who opted in and to the visitors who subscribed through Shiplog's form. Approving publishes the announcement; sending the newsletter is a separate, explicit action on the announcement's admin page.
+
+**Setup.**
+
+```ruby
+Shiplog.configure do |config|
+  config.newsletter         = true
+  config.newsletter_from    = "Acme <updates@acme.com>"
+  config.newsletter_address = "Acme Inc., 123 Main Street, Springfield"   # the footer's postal address (CAN-SPAM)
+  config.canonical_url      = "https://acme.com"                          # the links in emails are absolute
+  config.newsletter_logo_url = "https://acme.com/logo.png"                 # optional branding
+  config.newsletter_accent   = "#0969da"
+end
+```
+
+Then run the migrations (`bin/rails shiplog:install:migrations && bin/rails db:migrate`): the newsletter adds `shiplog_newsletter_subscribers` and `shiplog_newsletter_deliveries`. The admin nav gets a Newsletter page, and the changelog and announcement pages get a subscribe form. At boot, Shiplog logs what is still missing to send.
+
+**Recipients: your users.** Shiplog never stores them. Give it a callable returning objects that respond to `email`, `locale` and `id` (an Active Record relation is read in batches), and two hooks so an unsubscribe reaches your side too:
+
+```ruby
+config.newsletter_recipients      = -> { User.where(newsletter: true) }
+config.newsletter_unsubscribe_url = ->(user) { Rails.application.routes.url_helpers.settings_url(host: "acme.com") }   # optional
+config.on_newsletter_unsubscribe  = ->(email) { User.where("lower(email) = ?", email).update_all(newsletter: false) }
+```
+
+You own the opt-in, the settings toggle and the locale: resolve it yourself (for Trackberry: the user's locale, then the organization's default, then English). A locale that is not the default nor one of `config.locales` gets the default language. Objects without a usable email or id are skipped with a warning (which names no address).
+
+How an unsubscribe works for your users: every newsletter carries the RFC 8058 one-click headers (`List-Unsubscribe` and `List-Unsubscribe-Post`, which Gmail and Yahoo require from bulk senders) pointing at Shiplog's own endpoint, `POST /shiplog/newsletter/unsubscribe/<token>`, where the token is the recipient's email, encrypted and signed with a key derived from your app's `secret_key_base` (nothing in a link or a log reveals the address). So Shiplog needs no row for your users until they unsubscribe, and one endpoint serves both lists: it records the unsubscribe in Shiplog, as a *suppression row* in `shiplog_newsletter_subscribers` holding that one email (created when the address has no row, marked when it has), and calls `on_newsletter_unsubscribe` with the lowercased email so your own setting follows. From then on the address is skipped at send time even if your list still returns it: an unsubscribe is honoured whether or not your hook works. Set the hook anyway (Shiplog warns at boot when `newsletter_recipients` is set without it), or your settings page will show the user as subscribed. When a user opts in again in your app, lift the suppression:
+
+```ruby
+Shiplog::Newsletter.resubscribe(user.email)   # true when the address was suppressed
+```
+
+A suppression-only row is deleted (nothing is left to store); a visitor who had confirmed through Shiplog's form is confirmed again. The footer's "Unsubscribe" link opens the same endpoint as a page with a button (a GET changes nothing: mail scanners prefetch links). The footer's "Preferences" link is `newsletter_unsubscribe_url` when you set it (your own settings page, evaluated with the recipient object), else Shiplog's unsubscribe page. These pages keep working after you turn `config.newsletter` off (or announcements): a link in an old email must still unsubscribe. If you rotate `secret_key_base`, call `Shiplog::Newsletter::Tokens.rotate(old_secret_key_base)` in an initializer while old links must keep working.
+
+**Recipients: visitors.** The subscribe form is on the changelog and on each announcement page, and you can render it on any page:
+
+```erb
+<%# a host view; add `helper Shiplog::NewsletterHelper` to the controller %>
+<%= shiplog_newsletter_form %>
+```
+
+One email field, a hidden honeypot, a plain POST that works without JavaScript. Double opt-in: the form creates a pending subscriber with the page's locale (if it is the default or one of `config.locales`) and the page it was on (`source`, a consent record: a same-site path, anything else is dropped), and emails a confirmation link valid 7 days; the link opens a page with a button, and the button confirms. The link is single use (an encrypted nonce, spent when it confirms, voided by an unsubscribe, replaced when a new confirmation is sent), so a replayed link resubscribes nobody. Only confirmed subscribers receive the newsletter. The form answers the same thing for a new, pending, confirmed or unsubscribed address, so it reveals nothing; a confirmed address gets no new email, and an existing row keeps its locale and source (an anonymous submission cannot rewrite them). Attempts are rate limited per address (3 an hour, keyed by a digest of the address without `+tag` and, for Gmail, without dots), per IP (20 an hour) and overall (300 confirmation emails an hour) through `Rails.cache`: with a null store nothing is counted, so give production a real cache store (Shiplog warns at boot otherwise). The subscribe POST carries no CSRF token and checks none: the pages carrying the form are served with ETags, so a cached page could hold a stale token, and nothing happens until the address confirms by email.
+
+Every newsletter links a preferences page, reached through a token in the URL without an account, where a subscriber changes the language, unsubscribes, resubscribes (no new confirmation: the token proves the mailbox) or deletes their data. The token is rotated after each change there (the page continues with the new one; the link in the old email stops working, the next newsletter carries the new one). Unsubscribed rows stay as a suppression record; subscribing again through the form means confirming again. Schedule `Shiplog::PurgeNewsletterJob` weekly (see [Scheduling](#scheduling)): it deletes pending rows untouched for 30 days and delivery rows older than 180 days. `bin/rails shiplog:purge_newsletter` does the same.
+
+**One person on both lists.** Recipients are merged at send time and deduplicated by lowercased email; when an address is on both lists, your user wins (its locale, its preferences link). Any unsubscribe removes the address from both.
+
+**Sending.** On an approved announcement's admin page: "Send a test to <your address>" (`config.current_admin`'s email, in a chosen locale; works before approval) and "Send…", which opens a confirmation step with the recipient count per locale and sends through `Shiplog::SendNewsletterJob`. Send stays disabled, with the reasons on the page, until the announcement is approved, every configured locale has a current translation (no stale translation is ever sent), and `newsletter_from`, `newsletter_address` and an origin for links (`canonical_url`, else `action_mailer.default_url_options`) are set. The job renders the body once per locale and emails each recipient once: a `shiplog_newsletter_deliveries` row (unique on announcement and recipient key, no address) is inserted *before* the email leaves, 100 recipients at a time, and touched right before each send, so a retried job, two workers or a second click never send twice. This is at-most-once: a worker dying between the insert and the send leaves a pending row, never a duplicate. The page shows sent, failed and pending counts; "Retry failed" reclaims, in one statement, the failed rows and the rows left pending for more than an hour, and sends them again (the one case where a recipient may get the email twice, and you trigger it knowingly); a reclaimed row whose recipient is gone (unsubscribed, deleted) ends as failed with that reason. Failures are recorded as the exception's class and its message with anything address-like removed. One newsletter per announcement: a later Send only reaches recipients added since.
+
+**Deliverability.** Send bulk mail through a separate stream, so a complaint never hurts your transactional email. With Postmark:
+
+```ruby
+config.newsletter_mailer_options = { message_stream: "broadcast" }
+config.newsletter_batch_size     = 500   # the default; how many recipients a run claims at a time
+```
+
+`newsletter_mailer_options` is merged into every newsletter message (not the confirmation email, which is transactional and uses your default delivery settings): ActionMailer options (`delivery_method`, `delivery_method_options`) or headers your delivery gem reads. Also: set up SPF, DKIM and DMARC for the sending domain, keep the postal address in the footer, and let Postmark (or your provider) suppress bounces and complaints per stream. Shiplog adds `Precedence: bulk` and the one-click headers; it does no open or click tracking.
+
+**Design.** `Shiplog::NewsletterMailer` builds an HTML part (one 600px table column, fluid on phones, every style inline, absolute image URLs with width and alt, light colours that email clients invert sanely in dark mode) and a text part. The email: a logo row (or the product name as a wordmark) with "View in browser", a hero card with "Monthly update · October 2026", the title and the intro, then one **highlight card** per feature of the month (up to three, in the changelog's order): its first screenshot full width when it has one, its title, its first sentence and a "See how it works" button to its page; then a card with the rest of the announcement ("Also improved", grouped by area), a "See everything that shipped" button, and the footer with unsubscribe, preferences and the postal address. The subject, title and body are the announcement's translation in the recipient's locale (English without one); the chrome uses Shiplog's I18n keys under `shiplog.newsletter` (en and es shipped). "View in browser" opens the announcement's page (`config.announcement_url`, called with the entry and the locale, when announcements are `:external`).
+
+**Highlights and the body.** The cards come from the month's approved features themselves (their approved, translated title and body, their screenshot and permalink; features without a permalink are skipped), not from the announcement's text, so an edit to the body's highlights section does not show in the cards. To avoid saying everything twice, the email applies a split rule: when there are highlights and the body has at least two `## ` sections, it shows the intro (the text before the first heading), the cards in place of the body's *first* section, and the body from its *second* section on. Otherwise (no feature with a permalink, or a body without that structure) the whole body is shown as written. The split is made on the Markdown of the locale's text, so translated headings work the same. Screenshots need `config.images`; their URLs go through Active Storage's redirect route of your app at the email's origin (`canonical_url`), and a screenshot whose URL cannot be built is left out with a log line.
+
+**Customising the email.** Copy `app/views/shiplog/newsletter_mailer/announcement.{html,text}.erb` (and `confirmation.{html,text}.erb`) into your app, both parts of each: Rails takes a mailer's templates from the first view path that has any, so an app holding only the HTML part sends a single-part email. The templates get `@content`, a `Shiplog::Newsletter::Content` with `title`, `month`, `preheader`, `html` (the whole body, inline-styled), `highlights_shown?` (the split rule applies), `intro_html` / `intro_text`, `highlights` (each with `title`, `summary`, `url`, `image_url`, `image_alt`, `image_width`, `image_height`, `image?`), `rest_html` / `rest_text`, `text`, `view_url`, `changelog_url`, `accent`, `logo_url`, `address` and `product_name`; plus `@unsubscribe_url` and `@preferences_url`. `Shiplog::NewsletterMailerHelper` offers `shiplog_mail_palette`, `shiplog_mail_font`, `shiplog_mail_button(label, url, accent)` and `shiplog_mail_screenshot(highlight)`, and `Shiplog::Markdown.to_html(text, styles: { "p" => "..." })` renders Markdown with inline styles. An override must keep the unsubscribe link (`@unsubscribe_url`), the preferences link and the postal address (`@content.address`): the `List-Unsubscribe` headers are set by the mailer, but the footer is the recipient's visible way out and the address is required by CAN-SPAM. To preview locally, add the previews to `config/environments/development.rb` and open `/rails/mailers/shiplog/newsletter_mailer` (the sample shows three cards without any data):
+
+```ruby
+config.action_mailer.preview_paths << Shiplog::Engine.root.join("lib/shiplog/previews").to_s
+```
+
+**Admin.** The Newsletter page lists the subscribers (counts per locale and status, search, remove) and downloads them as CSV (cells that a spreadsheet would read as a formula are neutralised). Your own users are not listed: they are yours.
+
+**What Shiplog stores, and consent.** In `shiplog_newsletter_subscribers`: the visitors who subscribed through its form (email, locale, the page they subscribed on, when they subscribed, confirmed and unsubscribed, the preferences token and a pending confirmation nonce), and one row per address that unsubscribed, your users' included: the suppression record that keeps the address out of future sends, holding the email and the time (no locale of yours, no source). Nothing else about your users, and no tracking of opens or clicks. Delivery rows (`shiplog_newsletter_deliveries`) keep the recipient key (`User/42` or `Subscriber/7`), the locale and the outcome, never the address; they are deleted with a subscriber's row, with the announcement, and after 180 days by the purge job. Log lines name recipient keys or a digest of the address, never the address; the rate-limit cache holds digests. A suppression row stays until the person deletes their data from the preferences page, an admin removes it, or your app calls `Shiplog::Newsletter.resubscribe`. No queued job carries an address: a test send is delivered in the request, a confirmation's job carries the subscriber's id, and the send job reads its recipients when it runs. Mention the newsletter in your privacy policy.
+
+**Styling.** The form and pages use `shiplog-newsletter` with `__title`, `__hint`, `__form`, `__label`, `__input`, `__button` and `__notice`, all `config.classes` keys (`newsletter`, `newsletter_title`, ...). The honeypot sits in `shiplog-newsletter__trap`, which the bundled stylesheet moves out of view: keep a rule for it if you style the pages yourself.
+
 ## Styling
 
 The public pages ship plain semantic HTML with stable [BEM](https://getbem.com) classes (`shiplog-card`, `shiplog-entry__title`, ...) and a small, framework-free stylesheet. Pick the level that fits your app; the same views work in all of them.
@@ -699,6 +791,7 @@ Copy any view from the engine's `app/views/shiplog/` into your app with the same
 - `shiplog/_switcher.html.erb`
 - `shiplog/roadmaps/_column.html.erb`, `shiplog/roadmaps/_card.html.erb`, `shiplog/roadmaps/_shipped.html.erb`
 - `shiplog/changelogs/_month.html.erb`, `shiplog/changelogs/_entry.html.erb`, `shiplog/changelogs/_search.html.erb`
+- `shiplog/newsletter/_form.html.erb` (the subscribe form), `shiplog/newsletter/_page.html.erb` (the confirm, preferences and unsubscribe pages' frame), and the emails in `shiplog/newsletter_mailer/`
 
 `shiplog/_page.html.erb` is what links the stylesheet (so it also works in layouts you don't control); keep that line if you copy it and still want the bundled CSS.
 

@@ -47,15 +47,17 @@ module Shiplog
       (discarded + skipped_pull_request_titles(MAX_SKIPPED - discarded.size)).compact_blank.uniq
     end
 
-    # The month's name in the default locale ("October 2026"), the title of a new draft. English when that locale
-    # has no month names (I18n then returns a "Translation missing" string rather than raising).
-    def title
-      locale = I18n.default_locale
-      return starts_on.strftime("%B %Y") unless I18n.exists?(:"date.month_names", locale)
+    # The month's name in the default locale ("October 2026"), the title of a new draft.
+    def title = self.class.month_name(starts_on)
 
-      I18n.l(starts_on, format: "%B %Y", locale:)
+    # The name of the month of `date` in a locale ("October 2026"). English when that locale has no month names
+    # (I18n then returns a "Translation missing" string rather than raising) or is unknown to I18n.
+    def self.month_name(date, locale: I18n.default_locale)
+      return date.strftime("%B %Y") unless I18n.locale_available?(locale) && I18n.exists?(:"date.month_names", locale)
+
+      I18n.l(date, format: "%B %Y", locale:)
     rescue I18n::ArgumentError
-      starts_on.strftime("%B %Y")
+      date.strftime("%B %Y")
     end
 
     # The Markdown skeleton of the month in the default locale: the features, then "Also improved" with the

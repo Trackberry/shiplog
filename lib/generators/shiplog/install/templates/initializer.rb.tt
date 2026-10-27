@@ -189,6 +189,41 @@ Shiplog.configure do |config|
   # to_markdown(locale), to_html(locale), to_text(locale) and public_url, to publish it elsewhere or email it.
   # config.on_announcement_approved = ->(announcement) { NewsletterJob.perform_later(announcement) }
 
+  # Newsletter: the approved announcement emailed, in each recipient's language, to your users who opted in and to
+  # the visitors who subscribed through Shiplog's form (double opt-in, stored in shiplog_newsletter_subscribers).
+  # Sending is an explicit admin action on the announcement's page, once per recipient. Needs newsletter_from,
+  # newsletter_address and canonical_url. Schedule Shiplog::PurgeNewsletterJob weekly (unconfirmed addresses).
+  # config.newsletter = false
+
+  # Your users who opted in: a callable returning objects (or a relation, read in batches) responding to #email,
+  # #locale and #id. Shiplog never stores them. Resolve the locale yourself (the user's, then a default).
+  # config.newsletter_recipients = -> { User.where(newsletter: true) }
+
+  # Your own unsubscribe or settings page for those users, linked in the footer as "Preferences". The one-click
+  # unsubscribe of mail providers always comes to Shiplog, which calls on_newsletter_unsubscribe below.
+  # config.newsletter_unsubscribe_url = ->(user) { Rails.application.routes.url_helpers.settings_url(host: "example.com") }
+
+  # Called with the lowercased email on every unsubscribe (one-click, the footer link, the preferences page), so your
+  # own setting follows: Shiplog suppresses the address itself either way, and skips it at send time whatever your
+  # list says. When a user opts in again in your app, call Shiplog::Newsletter.resubscribe(user.email) to lift the
+  # suppression. Errors are logged, never shown to the visitor.
+  # config.on_newsletter_unsubscribe = ->(email) { User.where("lower(email) = ?", email).update_all(newsletter: false) }
+
+  # The sender (also of the confirmation email) and the postal address in the footer (CAN-SPAM requires one).
+  # config.newsletter_from = "Acme <updates@example.com>"
+  # config.newsletter_address = "Acme Inc., 123 Main Street, Springfield"
+
+  # Branding: the logo (an http(s) URL, shown 140px wide) and the accent colour of buttons and links.
+  # config.newsletter_logo_url = "https://example.com/logo.png"
+  # config.newsletter_accent = "#0969da"
+
+  # Merged into every newsletter message (not the confirmation email): ActionMailer options or headers your
+  # delivery gem reads. With Postmark, a broadcast stream keeps complaints away from your transactional email.
+  # config.newsletter_mailer_options = { message_stream: "broadcast" }
+
+  # How many recipients a run claims and emails at a time (Postmark's batch limit by default).
+  # config.newsletter_batch_size = 500
+
   # Callables above cannot be part of the public pages' ETag. Bump this when the output of a callable you
   # configured changes (a new label, another path) so cached pages are refreshed.
   # config.cache_version = nil

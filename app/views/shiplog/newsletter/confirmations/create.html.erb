@@ -1,0 +1,5 @@
+<%# Rendered by the confirming POST: subscribed, with the way to the preferences page %>
+<%= render layout: "shiplog/newsletter/page", locals: { heading: t("shiplog.newsletter.confirm.done_heading", default: "You're subscribed") } do %>
+  <p><%= t("shiplog.newsletter.confirm.done_text", email: @subscriber.email, default: "The monthly summary will arrive at %{email}. You can change the language or unsubscribe any time from your preferences.") %></p>
+  <p><%= link_to t("shiplog.newsletter.preferences.heading", default: "Your subscription"), newsletter_preferences_path(@subscriber.token), class: shiplog_class(:footnote_link) %></p>
+<% end %>

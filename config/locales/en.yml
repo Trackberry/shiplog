@@ -66,7 +66,127 @@ en:
       title_with_product: "%{product} changelog"
       link_title: Changelog (Atom)
       subscribe: Subscribe (Atom)
+    newsletter:
+      title: Newsletter
+      product: Product updates
+      back: "← Back to the changelog"
+      form:
+        title: Get the monthly summary by email
+        hint: One email a month, no more. Unsubscribe any time.
+        email_label: Email address
+        email_placeholder: you@example.com
+        submit: Subscribe
+        trap_label: Leave this field empty
+        invalid_email: Enter a valid email address.
+      sent:
+        heading: Check your inbox
+        text: We sent you a link to confirm your subscription. Open it to start receiving the monthly summary. If nothing arrives within a few minutes, look in your spam folder.
+      confirm:
+        heading: Confirm your subscription
+        text: "Click the button to receive the monthly summary at %{email}."
+        button: Confirm
+        done_heading: You're subscribed
+        done_text: "The monthly summary will arrive at %{email}. You can change the language or unsubscribe any time from your preferences."
+      preferences:
+        heading: Your subscription
+        email: Email
+        status: Status
+        statuses:
+          pending: Waiting for confirmation
+          confirmed: Subscribed
+          unsubscribed: Unsubscribed
+        language: Language
+        save: Save
+        saved: Preferences saved.
+        unsubscribe: Unsubscribe
+        unsubscribed: You're unsubscribed.
+        resubscribe: Resubscribe
+        resubscribed: You're subscribed again.
+        delete: Delete my data
+        delete_help: Deleting your data removes your address from our records entirely, including the record that you unsubscribed.
+        deleted_heading: Your data was deleted
+        deleted_text: Your email address is no longer stored. You can subscribe again from the changelog at any time.
+      unsubscribe:
+        heading: Unsubscribe
+        text: "Stop receiving the monthly summary at %{email}?"
+        button: Unsubscribe
+        done_heading: You're unsubscribed
+        done_text: "%{email} will not receive the monthly summary anymore."
+      invalid:
+        heading: This link is not valid
+        text: It may have expired or already been used. Subscribe again from the changelog to get a new one.
+      rate_limited:
+        heading: Too many attempts
+        text: Please try again in an hour.
+      mail:
+        view_in_browser: View in browser
+        changelog_button: See everything that shipped
+        highlight_button: See how it works
+        reason: "You receive this email because you subscribed to the %{product} monthly summary."
+        unsubscribe: Unsubscribe
+        preferences: Preferences
+        confirm_subject: "Confirm your subscription to the %{product} newsletter"
+        confirm_heading: One more step
+        confirm_intro: "Confirm that you want to receive the %{product} monthly summary at %{email}."
+        confirm_button: Confirm my subscription
+        confirm_expiry: "The link works for 7 days. If you did not ask for this, ignore this email: nothing is sent without confirmation."
+        confirm_link_text: "Or copy this link:"
     admin:
+      newsletter:
+        title: Newsletter
+        help: The visitors who subscribed through the changelog's form. Your own users (config.newsletter_recipients) are not listed here.
+        total: Total
+        search: Search
+        search_placeholder: Search by email
+        clear: Clear
+        export: Download CSV
+        remove: Remove
+        removed: "%{email} removed."
+        empty: No subscribers yet.
+        no_match: "No subscriber matches “%{query}”."
+        statuses:
+          pending: Pending
+          confirmed: Confirmed
+          unsubscribed: Unsubscribed
+        columns:
+          email: Email
+          locale: Language
+          status: Status
+          source: Signed up on
+          subscribed_at: Signed up
+          recipients: Recipients
+        heading: Newsletter
+        not_sent: Not sent yet.
+        progress: "%{sent} sent, %{failed} failed, %{pending} pending."
+        stalled:
+          one: "%{count} has been pending for more than an hour (the worker may have died): Retry sends it again."
+          other: "%{count} have been pending for more than an hour (the worker may have died): Retry sends them again."
+        retry: Retry failed
+        retry_queued: Retrying the failed deliveries.
+        send: Send…
+        send_blocked: "Sending is not possible yet: %{reasons}."
+        blockers:
+          not_approved: the announcement is not approved
+          translations: "a translation is missing or stale (%{locales})"
+          from: config.newsletter_from is not set
+          address: config.newsletter_address is not set
+          base_url: config.canonical_url is not set (the links in emails must be absolute)
+        test: "Send a test to %{email}"
+        test_locale: Language
+        test_sent: "Test sent to %{email} (%{language})."
+        test_failed: "The test could not be sent (%{error}). See the log."
+        test_no_email: config.current_admin gives no email address, so no test can be sent.
+        confirm_title: "Send the newsletter: %{title}"
+        recipients: Recipients
+        recipients_none: Nobody to send to yet.
+        recipients_error: "The recipients could not be listed (%{error}). See the log for details."
+        confirm_help: Each recipient receives the email once, in their language. Sending again later only reaches the recipients who have not received it.
+        confirm_resend_help: Recipients who already received it are skipped.
+        confirm_button:
+          one: "Send to %{count} recipient"
+          other: "Send to %{count} recipients"
+        queued: The newsletter is being sent. Refresh in a moment.
+        back: Back to the announcement
       announcements:
         draft: "Draft announcement for %{month}"
         drafted: Announcement draft ready.
@@ -90,6 +210,7 @@ en:
         board: Roadmap board
         sync: Sync
         areas: Areas
+        newsletter: Newsletter
       areas:
         title: Product areas
         help: The AI groups entries into areas (at most %{max}) while it rewrites them. Visitors can filter the changelog by area once two areas have published entries.

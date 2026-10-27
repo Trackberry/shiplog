@@ -1,0 +1,16 @@
+<%# "Check your inbox" after the form, the same for every address; with @error (an address that is not an email),
+    the form again (status 422) %>
+<% if @error %>
+  <% content_for :title, t("shiplog.newsletter.title", default: "Newsletter") %>
+  <%= render layout: "shiplog/page", locals: { name: "newsletter" } do %>
+    <%= render "shiplog/page_header", title: t("shiplog.newsletter.title", default: "Newsletter"), lede: nil %>
+    <%= render "shiplog/newsletter/form", email: @email, error: @error, source: params[:source] %>
+    <p class="<%= shiplog_class(:footnote) %>">
+      <%= link_to t("shiplog.newsletter.back", default: "← Back to the changelog"), changelog_path, class: shiplog_class(:footnote_link) %>
+    </p>
+  <% end %>
+<% else %>
+  <%= render layout: "shiplog/newsletter/page", locals: { heading: t("shiplog.newsletter.sent.heading", default: "Check your inbox") } do %>
+    <p><%= t("shiplog.newsletter.sent.text", default: "We sent you a link to confirm your subscription. Open it to start receiving the monthly summary. If nothing arrives within a few minutes, look in your spam folder.") %></p>
+  <% end %>
+<% end %>

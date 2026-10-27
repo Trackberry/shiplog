@@ -9,6 +9,11 @@ Shiplog::Admin::Engine.routes.draw do
       # ?export_locale= (not :locale, which a host's locale-switching around_action would read; see translations).
       get "export", to: "exports#show", as: :export
       resource :announcement_notification, only: :create
+      # The newsletter of an announcement: the confirmation step with the recipient counts (show), the send
+      # (create), a test to the admin's address, and the retry of failed deliveries.
+      resource :newsletter, only: %i[show create]
+      resource :newsletter_test, only: :create, path: "newsletter/test"
+      resource :newsletter_retry, only: :create, path: "newsletter/retry"
       # The locale segment is :translation_locale, not :locale: a host's around_action that switches the locale
       # from params[:locale] must not read it (a configured translation locale may not be an available one).
       locale = { translation_locale: /[A-Za-z][A-Za-z0-9_-]*/ }
@@ -20,6 +25,8 @@ Shiplog::Admin::Engine.routes.draw do
     end
   end
   resources :announcements, only: :create
+  # The newsletter's subscribers: counts, a searchable list (?q=), removal, and the CSV export (.csv).
+  resources :newsletter_subscribers, only: %i[index destroy], path: "newsletter"
   resource :area_detection, only: :create, path: "areas/detection"
   resource :area_translation, only: :create, path: "areas/translation"
   resources :areas, only: %i[index update destroy] do

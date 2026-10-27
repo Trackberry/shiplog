@@ -1,0 +1,14 @@
+<%# locals: (heading:) %>
+<%# rendered with `render layout:`; a newsletter page: the changelog's page chrome, a heading and the block's text %>
+<% content_for :title, t("shiplog.newsletter.title", default: "Newsletter") %>
+<%= render layout: "shiplog/page", locals: { name: "newsletter" } do %>
+  <%= render "shiplog/page_header", title: t("shiplog.newsletter.title", default: "Newsletter"), lede: nil %>
+  <section class="<%= shiplog_class(:newsletter, :page) %>" aria-labelledby="shiplog-newsletter-heading">
+    <h2 class="<%= shiplog_class(:newsletter_title) %>" id="shiplog-newsletter-heading"><%= heading %></h2>
+    <% if notice.present? %><p class="<%= shiplog_class(:newsletter_notice) %>" role="status"><%= notice %></p><% end %>
+    <%= yield %>
+  </section>
+  <p class="<%= shiplog_class(:footnote) %>">
+    <%= link_to t("shiplog.newsletter.back", default: "← Back to the changelog"), changelog_path, class: shiplog_class(:footnote_link) %>
+  </p>
+<% end %>

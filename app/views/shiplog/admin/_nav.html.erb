@@ -5,6 +5,9 @@
     <li><%= link_to t("shiplog.admin.nav.drafts"), root_path, class: "shiplog-admin-nav__link" %></li>
     <li><%= link_to t("shiplog.admin.nav.board"), board_path, class: "shiplog-admin-nav__link" %></li>
     <li><%= link_to t("shiplog.admin.nav.areas", default: "Areas"), areas_path, class: "shiplog-admin-nav__link" %></li>
+    <% if Shiplog.newsletter? %>
+      <li><%= link_to t("shiplog.admin.nav.newsletter", default: "Newsletter"), newsletter_subscribers_path, class: "shiplog-admin-nav__link" %></li>
+    <% end %>
     <li><%= link_to t("shiplog.admin.nav.sync"), sync_path, class: "shiplog-admin-nav__link" %></li>
   </ul>
 </nav>

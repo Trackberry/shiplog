@@ -137,6 +137,9 @@
   .shiplog-admin .shiplog-admin-preview { background: var(--sa-bg); border-radius: 0.5rem; overflow-wrap: anywhere; padding: 0.75rem 1rem; }
   .shiplog-admin .shiplog-admin-export { display: inline-flex; gap: 0.5rem; margin-left: 0.75rem; }
   .shiplog-admin .shiplog-admin-source { background: var(--sa-bg); overflow-x: auto; padding: 0.75rem; white-space: pre-wrap; word-break: break-word; }
+  .shiplog-admin .shiplog-admin-counts { margin-bottom: 1rem; width: auto; }
+  .shiplog-admin .shiplog-admin-counts__number { text-align: right; }
+  .shiplog-admin .shiplog-admin-newsletter__progress { margin: 0 0 0.5rem; }
 
   .shiplog-admin .shiplog-board { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
   .shiplog-admin .shiplog-board__title { font-size: 1.125rem; margin: 0 0 0.5rem; }

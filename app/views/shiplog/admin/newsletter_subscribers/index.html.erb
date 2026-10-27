@@ -1,0 +1,83 @@
+<%= render layout: "shiplog/admin/page" do %>
+  <h1 class="shiplog-admin__title"><%= t("shiplog.admin.newsletter.title") %></h1>
+  <p class="shiplog-admin__muted"><%= t("shiplog.admin.newsletter.help") %></p>
+
+  <table class="shiplog-admin-table shiplog-admin-counts">
+    <thead>
+      <tr>
+        <th scope="col"><%= t("shiplog.admin.newsletter.columns.locale") %></th>
+        <% Shiplog::NewsletterSubscriber::STATUSES.each do |status| %>
+          <th scope="col"><%= t("shiplog.admin.newsletter.statuses.#{status}") %></th>
+        <% end %>
+      </tr>
+    </thead>
+    <tbody>
+      <% @counts.sort_by { |locale, _| locale }.each do |locale, counts| %>
+        <tr>
+          <td><%= locale %></td>
+          <% Shiplog::NewsletterSubscriber::STATUSES.each do |status| %>
+            <td class="shiplog-admin-counts__number"><%= counts[status] %></td>
+          <% end %>
+        </tr>
+      <% end %>
+      <tr>
+        <th scope="row"><%= t("shiplog.admin.newsletter.total") %></th>
+        <% Shiplog::NewsletterSubscriber::STATUSES.each do |status| %>
+          <td class="shiplog-admin-counts__number"><%= @counts.values.sum { |counts| counts[status] } %></td>
+        <% end %>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="shiplog-admin-actions">
+    <%= form_with url: newsletter_subscribers_path, method: :get, class: "shiplog-admin-inline-form" do |form| %>
+      <%= form.label :q, t("shiplog.admin.newsletter.search"), class: "shiplog-admin__visually-hidden" %>
+      <%= form.search_field :q, value: @query, placeholder: t("shiplog.admin.newsletter.search_placeholder") %>
+      <%= form.submit t("shiplog.admin.newsletter.search"), class: "shiplog-button" %>
+      <% if @query.present? %>
+        <%= link_to t("shiplog.admin.newsletter.clear"), newsletter_subscribers_path, class: "shiplog-button" %>
+      <% end %>
+    <% end %>
+    <p><%= link_to t("shiplog.admin.newsletter.export"), newsletter_subscribers_path(format: :csv, q: @query.presence), class: "shiplog-button" %></p>
+  </div>
+
+  <% if @subscribers.empty? %>
+    <p class="shiplog-admin__empty"><%= @query.present? ? t("shiplog.admin.newsletter.no_match", query: @query) : t("shiplog.admin.newsletter.empty") %></p>
+  <% else %>
+    <table class="shiplog-admin-table">
+      <thead>
+        <tr>
+          <th scope="col"><%= t("shiplog.admin.newsletter.columns.email") %></th>
+          <th scope="col"><%= t("shiplog.admin.newsletter.columns.locale") %></th>
+          <th scope="col"><%= t("shiplog.admin.newsletter.columns.status") %></th>
+          <th scope="col"><%= t("shiplog.admin.newsletter.columns.source") %></th>
+          <th scope="col"><%= t("shiplog.admin.newsletter.columns.subscribed_at") %></th>
+          <th scope="col"><%= t("shiplog.admin.entries.columns.actions") %></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @subscribers.each do |subscriber| %>
+          <tr id="shiplog-subscriber-<%= subscriber.id %>">
+            <td><%= subscriber.email %></td>
+            <td><%= subscriber.locale %></td>
+            <td><%= t("shiplog.admin.newsletter.statuses.#{subscriber.status}") %></td>
+            <td><%= subscriber.source %></td>
+            <td><%= l(subscriber.created_at, format: :short) %></td>
+            <td class="shiplog-admin-table__actions">
+              <%= button_to t("shiplog.admin.newsletter.remove"), newsletter_subscriber_path(subscriber, q: @query.presence), method: :delete, class: "shiplog-button" %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% end %>
+
+  <nav class="shiplog-admin-pagination" aria-label="<%= t("shiplog.admin.entries.pagination") %>">
+    <% if @page > 1 %>
+      <%= link_to t("shiplog.admin.entries.newer"), newsletter_subscribers_path(q: @query.presence, page: (@page - 1 if @page > 2)), class: "shiplog-admin-pagination__prev" %>
+    <% end %>
+    <% if @more %>
+      <%= link_to t("shiplog.admin.entries.older"), newsletter_subscribers_path(q: @query.presence, page: @page + 1), class: "shiplog-admin-pagination__next" %>
+    <% end %>
+  </nav>
+<% end %>

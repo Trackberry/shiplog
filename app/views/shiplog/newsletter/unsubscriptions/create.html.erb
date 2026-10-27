@@ -1,0 +1,4 @@
+<%# Rendered by the unsubscribing POST (the button, or a mail provider's one-click request) %>
+<%= render layout: "shiplog/newsletter/page", locals: { heading: t("shiplog.newsletter.unsubscribe.done_heading", default: "You're unsubscribed") } do %>
+  <p><%= t("shiplog.newsletter.unsubscribe.done_text", email: @email, default: "%{email} will not receive the monthly summary anymore.") %></p>
+<% end %>

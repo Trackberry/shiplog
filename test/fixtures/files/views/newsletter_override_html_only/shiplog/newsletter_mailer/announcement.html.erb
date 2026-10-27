@@ -1,0 +1,24 @@
+<%# A host's own template, built from what Shiplog::Newsletter::Content and the mailer expose (see the README's
+    "Customising the email"): the pieces an override is expected to keep are the unsubscribe and preferences links
+    and the postal address. %>
+<html><body>
+<h1 id="override"><%= @content.title %> (<%= @content.month %>)</h1>
+<% if @content.highlights_shown? %>
+<div id="intro"><%= @content.intro_html %></div>
+<% @content.highlights.each do |highlight| %>
+<section class="card">
+<% if highlight.image? %><img src="<%= highlight.image_url %>" alt="<%= highlight.image_alt %>" width="<%= highlight.image_width %>" height="<%= highlight.image_height %>"><% end %>
+<h2><a href="<%= highlight.url %>"><%= highlight.title %></a></h2>
+<p><%= highlight.summary %></p>
+</section>
+<% end %>
+<div id="rest"><%= @content.rest_html %></div>
+<% else %>
+<div id="body"><%= @content.html %></div>
+<% end %>
+<%= shiplog_mail_button "Changelog", @content.changelog_url, @content.accent %>
+<footer>
+<a href="<%= @unsubscribe_url %>">Unsubscribe</a> <a href="<%= @preferences_url %>">Preferences</a>
+<address><%= @content.address %></address>
+</footer>
+</body></html>

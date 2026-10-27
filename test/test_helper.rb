@@ -39,6 +39,17 @@ class ActionDispatch::IntegrationTest
   setup { Shiplog.config.authorize_admin = ->(_controller) { true } }
 end
 
+# A host's newsletter recipient (config.newsletter_recipients): anything responding to id, email and locale.
+HostUser = Struct.new(:id, :email, :locale)
+
+# A host relation of recipients, read in batches like an Active Record relation.
+HostRelation = Struct.new(:records, :batch_sizes) do
+  def find_each(batch_size:, &block)
+    (self.batch_sizes ||= []) << batch_size
+    records.each(&block)
+  end
+end
+
 class ActiveSupport::TestCase
   teardown do
     Shiplog.reset_config!
@@ -124,6 +135,30 @@ class ActiveSupport::TestCase
 
   # Whether the blob's file is still in the storage service.
   def blob_stored?(blob) = ActiveStorage::Blob.service.exist?(blob.key)
+
+  # Turns the newsletter on with everything a send needs (a sender, a postal address, an origin for links);
+  # `overrides` are applied after, e.g. enable_newsletter!(newsletter_address: nil).
+  def enable_newsletter!(**overrides)
+    Shiplog.configure do |config|
+      config.newsletter = true
+      config.newsletter_from = "Acme <updates@example.com>"
+      config.newsletter_address = "Acme Inc., 1 Main Street, Springfield"
+      config.canonical_url = "https://example.com"
+      overrides.each { |key, value| config.public_send("#{key}=", value) }
+    end
+  end
+
+  # An approved announcement of October 2026 (the fixtures' Dark mode feature is in it).
+  def approved_announcement
+    Shiplog::Announcements.draft(month: Date.new(2026, 10, 1)).tap { |entry| entry.approve!(by: "ed@example.com") }
+  end
+
+  # Runs the block with Rails.cache counting increments in memory (the test cache store is a null store, which
+  # counts nothing): what the rate limits read.
+  def counting_cache
+    counts = Hash.new(0)
+    with_stub(Rails.cache, :increment, ->(key, amount = 1, **_options) { counts[key] += amount }) { yield counts }
+  end
 
   # Runs the block as a host without Active Storage would see Shiplog.
   def without_active_storage
