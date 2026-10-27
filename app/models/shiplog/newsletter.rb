@@ -164,14 +164,17 @@ module Shiplog
     # The product's name for the email texts: config.product_name, else the "shiplog.newsletter.product" text.
     def self.product_name = Shiplog.config.product_name.presence || I18n.t("shiplog.newsletter.product", default: "Product updates")
 
-    # An absolute URL for a path (or an absolute URL as is); nil for a blank value or without a base URL.
-    def self.absolute(url)
+    # An absolute URL for a path (or an absolute URL as is), with the origin the emails use (base_url); nil for a
+    # blank value or without a base URL.
+    def self.absolute_url(url)
       return if url.blank?
       return url if url.match?(%r{\Ahttps?://}i)
       return unless base_url
 
       "#{base_url}#{url}"
     end
+
+    def self.absolute(url) = absolute_url(url)
     private_class_method :absolute
   end
 end

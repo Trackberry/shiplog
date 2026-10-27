@@ -15,6 +15,10 @@ class Shiplog::NewsletterTest < ActiveSupport::TestCase
     Shiplog::NewsletterSubscriber.create!(email:, locale:, confirmation_nonce: Shiplog::NewsletterSubscriber.generate_nonce)
   end
 
+  # The decoded ciphertext of a token: "ciphertext--iv--tag", the iv (12 bytes) and the tag (16 bytes) encoded without
+  # padding at fixed lengths. Not split on "--", which a URL-safe ciphertext can contain by chance.
+  def ciphertext(token) = Base64.urlsafe_decode64(token[0...(token.length - (2 + 16) - (2 + 22))])
+
   test "blockers are empty for an approved, translated announcement with a sender, an address and an origin" do
     assert_empty Shiplog::Newsletter.blockers(@entry)
     assert Shiplog::Newsletter.sendable?(@entry)
@@ -187,7 +191,7 @@ class Shiplog::NewsletterTest < ActiveSupport::TestCase
 
     assert_match(/\A[A-Za-z0-9_-]+\z/, token)
     assert_not_includes token, subscriber.id.to_s + "}", "nothing readable"
-    assert_not Base64.urlsafe_decode64(token.split("--").first).include?("nonce"), "encrypted, not just signed"
+    assert_not ciphertext(token).include?("nonce"), "encrypted, not just signed"
     assert_equal subscriber, Shiplog::Newsletter::Tokens.subscriber_for(token)
     travel(7.days + 1.minute) { assert_nil Shiplog::Newsletter::Tokens.subscriber_for(token) }
     assert_nil Shiplog::Newsletter::Tokens.subscriber_for(token.sub(/.\z/) { |char| char == "a" ? "b" : "a" })
@@ -208,7 +212,7 @@ class Shiplog::NewsletterTest < ActiveSupport::TestCase
     token = Shiplog::Newsletter::Tokens.unsubscribe(" Ana@Example.com ")
 
     assert_equal "ana@example.com", Shiplog::Newsletter::Tokens.email_for(token)
-    assert_not Base64.urlsafe_decode64(token.split("--").first).include?("example.com"), "encrypted"
+    assert_not ciphertext(token).include?("example.com"), "encrypted"
     travel(5.years) { assert_equal "ana@example.com", Shiplog::Newsletter::Tokens.email_for(token) }
     assert_nil Shiplog::Newsletter::Tokens.subscriber_for(token), "a purpose of its own"
     assert_nil Shiplog::Newsletter::Tokens.email_for(Shiplog::Newsletter::Tokens.confirmation(pending("b@example.com")))
@@ -308,7 +312,7 @@ class Shiplog::NewsletterTest < ActiveSupport::TestCase
     english = Shiplog::Newsletter::Content.new(@entry, "en")
     assert_equal "October recap", english.title
     assert_equal "October 2026", english.month
-    assert_includes english.html, %(<h2 style="margin:24px 0 8px;)
+    assert_includes english.html, %(<h2 style="margin:28px 0 10px;)
     assert_includes english.html, %(<a href="https://example.com/x" style="color:#ff0000;text-decoration:underline;">a link</a>)
     assert_includes english.html, "<strong>bold</strong>"
     assert_includes english.text, "Intro bold with a link (https://example.com/x)."

@@ -125,6 +125,7 @@ es:
       mail:
         view_in_browser: Ver en el navegador
         changelog_button: Ver todo lo que hemos lanzado
+        highlight_button: Ver cómo funciona
         reason: "Recibes este correo porque te suscribiste al resumen mensual de %{product}."
         unsubscribe: Darme de baja
         preferences: Preferencias

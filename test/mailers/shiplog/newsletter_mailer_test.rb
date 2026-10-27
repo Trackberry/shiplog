@@ -47,7 +47,7 @@ class Shiplog::NewsletterMailerTest < ActionMailer::TestCase
     assert_includes html, %(<a href="https://example.com/x" style="color:#ff0000;text-decoration:underline;">a link</a>)
     assert_includes html, "&lt;b&gt;raw&lt;/b&gt;"
     assert_not_includes html, "<b>raw</b>"
-    assert_includes html, %(<h2 style="margin:24px 0 8px;)
+    assert_includes html, %(<h2 style="margin:28px 0 10px;)
     assert_includes html, %(<li style=")
     assert_includes html, %(href="https://example.com/changelog/2026-10")
     assert_includes html, "View in browser"
@@ -59,6 +59,50 @@ class Shiplog::NewsletterMailerTest < ActionMailer::TestCase
     assert_includes html, "because you subscribed to the Acme monthly summary"
     assert_includes html, "background-color:#ff0000;border-radius:6px;"
     assert_not_includes html, "<style"
+  end
+
+  test "with highlights and a structured body, the email shows the hero, the cards and the rest" do
+    @entry.update!(body: "Intro sentence.\n\n## Highlights\n\n### Dark mode\n\nDuplicate text.\n\n## Also improved\n\n### Billing\n\n- Tax breakdown.")
+    feature = shiplog_entries(:dark_mode_feature)
+    image, = feature.add_images([ { io: StringIO.new(image_bytes(:png)), filename: "shot.png", content_type: "image/png" } ])
+    image.blob.update!(metadata: { width: 1200, height: 700 })
+    feature.update_image_alt(image.blob_id, "The dark theme")
+    Shiplog.config.product_name = "Acme"
+    mail = announcement
+
+    html = mail.html_part.body.to_s
+    assert_includes html, "Intro sentence."
+    assert_not_includes html, "Duplicate text.", "the body's highlights section is replaced by the cards"
+    assert_includes html, "Also improved"
+    assert_includes html, "Tax breakdown."
+    assert_includes html, "<h2 style=\"margin:0 0 8px;"
+    assert_includes html, %(<a style="color:#1f2328;text-decoration:none;" href="https://example.com/changelog/dark-mode">Dark mode</a>)
+    assert_includes html, "Switch to a dark theme."
+    assert_includes html, %(See how it works</a>)
+    assert_equal 3, html.scan(%(href="https://example.com/changelog/dark-mode")).size, "the screenshot, the title and the button"
+    screenshot = html[/<img [^>]*alt="The dark theme"[^>]*>/]
+    assert screenshot, "the screenshot"
+    assert_includes screenshot, %(width="600")
+    assert_includes screenshot, %(height="350")
+    assert_match %r{src="https://example\.com/rails/active_storage/blobs/redirect/}, screenshot
+    assert_includes screenshot, "max-width:600px;height:auto"
+    assert_match(%r{vertical-align:middle;">\s*Acme\s*</td>}, html, "the wordmark without a logo")
+    assert_includes html, "See everything that shipped"
+    assert_equal 1, html.scan("See everything that shipped").size
+    assert_includes html, "Unsubscribe"
+
+    text = mail.text_part.body.to_s
+    assert_includes text, "Intro sentence.\n\nDark mode — Switch to a dark theme.\nhttps://example.com/changelog/dark-mode\n\nAlso improved\n\nBilling\n\n- Tax breakdown."
+    assert_not_includes text, "Duplicate text."
+  end
+
+  test "without the structure the body is shown whole and the changelog button sits in the hero" do
+    html = announcement.html_part.body.to_s
+
+    assert_includes html, "Highlights"
+    assert_not_includes html, "See how it works"
+    assert_equal 1, html.scan("See everything that shipped").size
+    assert_includes announcement.text_part.body.to_s, "Intro with a link (https://example.com/x)"
   end
 
   test "the text part carries the plain text and the links" do

@@ -12,7 +12,13 @@ class Shiplog::NewsletterMailerPreviewTest < ActiveSupport::TestCase
     mail = preview.announcement
 
     assert_equal [ "preview@example.com" ], mail.to
-    assert_includes mail.html_part.body.to_s, "Dark mode"
+    html = mail.html_part.body.to_s
+    assert_includes html, "Dark mode"
+    assert_equal 3, html.scan("See how it works").size, "three sample cards"
+    assert_includes html, %(src="https://placehold.co/1200x700/png?text=Dark+mode")
+    assert_includes html, %(href="https://example.com/changelog/shared-views")
+    assert_includes html, "Also improved"
+    assert_includes mail.text_part.body.to_s, "Shared views — Save a filtered view and share it with your team.\nhttps://example.com/changelog/shared-views"
     assert_includes mail.html_part.body.to_s, "https://example.com/shiplog/newsletter/unsubscribe/"
     assert_includes mail.html_part.body.to_s, "https://example.com/shiplog/newsletter/preferences/preview-token"
     assert_equal "List-Unsubscribe=One-Click", mail["List-Unsubscribe-Post"].to_s

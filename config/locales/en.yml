@@ -121,6 +121,7 @@ en:
       mail:
         view_in_browser: View in browser
         changelog_button: See everything that shipped
+        highlight_button: See how it works
         reason: "You receive this email because you subscribed to the %{product} monthly summary."
         unsubscribe: Unsubscribe
         preferences: Preferences
