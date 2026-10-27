@@ -5,6 +5,9 @@ class Shiplog::Sync::RepositorySyncTest < ActiveSupport::TestCase
   EMPTY_PULLS = { data: { repository: { pullRequests: { pageInfo: { hasNextPage: false }, nodes: [] } } } }.to_json
 
   setup do
+    # The fixtures' pull requests were merged on 2026-10-20: keep them inside ScanChangesJob's 7-day window, which
+    # upgrade detection reads, whatever the date the suite runs on.
+    travel_to Time.utc(2026, 10, 26, 12)
     @repository = Shiplog::Repository.create!(full_name: "Acme/widgets")
     @client = Shiplog::Github::Client.new(token: "tok")
   end
