@@ -177,6 +177,7 @@ es:
         test: "Enviar una prueba a %{email}"
         test_locale: Idioma
         test_sent: "Prueba enviada a %{email} (%{language})."
+        test_failed: "No se pudo enviar la prueba (%{error}). Consulta el registro."
         test_no_email: config.current_admin no devuelve una dirección de correo, así que no se puede enviar ninguna prueba.
         confirm_title: "Enviar el boletín: %{title}"
         recipients: Destinatarios

@@ -36,8 +36,9 @@
     <% end %>
     <p class="shiplog-admin__muted"><%= t("shiplog.admin.newsletter.confirm_help") %></p>
     <div class="shiplog-admin-actions">
+      <%= shiplog_javascript_tag "once" %>
       <%= button_to t("shiplog.admin.newsletter.confirm_button", count: total), entry_newsletter_path(@entry, inbox_filter_params), method: :post,
-            class: "shiplog-button shiplog-button--primary", disabled: @blockers.any? || total.zero? %>
+            class: "shiplog-button shiplog-button--primary", disabled: @blockers.any? || total.zero?, form: { data: { shiplog_once: true } } %>
     </div>
   </section>
 

@@ -173,6 +173,7 @@ en:
         test: "Send a test to %{email}"
         test_locale: Language
         test_sent: "Test sent to %{email} (%{language})."
+        test_failed: "The test could not be sent (%{error}). See the log."
         test_no_email: config.current_admin gives no email address, so no test can be sent.
         confirm_title: "Send the newsletter: %{title}"
         recipients: Recipients

@@ -18,7 +18,8 @@
   <% end %>
 </p>
 <div class="shiplog-admin-actions">
-  <%= form_with url: entry_newsletter_test_path(entry, inbox_filter_params), class: "shiplog-admin-inline-form" do |form| %>
+  <%= shiplog_javascript_tag "once" %>
+  <%= form_with url: entry_newsletter_test_path(entry, inbox_filter_params), class: "shiplog-admin-inline-form", data: { shiplog_once: true } do |form| %>
     <%# test_locale, not locale: a host's around_action that switches the locale from params[:locale] must not read it %>
     <%= form.label :test_locale, t("shiplog.admin.newsletter.test_locale") %>
     <%= form.select :test_locale, locales.map { |locale| [ translation_language_label(locale), locale ] } %>
@@ -35,7 +36,7 @@
       <%= link_to t("shiplog.admin.newsletter.send"), entry_newsletter_path(entry, inbox_filter_params), class: "shiplog-button shiplog-button--primary" %>
     <% end %>
     <% if progress[:failed].positive? || progress[:stalled].positive? %>
-      <%= button_to t("shiplog.admin.newsletter.retry"), entry_newsletter_retry_path(entry, inbox_filter_params), class: "shiplog-button" %>
+      <%= button_to t("shiplog.admin.newsletter.retry"), entry_newsletter_retry_path(entry, inbox_filter_params), class: "shiplog-button", form: { data: { shiplog_once: true } } %>
     <% end %>
   </div>
 </div>

@@ -82,19 +82,49 @@ class Shiplog::Admin::NewsletterSendingTest < ActionDispatch::IntegrationTest
     @entry.translations.create!(locale: "es", title: "Resumen", body: "Texto", source_digest: @entry.translation_source_digest)
     Shiplog::Entry.find(@entry.id).update!(status: "draft", approved_at: nil)
 
-    assert_enqueued_emails 1 do
-      post "#{newsletter_path}/test", params: { test_locale: "es", status: "draft" }
+    # Delivered in the request: no job, so the admin's address never reaches the queue's storage.
+    assert_no_enqueued_jobs do
+      assert_emails 1 do
+        post "#{newsletter_path}/test", params: { test_locale: "es", status: "draft" }
+      end
     end
 
     assert_redirected_to "#{edit_path}?status=draft"
     follow_redirect!
     assert_select ".shiplog-admin__flash--notice", text: "Test sent to boss@example.com (es)."
     assert_equal 0, Shiplog::NewsletterDelivery.count
-    perform_enqueued_jobs
     mail = ActionMailer::Base.deliveries.last
     assert_equal [ "boss@example.com" ], mail.to
     assert_equal "Resumen", mail.subject
     assert_equal "boss@example.com", Shiplog::Newsletter::Tokens.email_for(mail["List-Unsubscribe"].to_s[%r{unsubscribe/([A-Za-z0-9_-]+)>}, 1])
+  end
+
+  test "a failing test send shows the error class, never its message" do
+    message = Object.new
+    message.define_singleton_method(:deliver_now) { raise IOError, "535 boss@example.com smtp.example.com:587 rejected" }
+
+    with_stub(Shiplog::NewsletterMailer, :announcement, ->(*, **) { message }) do
+      post "#{newsletter_path}/test", params: { test_locale: "en" }
+    end
+
+    assert_redirected_to edit_path
+    follow_redirect!
+    assert_select ".shiplog-admin__flash--alert", text: "The test could not be sent (IOError). See the log."
+    assert_no_match(/smtp\.example\.com/, response.body)
+  end
+
+  test "Send test, Retry and the final Send submit once" do
+    Shiplog::NewsletterDelivery.create!(announcement: @entry, recipient_key: "User/1", locale: "en", status: "failed", error: "Net::ReadTimeout")
+
+    get edit_path
+    assert_select "script[src*='once.js']"
+    assert_select "form[data-shiplog-once][action$='/newsletter/test']"
+    assert_select "form[data-shiplog-once][action$='/newsletter/retry']"
+
+    Shiplog.config.newsletter_recipients = -> { [ HostUser.new(1, "u1@example.com", "en") ] }
+    get newsletter_path
+    assert_select "script[src*='once.js']"
+    assert_select "form[data-shiplog-once][action$='/newsletter']"
   end
 
   test "Send test is refused without a sender" do
