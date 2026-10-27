@@ -24,6 +24,9 @@
   <%= render "shiplog/pagination",
         newer_path: (changelog_path(area: @area&.slug, page: (@page - 1 if @page > 2), q: @query) if @page > 1),
         older_path: (changelog_path(area: @area&.slug, page: @page + 1, q: @query) if @older) %>
+  <% if Shiplog.newsletter? %>
+    <%= render "shiplog/newsletter/form", source: request.path %>
+  <% end %>
   <p class="<%= shiplog_class(:footnote) %>">
     <%= link_to t("shiplog.feed.subscribe", default: "Subscribe (Atom)"), changelog_feed_path, class: shiplog_class(:footnote_link, :feed) %>
   </p>

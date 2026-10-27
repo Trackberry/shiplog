@@ -7,6 +7,8 @@ module Shiplog
     belongs_to :subject, polymorphic: true
     belongs_to :area, class_name: "Shiplog::Area", optional: true
     has_many :translations, class_name: "Shiplog::EntryTranslation", dependent: :destroy, inverse_of: :entry
+    # The newsletter's deliveries of an announcement (see NewsletterDelivery); the database cascades the delete.
+    has_many :newsletter_deliveries, class_name: "Shiplog::NewsletterDelivery", foreign_key: :announcement_id, dependent: :delete_all, inverse_of: :announcement
 
     enum :kind, %w[roadmap feature change announcement].index_by(&:itself), validate: true
     enum :status, %w[draft approved discarded].index_by(&:itself), default: "draft", validate: true

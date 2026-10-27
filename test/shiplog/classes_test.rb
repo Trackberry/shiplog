@@ -16,6 +16,7 @@ class Shiplog::ClassesTest < ActiveSupport::TestCase
     areas area_link entry_area
     entry_images entry_image
     announcement announcement_title announcement_body month_announcement month_announcement_link
+    newsletter newsletter_title newsletter_hint newsletter_form newsletter_label newsletter_input newsletter_button newsletter_notice
   ].freeze
 
   test "KEYS is the frozen public list" do

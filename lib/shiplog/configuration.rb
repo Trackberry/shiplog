@@ -76,6 +76,28 @@ module Shiplog
     # is announced again. An `announcement_approved.shiplog` ActiveSupport notification is sent at the same time.
     attr_reader :on_announcement_approved
 
+    # The newsletter (see Shiplog::Newsletter): the approved announcement emailed to the host's users who opted in
+    # and to the visitors who subscribed through Shiplog's form. Off by default, and nothing without announcements.
+    attr_reader :newsletter
+    # A callable returning the host's recipients, each responding to #email, #locale and #id (an Active Record
+    # relation is read in batches with find_each). Shiplog never stores them.
+    attr_reader :newsletter_recipients
+    # `->(recipient) { url }`: the host's own unsubscribe or settings page, linked in the footer for its users. The
+    # one-click unsubscribe (List-Unsubscribe-Post) always goes through Shiplog's endpoint, which calls
+    # on_newsletter_unsubscribe. Without it the footer links Shiplog's unsubscribe page.
+    attr_reader :newsletter_unsubscribe_url
+    # `->(email) { ... }`, called on every unsubscribe (one-click, the footer link or the preferences page), so the
+    # host turns its own user's setting off. Errors are logged, never shown to the visitor.
+    attr_reader :on_newsletter_unsubscribe
+    # The sender, e.g. "Acme <updates@acme.com>" (also used by the confirmation email); the postal address the
+    # footer carries (CAN-SPAM requires one); the logo (an http(s) URL) and the accent colour ("#rrggbb") of the
+    # email; extra ActionMailer options for every newsletter message, e.g. { message_stream: "broadcast" } for a
+    # Postmark broadcast stream; how many recipients a job claims at a time (default 500).
+    attr_reader :newsletter_from, :newsletter_address, :newsletter_logo_url, :newsletter_accent,
+      :newsletter_mailer_options, :newsletter_batch_size
+    ACCENT_FORMAT = /\A#(?:\h{3}|\h{6})\z/
+    MAX_NEWSLETTER_BATCH_SIZE = 10_000
+
     EXTRA_PAGE_KEYS = %i[label path].freeze
 
     # A path (not "//host", "/\host" or "/ x", which browsers read as other targets), an http(s) URL or mailto:.
@@ -96,7 +118,7 @@ module Shiplog
         extra_pages.map { |page| [ stable.(page[:label]), stable.(page[:path]) ] },
         repository_labels.sort_by { |name, _| name.to_s }.map { |name, label| [ name, stable.(label) ] },
         stable.(feedback_path), changelog_search, images, max_images_per_entry, locales, structured_data, stable.(og_image),
-        announcements.to_s, stable.(announcement_url)
+        announcements.to_s, stable.(announcement_url), newsletter
       ]
       Digest::SHA256.hexdigest(JSON.generate(data))
     end
@@ -210,6 +232,67 @@ module Shiplog
       @on_changelog_seen = value
     end
 
+    def newsletter=(value)
+      raise ArgumentError, "newsletter must be true or false, got #{value.inspect}" unless [ true, false ].include?(value)
+      @newsletter = value
+    end
+
+    def newsletter_recipients=(value)
+      raise ArgumentError, "newsletter_recipients must be nil or a callable like -> { User.where(newsletter: true) }, got #{value.inspect}" unless value.nil? || value.respond_to?(:call)
+      @newsletter_recipients = value
+    end
+
+    def newsletter_unsubscribe_url=(value)
+      raise ArgumentError, "newsletter_unsubscribe_url must be nil or a callable like ->(recipient) { url }, got #{value.inspect}" unless value.nil? || value.respond_to?(:call)
+      @newsletter_unsubscribe_url = value
+    end
+
+    def on_newsletter_unsubscribe=(value)
+      raise ArgumentError, "on_newsletter_unsubscribe must be nil or a callable like ->(email) { ... }, got #{value.inspect}" unless value.nil? || value.respond_to?(:call)
+      @on_newsletter_unsubscribe = value
+    end
+
+    def newsletter_from=(value)
+      @newsletter_from = optional_string!(:newsletter_from, value, 'like "Acme <updates@acme.com>"')
+    end
+
+    def newsletter_address=(value)
+      @newsletter_address = optional_string!(:newsletter_address, value, "(the sender's postal address)")
+    end
+
+    def newsletter_logo_url=(value)
+      url = optional_string!(:newsletter_logo_url, value, "with an http(s) URL")
+      raise ArgumentError, "newsletter_logo_url must be an http(s) URL, got #{value.inspect}" if url && !url.match?(%r{\Ahttps?://\S+\z}i)
+      @newsletter_logo_url = url
+    end
+
+    def newsletter_accent=(value)
+      colour = optional_string!(:newsletter_accent, value, 'like "#0969da"')
+      raise ArgumentError, "newsletter_accent must be a hex colour like \"#0969da\", got #{value.inspect}" if colour && !ACCENT_FORMAT.match?(colour)
+      @newsletter_accent = colour&.downcase
+    end
+
+    # Merged into every newsletter message's `mail(...)` call: ActionMailer options (delivery_method,
+    # delivery_method_options) or headers your delivery gem reads (Postmark's message_stream). Keys that would
+    # change who receives the message or what it says are refused.
+    RESERVED_MAILER_OPTIONS = %i[to cc bcc from reply_to sender return_path subject body template_name template_path parts_order content_type charset mime_version date].freeze
+
+    def newsletter_mailer_options=(value)
+      options = value.nil? ? {} : value
+      raise ArgumentError, "newsletter_mailer_options must be a Hash like { message_stream: \"broadcast\" }, got #{value.inspect}" unless options.is_a?(Hash)
+      options = options.transform_keys { |key| key.to_s.to_sym }
+      reserved = options.keys & RESERVED_MAILER_OPTIONS
+      raise ArgumentError, "newsletter_mailer_options cannot set #{reserved.map(&:inspect).join(", ")}: the recipient, sender and content of a newsletter are Shiplog's" if reserved.any?
+      @newsletter_mailer_options = options.freeze
+    end
+
+    def newsletter_batch_size=(value)
+      unless value.is_a?(Integer) && value.between?(1, MAX_NEWSLETTER_BATCH_SIZE)
+        raise ArgumentError, "newsletter_batch_size must be an Integer between 1 and #{MAX_NEWSLETTER_BATCH_SIZE}, got #{value.inspect}"
+      end
+      @newsletter_batch_size = value
+    end
+
     # :standalone (default) wraps the admin in Shiplog's own page chrome; :hosted renders it inside the
     # layout of config.admin_layout (compact sub-nav, no page chrome of its own).
     def admin_chrome=(value)
@@ -282,6 +365,9 @@ module Shiplog
       @max_images_per_entry = 4
       @locales = [].freeze
       @announcements = :page
+      @newsletter = false
+      @newsletter_mailer_options = {}.freeze
+      @newsletter_batch_size = 500
     end
 
     def resolved_github_token
@@ -319,6 +405,14 @@ module Shiplog
     end
 
     private
+
+    # Nil (also for a blank String) or a stripped non-empty String; anything else raises.
+    def optional_string!(setting, value, hint)
+      return if value.nil? || (value.is_a?(String) && value.strip.empty?)
+      raise ArgumentError, "#{setting} must be nil or a String #{hint}, got #{value.inspect}" unless value.is_a?(String)
+
+      value.strip
+    end
 
     def normalize_canonical_url(value)
       return if value.nil? || (value.is_a?(String) && value.strip.empty?)

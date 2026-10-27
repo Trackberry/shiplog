@@ -1,0 +1,4 @@
+<%# A link that does not verify: tampered, expired, or its subscriber was deleted (status 404) %>
+<%= render layout: "shiplog/newsletter/page", locals: { heading: t("shiplog.newsletter.invalid.heading", default: "This link is not valid") } do %>
+  <p><%= t("shiplog.newsletter.invalid.text", default: "It may have expired or already been used. Subscribe again from the changelog to get a new one.") %></p>
+<% end %>

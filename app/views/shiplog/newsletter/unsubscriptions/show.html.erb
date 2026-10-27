@@ -1,0 +1,5 @@
+<%# The unsubscribe link's page: a button that POSTs (a GET unsubscribes nobody, link scanners prefetch) %>
+<%= render layout: "shiplog/newsletter/page", locals: { heading: t("shiplog.newsletter.unsubscribe.heading", default: "Unsubscribe") } do %>
+  <p><%= t("shiplog.newsletter.unsubscribe.text", email: @email, default: "Stop receiving the monthly summary at %{email}?") %></p>
+  <%= button_to t("shiplog.newsletter.unsubscribe.button", default: "Unsubscribe"), newsletter_unsubscription_path(params[:token]), method: :post, class: shiplog_class(:newsletter_button), form: { data: { turbo: false } } %>
+<% end %>

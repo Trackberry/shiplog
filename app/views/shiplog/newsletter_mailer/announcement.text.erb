@@ -1,0 +1,21 @@
+<%# The newsletter's text part: title, month, the body as plain text, the links. %>
+<%= @content.title %>
+<%= t("shiplog.categories.announcement", default: "Monthly update") %> · <%= @content.month %>
+<% if @content.view_url %>
+
+<%= t("shiplog.newsletter.mail.view_in_browser") %>: <%= @content.view_url %>
+<% end %>
+
+<%= @content.text %>
+<% if @content.changelog_url %>
+
+<%= t("shiplog.newsletter.mail.changelog_button") %>: <%= @content.changelog_url %>
+<% end %>
+
+--
+<%= t("shiplog.newsletter.mail.reason", product: @content.product_name) %>
+<%= t("shiplog.newsletter.mail.unsubscribe") %>: <%= @unsubscribe_url %>
+<%= t("shiplog.newsletter.mail.preferences") %>: <%= @preferences_url %>
+<% if @content.address.present? %>
+<%= @content.address %>
+<% end %>

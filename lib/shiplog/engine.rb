@@ -9,5 +9,7 @@ module Shiplog
 
     # Once per boot, after the host's initializers have set config.images: say why screenshots are off.
     config.after_initialize { Shiplog.log_images_status }
+    # And why the newsletter, when on, cannot be sent yet.
+    config.after_initialize { Shiplog.log_newsletter_status }
   end
 end

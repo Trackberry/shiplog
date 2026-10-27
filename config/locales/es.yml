@@ -70,7 +70,125 @@ es:
       title_with_product: "Registro de cambios de %{product}"
       link_title: Registro de cambios (Atom)
       subscribe: Suscribirse (Atom)
+    newsletter:
+      title: Boletín
+      product: Novedades del producto
+      back: "← Volver al registro de cambios"
+      form:
+        title: Recibe el resumen mensual por correo
+        hint: Un correo al mes, nada más. Date de baja cuando quieras.
+        email_label: Dirección de correo
+        email_placeholder: tu@ejemplo.com
+        submit: Suscribirme
+        trap_label: Deja este campo vacío
+        invalid_email: Escribe una dirección de correo válida.
+      sent:
+        heading: Revisa tu bandeja de entrada
+        text: Te hemos enviado un enlace para confirmar la suscripción. Ábrelo para empezar a recibir el resumen mensual. Si no llega en unos minutos, mira en la carpeta de spam.
+      confirm:
+        heading: Confirma tu suscripción
+        text: "Pulsa el botón para recibir el resumen mensual en %{email}."
+        button: Confirmar
+        done_heading: Suscripción confirmada
+        done_text: "El resumen mensual llegará a %{email}. Puedes cambiar el idioma o darte de baja cuando quieras desde tus preferencias."
+      preferences:
+        heading: Tu suscripción
+        email: Correo
+        status: Estado
+        statuses:
+          pending: Pendiente de confirmación
+          confirmed: Suscrito
+          unsubscribed: Dado de baja
+        language: Idioma
+        save: Guardar
+        saved: Preferencias guardadas.
+        unsubscribe: Darme de baja
+        unsubscribed: Te has dado de baja.
+        resubscribe: Volver a suscribirme
+        resubscribed: Vuelves a estar suscrito.
+        delete: Borrar mis datos
+        delete_help: Borrar tus datos elimina tu dirección de nuestros registros por completo, incluido el registro de tu baja.
+        deleted_heading: Tus datos se han borrado
+        deleted_text: Tu dirección de correo ya no está guardada. Puedes volver a suscribirte desde el registro de cambios cuando quieras.
+      unsubscribe:
+        heading: Darse de baja
+        text: "¿Dejar de recibir el resumen mensual en %{email}?"
+        button: Darme de baja
+        done_heading: Te has dado de baja
+        done_text: "%{email} ya no recibirá el resumen mensual."
+      invalid:
+        heading: Este enlace no es válido
+        text: Puede que haya caducado o que ya se haya usado. Vuelve a suscribirte desde el registro de cambios para recibir otro.
+      rate_limited:
+        heading: Demasiados intentos
+        text: Inténtalo de nuevo dentro de una hora.
+      mail:
+        view_in_browser: Ver en el navegador
+        changelog_button: Ver todo lo que hemos lanzado
+        reason: "Recibes este correo porque te suscribiste al resumen mensual de %{product}."
+        unsubscribe: Darme de baja
+        preferences: Preferencias
+        confirm_subject: "Confirma tu suscripción al boletín de %{product}"
+        confirm_heading: Un paso más
+        confirm_intro: "Confirma que quieres recibir el resumen mensual de %{product} en %{email}."
+        confirm_button: Confirmar mi suscripción
+        confirm_expiry: "El enlace funciona durante 7 días. Si no has pedido esto, ignora este correo: no se envía nada sin confirmación."
+        confirm_link_text: "O copia este enlace:"
     admin:
+      newsletter:
+        title: Boletín
+        help: Los visitantes que se suscribieron desde el formulario del registro de cambios. Tus propios usuarios (config.newsletter_recipients) no aparecen aquí.
+        total: Total
+        search: Buscar
+        search_placeholder: Buscar por correo
+        clear: Limpiar
+        export: Descargar CSV
+        remove: Eliminar
+        removed: "%{email} eliminado."
+        empty: Todavía no hay suscriptores.
+        no_match: "Ningún suscriptor coincide con “%{query}”."
+        statuses:
+          pending: Pendiente
+          confirmed: Confirmado
+          unsubscribed: Dado de baja
+        columns:
+          email: Correo
+          locale: Idioma
+          status: Estado
+          source: Página de alta
+          subscribed_at: Alta
+          recipients: Destinatarios
+        heading: Boletín
+        not_sent: Todavía no se ha enviado.
+        progress: "%{sent} enviados, %{failed} fallidos, %{pending} pendientes."
+        stalled:
+          one: "%{count} lleva más de una hora pendiente (puede que el worker se haya caído): Reintentar lo envía de nuevo."
+          other: "%{count} llevan más de una hora pendientes (puede que el worker se haya caído): Reintentar los envía de nuevo."
+        retry: Reintentar los fallidos
+        retry_queued: Reintentando los envíos fallidos.
+        send: Enviar…
+        send_blocked: "Todavía no se puede enviar: %{reasons}."
+        blockers:
+          not_approved: el anuncio no está aprobado
+          translations: "falta una traducción o está desactualizada (%{locales})"
+          from: config.newsletter_from no está configurado
+          address: config.newsletter_address no está configurado
+          base_url: config.canonical_url no está configurado (los enlaces de los correos deben ser absolutos)
+        test: "Enviar una prueba a %{email}"
+        test_locale: Idioma
+        test_sent: "Prueba enviada a %{email} (%{language})."
+        test_no_email: config.current_admin no devuelve una dirección de correo, así que no se puede enviar ninguna prueba.
+        confirm_title: "Enviar el boletín: %{title}"
+        recipients: Destinatarios
+        recipients_none: Todavía no hay nadie a quien enviarlo.
+        recipients_error: "No se pudo obtener la lista de destinatarios (%{error}). Consulta el registro para más detalles."
+        confirm_help: Cada destinatario recibe el correo una sola vez, en su idioma. Si lo envías de nuevo más tarde, solo llega a quienes no lo han recibido.
+        confirm_resend_help: Se omite a quienes ya lo recibieron.
+        confirm_button:
+          one: "Enviar a %{count} destinatario"
+          other: "Enviar a %{count} destinatarios"
+        queued: El boletín se está enviando. Actualiza la página en un momento.
+        back: Volver al anuncio
       announcements:
         draft: "Redactar el anuncio de %{month}"
         drafted: El borrador del anuncio está listo.
@@ -94,6 +212,7 @@ es:
         board: Tablero de la hoja de ruta
         sync: Sincronización
         areas: Áreas
+        newsletter: Boletín
       areas:
         title: Áreas del producto
         help: La IA agrupa las entradas en áreas (como máximo %{max}) mientras las reescribe. Los visitantes pueden filtrar el registro de cambios por área cuando hay dos áreas con entradas publicadas.

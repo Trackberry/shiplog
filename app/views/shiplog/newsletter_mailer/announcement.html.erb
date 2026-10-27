@@ -1,0 +1,56 @@
+<%# The newsletter's HTML part: one 600px table column, every style inline (email clients drop stylesheets), absolute
+    image URLs with a width and an alt text, light colours that hold up when a client inverts them for dark mode.
+    @content is a Shiplog::Newsletter::Content (title, month, html body, links); @unsubscribe_url and @preferences_url
+    are the recipient's own links. Copy this file into your app to change the design. %>
+<% palette = shiplog_mail_palette %>
+<% font = shiplog_mail_font %>
+<!DOCTYPE html>
+<html lang="<%= I18n.locale %>">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title><%= @content.title %></title>
+</head>
+<body style="margin:0;padding:0;background-color:<%= palette[:page] %>;color:<%= palette[:text] %>;font-family:<%= font %>;">
+<div style="display:none;max-height:0;overflow:hidden;font-size:1px;line-height:1px;color:<%= palette[:page] %>;"><%= @content.preheader %></div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:<%= palette[:page] %>;">
+<tr>
+<td align="center" style="padding:24px 12px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;">
+<% if @content.view_url %>
+<tr>
+<td style="padding:0 0 12px;font-family:<%= font %>;font-size:12px;line-height:1.5;color:<%= palette[:muted] %>;text-align:right;">
+<%= link_to t("shiplog.newsletter.mail.view_in_browser"), @content.view_url, style: "color:#{palette[:muted]};text-decoration:underline;" %>
+</td>
+</tr>
+<% end %>
+<tr>
+<td style="background-color:<%= palette[:card] %>;border-radius:8px;padding:32px;font-family:<%= font %>;">
+<% if @content.logo_url %>
+<%= image_tag @content.logo_url, alt: @content.product_name, width: 140, style: "display:block;width:140px;max-width:140px;height:auto;border:0;margin:0 0 24px;" %>
+<% end %>
+<p style="margin:0 0 8px;font-family:<%= font %>;font-size:12px;line-height:1.5;letter-spacing:0.08em;text-transform:uppercase;color:<%= @content.accent %>;"><%= t("shiplog.categories.announcement", default: "Monthly update") %> · <%= @content.month %></p>
+<h1 style="margin:0 0 20px;font-family:<%= font %>;font-size:26px;line-height:1.3;font-weight:700;color:<%= palette[:text] %>;"><%= @content.title %></h1>
+<%= @content.html %>
+<%= shiplog_mail_button t("shiplog.newsletter.mail.changelog_button"), @content.changelog_url, @content.accent %>
+</td>
+</tr>
+<tr>
+<td style="padding:24px 12px;font-family:<%= font %>;font-size:12px;line-height:1.7;color:<%= palette[:muted] %>;text-align:center;">
+<%= t("shiplog.newsletter.mail.reason", product: @content.product_name) %><br>
+<%= link_to t("shiplog.newsletter.mail.unsubscribe"), @unsubscribe_url, style: "color:#{palette[:muted]};text-decoration:underline;" %>
+·
+<%= link_to t("shiplog.newsletter.mail.preferences"), @preferences_url, style: "color:#{palette[:muted]};text-decoration:underline;" %>
+<% if @content.address.present? %>
+<br><%= @content.address %>
+<% end %>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</table>
+</body>
+</html>

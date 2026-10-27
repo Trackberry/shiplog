@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_28_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_28_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -142,6 +142,37 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_28_000001) do
     t.index ["repository_id"], name: "index_shiplog_issues_on_repository_id"
   end
 
+  create_table "shiplog_newsletter_deliveries", force: :cascade do |t|
+    t.bigint "announcement_id", null: false
+    t.string "recipient_key", null: false
+    t.string "locale", null: false
+    t.string "status", default: "pending", null: false
+    t.datetime "sent_at"
+    t.text "error"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["announcement_id", "recipient_key"], name: "index_shiplog_newsletter_deliveries_on_announcement_and_key", unique: true
+    t.index ["announcement_id", "status"], name: "index_shiplog_newsletter_deliveries_on_announcement_and_status"
+    t.index ["created_at"], name: "index_shiplog_newsletter_deliveries_on_created_at"
+    t.index ["recipient_key"], name: "index_shiplog_newsletter_deliveries_on_recipient_key"
+  end
+
+  create_table "shiplog_newsletter_subscribers", force: :cascade do |t|
+    t.string "email", null: false
+    t.string "locale", null: false
+    t.string "token", null: false
+    t.string "confirmation_nonce"
+    t.datetime "confirmed_at"
+    t.datetime "unsubscribed_at"
+    t.string "source"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index "lower((email)::text)", name: "index_shiplog_newsletter_subscribers_on_lower_email", unique: true
+    t.index ["confirmation_nonce"], name: "index_shiplog_newsletter_subscribers_on_confirmation_nonce", unique: true
+    t.index ["confirmed_at", "unsubscribed_at"], name: "index_shiplog_newsletter_subscribers_on_status"
+    t.index ["token"], name: "index_shiplog_newsletter_subscribers_on_token", unique: true
+  end
+
   create_table "shiplog_periods", force: :cascade do |t|
     t.date "starts_on", null: false
     t.date "ends_on", null: false
@@ -223,6 +254,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_28_000001) do
   add_foreign_key "shiplog_entries", "shiplog_areas", column: "area_id", on_delete: :nullify
   add_foreign_key "shiplog_entry_translations", "shiplog_entries", column: "entry_id", on_delete: :cascade
   add_foreign_key "shiplog_issues", "shiplog_repositories", column: "repository_id"
+  add_foreign_key "shiplog_newsletter_deliveries", "shiplog_entries", column: "announcement_id", on_delete: :cascade
   add_foreign_key "shiplog_pull_request_upgrades", "shiplog_pull_requests", column: "pull_request_id"
   add_foreign_key "shiplog_pull_requests", "shiplog_repositories", column: "repository_id"
 end

@@ -1,0 +1,41 @@
+<%# locals: (entry:) %>
+<%# The newsletter section of an announcement's panel: how the send is going, "Send test" to the admin's address
+    in a chosen locale, and "Send" (the confirmation step) when nothing blocks it, else why it is disabled. %>
+<% blockers = Shiplog::Newsletter.blockers(entry) %>
+<% progress = Shiplog::NewsletterDelivery.progress(entry) %>
+<% admin_email = current_admin_name.to_s.strip %>
+<% admin_email = nil unless URI::MailTo::EMAIL_REGEXP.match?(admin_email) %>
+<% locales = Shiplog::NewsletterSubscriber.allowed_locales %>
+<h3><%= t("shiplog.admin.newsletter.heading") %></h3>
+<p class="shiplog-admin__muted shiplog-admin-newsletter__progress">
+  <% if progress.values_at(:sent, :failed, :pending).sum.zero? %>
+    <%= t("shiplog.admin.newsletter.not_sent") %>
+  <% else %>
+    <%= t("shiplog.admin.newsletter.progress", **progress.slice(:sent, :failed, :pending)) %>
+    <% if progress[:stalled].positive? %>
+      <%= t("shiplog.admin.newsletter.stalled", count: progress[:stalled]) %>
+    <% end %>
+  <% end %>
+</p>
+<div class="shiplog-admin-actions">
+  <%= form_with url: entry_newsletter_test_path(entry, inbox_filter_params), class: "shiplog-admin-inline-form" do |form| %>
+    <%# test_locale, not locale: a host's around_action that switches the locale from params[:locale] must not read it %>
+    <%= form.label :test_locale, t("shiplog.admin.newsletter.test_locale") %>
+    <%= form.select :test_locale, locales.map { |locale| [ translation_language_label(locale), locale ] } %>
+    <%= form.submit t("shiplog.admin.newsletter.test", email: admin_email || "?"), class: "shiplog-button", disabled: admin_email.nil? %>
+    <% if admin_email.nil? %>
+      <span class="shiplog-admin__muted"><%= t("shiplog.admin.newsletter.test_no_email") %></span>
+    <% end %>
+  <% end %>
+  <div class="shiplog-admin-inline-form">
+    <% if blockers.any? %>
+      <button type="button" class="shiplog-button shiplog-button--primary" disabled><%= t("shiplog.admin.newsletter.send") %></button>
+      <span class="shiplog-admin__muted"><%= t("shiplog.admin.newsletter.send_blocked", reasons: blockers.map { |blocker| t("shiplog.admin.newsletter.blockers.#{blocker}", locales: Shiplog::Newsletter.missing_locales(entry).join(", ")) }.join(", ")) %></span>
+    <% else %>
+      <%= link_to t("shiplog.admin.newsletter.send"), entry_newsletter_path(entry, inbox_filter_params), class: "shiplog-button shiplog-button--primary" %>
+    <% end %>
+    <% if progress[:failed].positive? || progress[:stalled].positive? %>
+      <%= button_to t("shiplog.admin.newsletter.retry"), entry_newsletter_retry_path(entry, inbox_filter_params), class: "shiplog-button" %>
+    <% end %>
+  </div>
+</div>

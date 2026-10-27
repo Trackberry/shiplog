@@ -1,0 +1,45 @@
+<%# The confirmation step before sending: the recipients per locale (after deduplication), what was sent already, and the Send button %>
+<%= render layout: "shiplog/admin/page" do %>
+  <h1 class="shiplog-admin__title"><%= t("shiplog.admin.newsletter.confirm_title", title: @entry.title) %></h1>
+
+  <% if @blockers.any? %>
+    <div class="shiplog-admin__flash shiplog-admin__flash--alert" role="alert">
+      <%= t("shiplog.admin.newsletter.send_blocked", reasons: @blockers.map { |blocker| t("shiplog.admin.newsletter.blockers.#{blocker}", locales: Shiplog::Newsletter.missing_locales(@entry).join(", ")) }.join(", ")) %>
+    </div>
+  <% end %>
+
+  <section class="shiplog-admin-panel">
+    <h2><%= t("shiplog.admin.newsletter.recipients") %></h2>
+    <% if @recipients_error %>
+      <p class="shiplog-admin__flash shiplog-admin__flash--alert" role="alert"><%= t("shiplog.admin.newsletter.recipients_error", error: @recipients_error) %></p>
+    <% elsif @counts.empty? %>
+      <p class="shiplog-admin__muted"><%= t("shiplog.admin.newsletter.recipients_none") %></p>
+    <% else %>
+      <table class="shiplog-admin-table shiplog-admin-counts">
+        <thead>
+          <tr>
+            <th scope="col"><%= t("shiplog.admin.newsletter.columns.locale") %></th>
+            <th scope="col"><%= t("shiplog.admin.newsletter.columns.recipients") %></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @counts.each do |locale, count| %>
+            <tr><td><%= locale %></td><td class="shiplog-admin-counts__number"><%= count %></td></tr>
+          <% end %>
+          <tr><th scope="row"><%= t("shiplog.admin.newsletter.total") %></th><td class="shiplog-admin-counts__number"><%= @counts.values.sum %></td></tr>
+        </tbody>
+      </table>
+    <% end %>
+    <% total = @counts.values.sum %>
+    <% if @progress.values_at(:sent, :failed, :pending).sum.positive? %>
+      <p class="shiplog-admin__muted"><%= t("shiplog.admin.newsletter.progress", **@progress.slice(:sent, :failed, :pending)) %> <%= t("shiplog.admin.newsletter.confirm_resend_help") %></p>
+    <% end %>
+    <p class="shiplog-admin__muted"><%= t("shiplog.admin.newsletter.confirm_help") %></p>
+    <div class="shiplog-admin-actions">
+      <%= button_to t("shiplog.admin.newsletter.confirm_button", count: total), entry_newsletter_path(@entry, inbox_filter_params), method: :post,
+            class: "shiplog-button shiplog-button--primary", disabled: @blockers.any? || total.zero? %>
+    </div>
+  </section>
+
+  <p><%= link_to t("shiplog.admin.newsletter.back"), edit_entry_path(@entry, inbox_filter_params) %></p>
+<% end %>

@@ -8,10 +8,12 @@ module Shiplog
 
     def self.changelog_url = url(:changelog_path)
 
-    # A blank script_name makes Rails look the mount up again (and fail under a required segment), so a root mount
-    # passes "/", which Rails strips.
-    def self.url(helper, *args)
-      "#{Shiplog.config.canonical_url}#{Engine.routes.url_helpers.public_send(helper, *args, script_name: mount_path.presence || "/")}"
+    def self.url(helper, *args) = "#{Shiplog.config.canonical_url}#{path(helper, *args)}"
+
+    # The path of a named engine route, with the engine's mount in front. A blank script_name makes Rails look
+    # the mount up again (and fail under a required segment), so a root mount passes "/", which Rails strips.
+    def self.path(helper, *args)
+      Engine.routes.url_helpers.public_send(helper, *args, script_name: mount_path.presence || "/")
     end
 
     # The path Shiplog::Engine is mounted at in the host's routes: "" for "/", "/updates" for a mount below it. An

@@ -1,0 +1,25 @@
+<%# locals: (source: nil, email: nil, error: nil) %>
+<%# The subscribe form: one email field, a honeypot (bots fill it, people never see it), a plain POST that works
+    without JavaScript. No CSRF token on purpose: the pages carrying it are cached with ETags (see
+    Shiplog::Newsletter::SubscriptionsController). `source` is recorded as the page the visitor subscribed on. %>
+<% if Shiplog.newsletter? %>
+  <section class="<%= shiplog_class(:newsletter) %>" aria-labelledby="shiplog-newsletter-title">
+    <h2 class="<%= shiplog_class(:newsletter_title) %>" id="shiplog-newsletter-title"><%= t("shiplog.newsletter.form.title", default: "Get the monthly summary by email") %></h2>
+    <p class="<%= shiplog_class(:newsletter_hint) %>"><%= t("shiplog.newsletter.form.hint", default: "One email a month, no more. Unsubscribe any time.") %></p>
+    <% if error %>
+      <p class="<%= shiplog_class(:newsletter_notice, :error) %>" role="alert"><%= error %></p>
+    <% end %>
+    <%= form_with url: shiplog_newsletter_subscription_path, method: :post, authenticity_token: false, class: shiplog_class(:newsletter_form), data: { turbo: false } do |form| %>
+      <%= form.hidden_field :source, value: shiplog_newsletter_source(source) %>
+      <%# the honeypot: a name no browser autofills, out of the tab order and of autofill %>
+      <div class="shiplog-newsletter__trap" aria-hidden="true">
+        <%= form.label Shiplog::Newsletter::SubscriptionsController::HONEYPOT, t("shiplog.newsletter.form.trap_label", default: "Leave this field empty"), tabindex: -1 %>
+        <%= form.text_field Shiplog::Newsletter::SubscriptionsController::HONEYPOT, tabindex: -1, autocomplete: "off", "data-1p-ignore": "", "data-lpignore": "true" %>
+      </div>
+      <%= form.label :email, t("shiplog.newsletter.form.email_label", default: "Email address"), class: shiplog_class(:newsletter_label) %>
+      <%= form.email_field :email, value: email, required: true, autocomplete: "email", maxlength: Shiplog::NewsletterSubscriber::EMAIL_MAX_LENGTH,
+            placeholder: t("shiplog.newsletter.form.email_placeholder", default: "you@example.com"), class: shiplog_class(:newsletter_input) %>
+      <%= form.button t("shiplog.newsletter.form.submit", default: "Subscribe"), type: "submit", class: shiplog_class(:newsletter_button) %>
+    <% end %>
+  </section>
+<% end %>

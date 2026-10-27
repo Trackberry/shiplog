@@ -1,0 +1,5 @@
+<%# The confirmation link's page: a button that POSTs (a GET confirms nothing, link scanners prefetch) %>
+<%= render layout: "shiplog/newsletter/page", locals: { heading: t("shiplog.newsletter.confirm.heading", default: "Confirm your subscription") } do %>
+  <p><%= t("shiplog.newsletter.confirm.text", email: @subscriber.email, default: "Click the button to receive the monthly summary at %{email}.") %></p>
+  <%= button_to t("shiplog.newsletter.confirm.button", default: "Confirm"), newsletter_confirmation_path(params[:token]), method: :post, class: shiplog_class(:newsletter_button), form: { data: { turbo: false } } %>
+<% end %>

@@ -14,9 +14,10 @@ module Shiplog
     IMAGE_URL = %r{\A(?:https?://|/(?![/\\]))}i
     CONTROL_CHARS = /[[:cntrl:]]/
 
-    # Block-level HTML for +text+. Heading levels are shifted by +heading_offset+ (clamped to h1..h6).
-    def self.to_html(text, heading_offset: 0)
-      html = blocks(text).map { |block| render_block_html(block, heading_offset) }.join("\n")
+    # Block-level HTML for +text+. Heading levels are shifted by +heading_offset+ (clamped to h1..h6). +styles+
+    # maps tag names to inline styles ({ "p" => "margin:0 0 12px;" }) for emails, where stylesheets are ignored.
+    def self.to_html(text, heading_offset: 0, styles: {})
+      html = blocks(text).map { |block| render_block_html(block, heading_offset, styles) }.join("\n")
       html.html_safe # every fragment was escaped or built by us
     end
 
@@ -103,21 +104,32 @@ module Shiplog
     def self.ordered_item?(line) = line.match(ITEM)[2].match?(/\d/)
     private_class_method :ordered_item?
 
-    def self.render_block_html(block, heading_offset)
+    # In HTML mode, +styles+ (a Hash, maybe empty) stands for the html flag of the inline renderers.
+    def self.render_block_html(block, heading_offset, styles)
       case block.first
       when :heading
         level = (block[1] + heading_offset).clamp(1, 6)
-        "<h#{level}>#{inline(block[2], true)}</h#{level}>"
-      when :paragraph then "<p>#{inline(block[1], true)}</p>"
-      when :quote then "<blockquote><p>#{inline(block[1], true)}</p></blockquote>"
-      when :rule then "<hr>"
+        "#{open("h#{level}", styles)}#{inline(block[2], styles)}</h#{level}>"
+      when :paragraph then "#{open("p", styles)}#{inline(block[1], styles)}</p>"
+      when :quote then "#{open("blockquote", styles)}#{open("p", styles)}#{inline(block[1], styles)}</p></blockquote>"
+      when :rule then open("hr", styles)
       when :list
         tag = block[1] ? "ol" : "ul"
-        items = block[2].map { |item| "<li>#{inline(item, true)}</li>" }.join("\n")
-        "<#{tag}>\n#{items}\n</#{tag}>"
+        items = block[2].map { |item| "#{open("li", styles)}#{inline(item, styles)}</li>" }.join("\n")
+        "#{open(tag, styles)}\n#{items}\n</#{tag}>"
       end
     end
     private_class_method :render_block_html
+
+    # "<p>" or, with an inline style for the tag, "<p style="...">" (the style escaped like any attribute).
+    def self.open(tag, styles) = "<#{tag}#{style(tag, styles)}>"
+    private_class_method :open
+
+    def self.style(tag, styles)
+      value = styles[tag] if styles.is_a?(Hash)
+      value.present? ? %( style="#{escape(value, true)}") : ""
+    end
+    private_class_method :style
 
     def self.render_block_text(block)
       case block.first
@@ -151,7 +163,7 @@ module Shiplog
         [ run, i + run.length ] # a run of backticks (such as a ``` fence) is literal text
       elsif char == "`" && (close = source.index("`", i + 1))
         code = source[(i + 1)...close]
-        [ html ? "<code>#{escape(code, true)}</code>" : code, close + 1 ]
+        [ html ? "#{open("code", html)}#{escape(code, true)}</code>" : code, close + 1 ]
       elsif char == "!" && (match = source.match(IMAGE, i))
         [ image(match[1], match[2], html), i + match[0].length ]
       elsif char == "[" && (match = source.match(LINK, i))
@@ -173,7 +185,7 @@ module Shiplog
 
       inner = inline(source[start...close], html)
       tag = marker == "**" ? "strong" : "em"
-      [ html ? "<#{tag}>#{inner}</#{tag}>" : inner, close + marker.length ]
+      [ html ? "#{open(tag, html)}#{inner}</#{tag}>" : inner, close + marker.length ]
     end
     private_class_method :emphasis
 
@@ -199,7 +211,7 @@ module Shiplog
       return text unless allowed_url?(url, LINK_URL)
       return (text == url ? text : "#{text} (#{url})") unless html
 
-      %(<a href="#{escape(url, true)}">#{text}</a>)
+      %(<a href="#{escape(url, true)}"#{style("a", html)}>#{text}</a>)
     end
     private_class_method :link
 
@@ -208,7 +220,7 @@ module Shiplog
       text = inline(alt, false)
       return escape(text, html) unless html && allowed_url?(url, IMAGE_URL)
 
-      %(<img src="#{escape(url, true)}" alt="#{escape(text, true)}" loading="lazy">)
+      %(<img src="#{escape(url, true)}" alt="#{escape(text, true)}" loading="lazy"#{style("img", html)}>)
     end
     private_class_method :image
 
