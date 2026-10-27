@@ -4,6 +4,8 @@ module Shiplog
     PARSE_ERROR = "Could not parse rewriter output".freeze
     MAX_TITLE_CHARS = 120
     MAX_BODY_CHARS = 2_000
+    # An announcement's Markdown body covers a whole month.
+    MAX_ANNOUNCEMENT_BODY_CHARS = 10_000
     MAX_ROADMAP_BODY_CHARS = 220
     # A period after a common abbreviation ("e.g.", "i.e.", "approx.", "etc.") does not end a sentence.
     SENTENCE_END = /(?<!\be\.g)(?<!\bi\.e)(?<!\bapprox)(?<!\betc)(?<!\bvs)(?<!\bcf)[.!?](?=\s|\z)/i
@@ -38,6 +40,9 @@ module Shiplog
 
     def self.sanitize(text) = text.tr("\t", " ").gsub(CONTROL_CHARS, "")
 
+    # The longest body an entry of this kind may have.
+    def self.max_body_chars(entry) = entry.announcement? ? MAX_ANNOUNCEMENT_BODY_CHARS : MAX_BODY_CHARS
+
     def initialize(entry)
       @entry = entry
     end
@@ -46,6 +51,7 @@ module Shiplog
     # call replaces the text of an approved entry but returns it to draft for re-approval.
     def call(force: false)
       return @entry if @entry.approved? && !force
+      return write_skeleton(force) if @entry.announcement? && Shiplog.config.rewriter.nil?
 
       result = parse(request)
       locked(force) { result ? apply(result) : fail_with(PARSE_ERROR) }
@@ -56,6 +62,19 @@ module Shiplog
     end
 
     private
+      # Without a rewriter, an announcement's draft is its month's skeleton (Period#title and #body), written fresh
+      # so that regenerating it picks up the month's current entries. Not an error: it is the documented draft.
+      def write_skeleton(force)
+        locked(force) do
+          period = @entry.subject
+          @entry.assign_attributes(title: period.title, body: period.body, rewritten_at: Time.current, rewrite_error: nil,
+            source_digest: Entry.digest_for(period))
+          @entry.assign_attributes(status: "draft", approved_at: nil, approved_by: nil) if @entry.approved?
+          @entry.save!
+        end
+        @entry
+      end
+
       # Re-checks state under a row lock: the entry may have been approved or edited during the LLM call.
       def locked(force)
         @entry.with_lock do
@@ -68,7 +87,8 @@ module Shiplog
         rewriter = Shiplog.config.rewriter
         raise "No rewriter configured" unless rewriter
 
-        rewriter.call(Prompt.new(@entry).to_s).to_s
+        prompt = @entry.announcement? ? AnnouncementPrompt.new(@entry) : Prompt.new(@entry)
+        rewriter.call(prompt.to_s).to_s
       end
 
       def parse(reply) = self.class.first_valid_object(reply) { |data| validate(data) }
@@ -85,7 +105,7 @@ module Shiplog
       end
 
       def limit_body(body)
-        return body.truncate(MAX_BODY_CHARS, separator: " ", omission: "…") unless @entry.roadmap?
+        return body.truncate(self.class.max_body_chars(@entry), separator: " ", omission: "…") unless @entry.roadmap?
 
         shorten_roadmap(body)
       end
@@ -108,7 +128,7 @@ module Shiplog
       # nothing (cap reached, invalid) keeps the entry's current area: only an explicit valid name changes it. No
       # area in the reply keeps it too, and one an admin chose is never changed.
       def assign_area(name)
-        return if name.nil? || @entry.area_set_by_admin?
+        return if name.nil? || @entry.area_set_by_admin? || @entry.announcement?
 
         area = Area.resolve_or_create(name)
         @entry.area = area if area

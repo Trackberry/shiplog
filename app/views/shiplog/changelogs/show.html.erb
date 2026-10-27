@@ -17,7 +17,7 @@
   <% else %>
     <div class="<%= shiplog_class(:months) %>">
       <% @months.each do |month, entries| %>
-        <%= render "shiplog/changelogs/month", month:, entries: %>
+        <%= render "shiplog/changelogs/month", month:, entries:, announcement: @announcements[month] %>
       <% end %>
     </div>
   <% end %>

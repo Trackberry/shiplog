@@ -17,6 +17,8 @@ module Shiplog
 
     def perform(entry, locale, force: false)
       Translator.new(entry, locale).call(force:)
+      # An approved announcement is announced once all its translations are current: this may have been the last.
+      AnnounceJob.perform_later(entry) if entry.announcement?
     rescue StandardError => error
       Rails.logger.error("[shiplog] Translating entry #{entry.id} into #{locale} failed (attempt #{executions} of #{ATTEMPTS}): #{error.class}: #{error.message}")
       raise

@@ -8,6 +8,7 @@ module Shiplog
       :roadmap_path
 
     ADMIN_CHROMES = %i[standalone hosted].freeze
+    ANNOUNCEMENT_MODES = [ :page, :external, false ].freeze
     # Segments of only dots ("." and "..") are path traversal, not names.
     REPOSITORY_NAME = %r{\A(?!\.+/)[\w.-]+/(?!\.+\z)[\w.-]+\z}
     REPOSITORY_OPTION_KEYS = %i[name changelog gem].freeze
@@ -59,6 +60,22 @@ module Shiplog
     attr_reader :images, :max_images_per_entry
     LOCALE_FORMAT = /\A[A-Za-z][A-Za-z0-9_-]*\z/
 
+    # Monthly announcements (see Shiplog::Announcements). `announcements` is where they are published:
+    #   :page      (default) Shiplog renders /changelog/2026-10, links it from the changelog's month heading and
+    #              puts it in the Atom feed;
+    #   :external  no Shiplog page: the month heading links to `announcement_url`, and the host publishes the text
+    #              itself (on_announcement_approved);
+    #   false      no announcements at all: nothing is drafted, rendered or announced.
+    attr_reader :announcements
+    # Where an announcement is published when `announcements` is :external: a callable
+    # `->(announcement, locale) { url }` evaluated in the view (instance_exec, so `main_app` route helpers work).
+    # A nil or unsafe result renders no link. Not part of the ETag: bump cache_version when its output changes.
+    attr_reader :announcement_url
+    # Called with the announcement (a Shiplog::Entry) once it is approved and every configured locale has a current
+    # translation, from Shiplog::AnnounceJob. Once per approval: an announcement regenerated and approved again
+    # is announced again. An `announcement_approved.shiplog` ActiveSupport notification is sent at the same time.
+    attr_reader :on_announcement_approved
+
     EXTRA_PAGE_KEYS = %i[label path].freeze
 
     # A path (not "//host", "/\host" or "/ x", which browsers read as other targets), an http(s) URL or mailto:.
@@ -78,7 +95,8 @@ module Shiplog
         stylesheet, roadmap_shipped_count, cache_version, product_name, canonical_url,
         extra_pages.map { |page| [ stable.(page[:label]), stable.(page[:path]) ] },
         repository_labels.sort_by { |name, _| name.to_s }.map { |name, label| [ name, stable.(label) ] },
-        stable.(feedback_path), changelog_search, images, max_images_per_entry, locales, structured_data, stable.(og_image)
+        stable.(feedback_path), changelog_search, images, max_images_per_entry, locales, structured_data, stable.(og_image),
+        announcements.to_s, stable.(announcement_url)
       ]
       Digest::SHA256.hexdigest(JSON.generate(data))
     end
@@ -169,6 +187,24 @@ module Shiplog
       @og_image = value
     end
 
+    def announcements=(value)
+      mode = value.is_a?(String) ? value.to_sym : value
+      unless ANNOUNCEMENT_MODES.include?(mode)
+        raise ArgumentError, "announcements must be :page, :external or false, got #{value.inspect}"
+      end
+      @announcements = mode
+    end
+
+    def announcement_url=(value)
+      raise ArgumentError, "announcement_url must be nil or a callable like ->(announcement, locale) { url }, got #{value.inspect}" unless value.nil? || value.respond_to?(:call)
+      @announcement_url = value
+    end
+
+    def on_announcement_approved=(value)
+      raise ArgumentError, "on_announcement_approved must be nil or a callable like ->(announcement) { ... }, got #{value.inspect}" unless value.nil? || value.respond_to?(:call)
+      @on_announcement_approved = value
+    end
+
     def on_changelog_seen=(value)
       raise ArgumentError, "on_changelog_seen must be nil or a callable, got #{value.inspect}" unless value.nil? || value.respond_to?(:call)
       @on_changelog_seen = value
@@ -245,6 +281,7 @@ module Shiplog
       @images = true
       @max_images_per_entry = 4
       @locales = [].freeze
+      @announcements = :page
     end
 
     def resolved_github_token

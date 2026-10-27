@@ -8,6 +8,22 @@ unless Rake::Task.task_defined?("shiplog:backfill_slugs")
       puts "Shiplog: gave #{count} #{count == 1 ? "entry" : "entries"} a slug."
     end
 
+    desc "Draft the announcement of a month (MONTH=2026-10; the previous month by default) and queue its rewrite"
+    task draft_announcement: :environment do
+      month = ENV["MONTH"].present? ? Date.strptime(ENV["MONTH"], "%Y-%m") : Date.current.prev_month
+      entry = Shiplog::Announcements.draft(month:)
+      label = month.strftime("%Y-%m")
+      if entry
+        puts "Shiplog: drafted the #{label} announcement (entry #{entry.id})."
+      elsif !Shiplog.announcements?
+        puts "Shiplog: config.announcements is false, nothing drafted."
+      else
+        puts "Shiplog: nothing drafted for #{label}: it has an announcement already, or no approved feature or change."
+      end
+    rescue Date::Error
+      abort "Shiplog: MONTH must look like 2026-10, got #{ENV["MONTH"].inspect}."
+    end
+
     desc "Translate approved entries and area names that have no current translation into config.locales (entries approved before 0.3.0 get none). BATCH_SIZE=100"
     task translate_approved: :environment do
       if Shiplog.config.locales.empty?

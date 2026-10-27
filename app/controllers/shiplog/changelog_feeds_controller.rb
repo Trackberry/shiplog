@@ -1,5 +1,6 @@
 module Shiplog
-  # The Atom feed of the latest published features and changes: /changelog.atom.
+  # The Atom feed of the latest published features and changes, and of the announcements when Shiplog renders
+  # their pages: /changelog.atom.
   class ChangelogFeedsController < PublicController
     LIMIT = 50
 
@@ -7,7 +8,10 @@ module Shiplog
     before_action :set_area
 
     def show
-      scope = Entry.published_changelog.newest_first
+      scope = Entry.published_changelog
+      # Announcements have no area: a feed filtered by area leaves them out.
+      scope = scope.or(Entry.published_announcements) if Shiplog.announcement_pages? && !@area
+      scope = scope.newest_first
       scope = scope.where(area_id: @area.id) if @area
       @entries = scope.includes(:area).with_images_loaded.limit(LIMIT).to_a
       @entries.select!(&:permalink?) # no slug (or an invalid one) means no stable id: left out

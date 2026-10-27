@@ -71,7 +71,7 @@ module Shiplog
       def limit_body(body)
         return Rewriter.shorten_roadmap(body) if @entry.roadmap?
 
-        body.truncate(Rewriter::MAX_BODY_CHARS, separator: " ", omission: "…")
+        body.truncate(Rewriter.max_body_chars(@entry), separator: " ", omission: "…")
       end
 
       # Writes under the entry's row lock, after checking again: the entry may have been unpublished, edited or

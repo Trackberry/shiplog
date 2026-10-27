@@ -12,6 +12,7 @@ module Shiplog
           translation.assign_attributes(translation_params)
           translation.assign_attributes(edited_by_admin: true, source_digest: @entry.translation_source_digest)
           if translation.save
+            AnnounceJob.perform_later(@entry) if @entry.announcement? # the missing translation may have been this one
             redirect_to edit_entry_path(@entry, inbox_filter_params), notice: t("shiplog.admin.entries.translations.saved", default: "Translation saved.")
           else
             redirect_to edit_entry_path(@entry, inbox_filter_params), alert: translation.errors.full_messages.to_sentence

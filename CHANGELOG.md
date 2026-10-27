@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased (0.4.0)
+
+### Added
+
+- Monthly announcements ([#8](https://github.com/Trackberry/shiplog/issues/8)). A new entry kind, `announcement`, summarises a month: an intro, highlights linking to their permalinks and an "Also improved" list by area, in Markdown. `config.rewriter` drafts it from the month's approved features and changes and the small changes that got no entry (changes discarded as not customer-facing, merged pull requests without an entry, minus excluded labels and authors). Its subject is a new `Shiplog::Period` (one row per month), so drafting is idempotent. Without a rewriter the draft is a skeleton of the month's entries.
+- `Shiplog::DraftAnnouncementJob` (schedule it monthly; it drafts the previous month and skips a month with nothing approved), `bin/rails shiplog:draft_announcement MONTH=2026-10`, and "Draft announcement for <month>" buttons in the inbox for the current and previous month.
+- `config.announcements`: `:page` (default) renders `/changelog/2026-10`, links it from the month's heading ("Read the October 2026 summary") and adds it to the Atom feed (not to `?area=` feeds); `:external` publishes no page and links the month heading to `config.announcement_url = ->(announcement, locale) { url }`; `false` turns announcements off. Features and changes never get a `YYYY-MM` slug, so an announcement's URL is known when it is drafted (a pre-0.4.0 entry holding one makes the announcement use `YYYY-MM-update`).
+- `config.on_announcement_approved = ->(announcement) { ... }` and the `announcement_approved.shiplog` notification, from `Shiplog::AnnounceJob`, once an announcement is approved and every configured locale has a current translation; once per approval (`shiplog_entries.announced_at`). Announcements offer `to_markdown(locale)`, `to_html(locale)`, `to_text(locale)` and `public_url`.
+- The announcement's admin page: a rendered preview, Markdown, HTML and plain-text exports per locale, and whether your app was notified. The inbox flags an announcement whose month's entries changed since it was drafted.
+- `Shiplog.unseen_announcements_count(since:)` and `shiplog_unseen_announcements_count(since)`, for a badge on the monthly summary rather than every entry. `config.on_changelog_seen` also runs on announcement pages, and public controllers expose `shiplog_entry` (the entry viewed).
+- `Shiplog::Markdown.to_html` and `.to_text`: a small renderer that escapes everything it does not build (headings, paragraphs, lists, links and images with safe URLs only, emphasis, code, quotes, rules).
+- New `config.classes` keys: `announcement`, `announcement_title`, `announcement_body`, `month_announcement`, `month_announcement_link`.
+
+### Changed
+
+- `Shiplog::Drafter.draft` takes extra attributes for a new entry. The changelog's `_month` partial takes an optional `announcement:` local. Translations keep Markdown and link URLs.
+
+### Upgrading
+
+- Run `bin/rails shiplog:install:migrations` and `bin/rails db:migrate` (adds `shiplog_periods` and `shiplog_entries.announced_at`). Rails reports no pending migration for an engine's migrations that were never copied.
+- A custom `config.prompt_builder` now also receives `kind: "announcement"`, with a different context (`month`, `entries`, `skipped`). Return `nil` for it to use the built-in prompt, or build an announcement prompt asking for a Markdown body.
+- With `config.announcements = :page`, `/changelog/YYYY-MM` answers once that month's announcement is approved. A host route of that shape below the changelog path, declared after the mount, is shadowed for those months.
+- Area detection never classifies announcements, and the changelog's "small changes" for an announcement leave out pull requests of a public issue's tree.
+- Schedule `Shiplog::DraftAnnouncementJob` (see the README's Scheduling section), or set `config.announcements = false`.
+- With a custom `config.public_layout` or `config.classes`, style the new classes. A host overriding `shiplog/changelogs/_month` should render the announcement link (see the engine's partial).
+
 ## 0.3.2 (2026-10-26)
 
 0.3.1 hosts should upgrade.

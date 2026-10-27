@@ -17,6 +17,11 @@ module Shiplog
     # host pages from autoloading Shiplog::PublicController (and the host's parent controller).
     def shiplog_public_page? = true
 
+    # The entry a permalink or announcement page shows (nil on the other pages), for config.on_changelog_seen and
+    # host layouts: `controller.shiplog_entry&.announcement?` tells an announcement visit apart.
+    def shiplog_entry = @entry
+    helper_method :shiplog_entry
+
     private
 
     # Calls config.on_changelog_seen for a visit to the changelog index or a permalink page. It runs before

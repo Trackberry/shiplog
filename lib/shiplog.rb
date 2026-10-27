@@ -18,6 +18,16 @@ module Shiplog
     # at 99. Counted on approved_at (when the entry was approved), not released_on (the list's order). The host supplies the timestamp (Shiplog doesn't know its users): see config.on_changelog_seen.
     def unseen_count(since: nil) = Entry.unseen_count(since:)
 
+    # The number of approved monthly announcements approved after `since` (all of them while it is nil), capped
+    # at 99: the rare "what's new" signal, where unseen_count counts every daily entry. 0 while announcements are off.
+    def unseen_announcements_count(since: nil) = announcements? ? Entry.unseen_announcements_count(since:) : 0
+
+    # Whether monthly announcements are on (config.announcements is :page or :external).
+    def announcements? = config.announcements != false
+
+    # Whether Shiplog renders announcement pages (config.announcements is :page).
+    def announcement_pages? = config.announcements == :page
+
     ACTIVE_STORAGE_TABLES = %w[active_storage_attachments active_storage_blobs].freeze
 
     # Whether the host loaded Active Storage (its engine and the model macros). The declaration on Entry needs

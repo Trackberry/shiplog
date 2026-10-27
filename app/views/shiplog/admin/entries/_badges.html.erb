@@ -1,5 +1,5 @@
 <% if entry.source_changed? %>
-  <span class="shiplog-badge shiplog-badge--warning"><%= t("shiplog.admin.entries.source_changed") %></span>
+  <span class="shiplog-badge shiplog-badge--warning"><%= t(entry.announcement? ? "shiplog.admin.entries.entries_changed" : "shiplog.admin.entries.source_changed") %></span>
 <% end %>
 <% if entry.draft? && entry.rewritten_at.nil? && entry.rewrite_error.blank? %>
   <span class="shiplog-badge"><%= t("shiplog.admin.entries.not_rewritten") %></span>

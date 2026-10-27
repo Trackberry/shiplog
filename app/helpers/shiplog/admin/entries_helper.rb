@@ -9,8 +9,10 @@ module Shiplog
         subject.is_a?(Commit) ? subject.message.lines.drop(1).join.strip : subject.body.to_s
       end
 
+      # A commit's short sha, a period's month, or "owner/name#123".
       def source_reference(subject)
         return subject.sha.first(7) if subject.is_a?(Commit)
+        return subject.title if subject.is_a?(Period)
 
         "#{subject.repository.full_name}##{subject.number}"
       end

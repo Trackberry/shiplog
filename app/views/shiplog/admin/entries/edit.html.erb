@@ -20,7 +20,7 @@
         </p>
         <p>
           <%= form.label :body, t("shiplog.admin.entries.fields.body") %>
-          <%= form.text_area :body, rows: 8 %>
+          <%= form.text_area :body, rows: (@entry.announcement? ? 24 : 8) %>
         </p>
         <% if Shiplog::Entry::CHANGELOG_KINDS.include?(@entry.kind) %>
           <p>
@@ -28,6 +28,7 @@
             <%= form.select :changelog_kind, Shiplog::Entry::CHANGELOG_KINDS.map { |kind| [ t("shiplog.admin.entries.category_options.#{kind}"), kind ] } %>
           </p>
         <% end %>
+        <% unless @entry.announcement? %>
         <p>
           <%= form.label :area_id, t("shiplog.admin.entries.fields.area", default: "Area") %>
           <%= form.collection_select :area_id, Shiplog::Area.ordered, :id, :name, include_blank: t("shiplog.admin.entries.no_area", default: "None") %>
@@ -36,6 +37,7 @@
           <%= form.label :released_on, t("shiplog.admin.entries.fields.released_on") %>
           <%= form.date_field :released_on %>
         </p>
+        <% end %>
         <%= form.submit t("shiplog.admin.entries.save"), class: "shiplog-button shiplog-button--primary" %>
       <% end %>
 
@@ -67,11 +69,15 @@
     </aside>
   </div>
 
+  <% if @entry.announcement? %>
+    <%= render "shiplog/admin/entries/announcement", entry: @entry %>
+  <% end %>
+
   <% if Shiplog.config.locales.any? %>
     <%= render "shiplog/admin/entries/translations", entry: @entry %>
   <% end %>
 
-  <% if Shiplog.images? %>
+  <% if Shiplog.images? && !@entry.announcement? %>
     <%= render "shiplog/admin/entries/images", entry: @entry %>
   <% end %>
 

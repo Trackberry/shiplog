@@ -122,6 +122,9 @@ All settings live in `config/initializers/shiplog.rb`:
 | `images` | `true` | [Screenshots](#screenshots) in entries. Effective only when Active Storage is loaded in the host; `false` turns fetching, upload and rendering off. `true` or `false`, anything else raises `ArgumentError`. |
 | `max_images_per_entry` | `4` | How many images are fetched from the GitHub body of a draft. A non-negative Integer; `0` fetches none (admin uploads are not capped). |
 | `locales` | `[]` | Locales entries are translated into when approved, e.g. `[:es]`. An Array of Symbols or Strings (stored as symbols; the default locale `I18n.default_locale` is dropped); anything else raises `ArgumentError`. See [Translations](#translations). Part of the ETag. |
+| `announcements` | `:page` | Where [monthly announcements](#monthly-announcements) are published: `:page`, `:external` or `false`. Anything else raises `ArgumentError`. Part of the ETag. |
+| `announcement_url` | `nil` | With `announcements = :external`, `->(announcement, locale) { url }` evaluated in the view: where the month heading's summary link goes. |
+| `on_announcement_approved` | `nil` | `->(announcement) { ... }`, called once an announcement is approved and translated. See [Monthly announcements](#monthly-announcements). |
 | `max_areas` | `8` | How many [product areas](#product-areas) the AI may create. Past it, entries can only join existing areas. A non-negative Integer; `0` stops the AI creating areas. |
 
 Example:
@@ -205,10 +208,11 @@ Requests are verified with `X-Hub-Signature-256`; an invalid signature returns 4
 
 ## Scheduling
 
-Webhooks can be missed, so schedule two jobs:
+Webhooks can be missed, so schedule these jobs:
 
 - `Shiplog::SyncJob`: reconciles issues and pull requests and creates missing drafts. Every 30 minutes is a good start. The first run backfills everything.
 - `Shiplog::ScanChangesJob`: looks at default-branch commits without a pull request, then drafts small changes. Run it weekly.
+- `Shiplog::DraftAnnouncementJob`: drafts the previous month's [announcement](#monthly-announcements). Run it early each month, after the month's last weekly scan if you can.
 
 GoodJob (`config/initializers/good_job.rb` or `config/application.rb`):
 
@@ -216,7 +220,8 @@ GoodJob (`config/initializers/good_job.rb` or `config/application.rb`):
 config.good_job.enable_cron = true
 config.good_job.cron = {
   shiplog_sync: { cron: "*/30 * * * *", class: "Shiplog::SyncJob" },
-  shiplog_scan_changes: { cron: "0 6 * * 1", class: "Shiplog::ScanChangesJob" }
+  shiplog_scan_changes: { cron: "0 6 * * 1", class: "Shiplog::ScanChangesJob" },
+  shiplog_announcement: { cron: "0 7 2 * *", class: "Shiplog::DraftAnnouncementJob" }
 }
 ```
 
@@ -230,6 +235,9 @@ production:
   shiplog_scan_changes:
     class: Shiplog::ScanChangesJob
     schedule: every monday at 6am
+  shiplog_announcement:
+    class: Shiplog::DraftAnnouncementJob
+    schedule: at 7am on the 2nd day of every month
 ```
 
 You can also trigger a sync from the admin Sync page. Rewriting always runs in `Shiplog::RewriteEntryJob`, never in a request.
@@ -486,6 +494,73 @@ end
 The count is one `COUNT` query over the `(status, approved_at)` index. It filters on `approved_at` (when the entry was approved), not on the release date the list is ordered by: "new since you last looked" is about when an entry appeared, so an entry approved today with an earlier `released_on` still counts as new.
 
 `on_changelog_seen` runs **before the page renders**, on the changelog index and on permalink pages whose entry exists, for 200 and 304 answers alike (a visitor whose browser revalidates its cached page has still seen the changelog). Running first means a navbar badge rendered in the same response shows the count after your update. It does not run for 404s (an unknown permalink, a page past the last one), the feed, the roadmap or non-HTML formats. Because it runs on every visit and **may write**, keep it cheap: write only when the stored time is older than the newest entry, as in the example above (one `COUNT`, and a write only when there is something new). The response is not sent yet, so the callback can still set a cookie. An exception in the callback is logged with its class, message and the first five backtrace lines, never shown. A host layout that shows the unseen count renders per-user content, so declare `etag { current_user&.changelog_seen_at }` on your `public_parent_controller`, or a cached page keeps showing the old count.
+
+## Monthly announcements
+
+Once a month, Shiplog drafts a short **announcement** of what shipped: an intro, two or three highlights linking to their permalink pages, and an "Also improved" list grouped by product area. Your `config.rewriter` writes it, in Markdown, from the month's approved features and changes and from the small changes that got no entry of their own (changes the AI judged not customer-facing, and merged pull requests without an entry). An admin edits and approves it like any other entry. Nothing is public before that.
+
+The changelog stays the daily stream. The announcement is its monthly summary.
+
+**Drafting.** Schedule `Shiplog::DraftAnnouncementJob` early each month (see [Scheduling](#scheduling)). It drafts the previous month, once: running it again does nothing. A month without an approved feature or change gets no draft. The inbox also has "Draft announcement for <month>" buttons for the current and the previous month, and `bin/rails shiplog:draft_announcement MONTH=2026-10` drafts any month. Without a rewriter, the draft is a skeleton listing the month's entries with links, ready to edit, and Regenerate rebuilds it from the month's current entries. A month drafted from the button before it ended is not drafted again by the job: regenerate it once the month is over.
+
+An announcement belongs to a month, so its page is `/changelog/2026-10`. The `YYYY-MM` slug is set when it is drafted, and features and changes never get a slug of that shape. If a month's entries change after the draft was written, the inbox flags "The month's entries changed since this draft": regenerate it, or edit it. Regenerating an approved announcement returns it to draft, as for other entries.
+
+**Where it is published** is `config.announcements`:
+
+| Value | What happens |
+|---|---|
+| `:page` (default) | Shiplog renders `/changelog/2026-10`, links it from the month's heading on the changelog ("Read the October 2026 summary") and adds it to the Atom feed. |
+| `:external` | No Shiplog page. The month's heading links to `config.announcement_url`, and your app publishes the text itself through the hook below. |
+| `false` | No announcements: nothing is drafted, rendered or announced. |
+
+```ruby
+config.announcements = :external
+config.announcement_url = ->(announcement, locale) { main_app.blog_post_path(announcement.slug, locale:) }
+```
+
+`announcement_url` is evaluated in the view, so route helpers work. A nil or unsafe result renders no link. Bump `config.cache_version` when its output changes.
+
+**The approval hook.** `config.on_announcement_approved` is called with the announcement once it is approved **and** translated into every configured locale (right after approval with no `config.locales`, or with no rewriter to translate). It runs once per approval, in `Shiplog::AnnounceJob`: an announcement regenerated and approved again is announced again. The hook runs inside the announcement's row lock and is only marked done when it returns, so a hook that raises, or a worker that dies during it, is called again by the retry (twice at most). Keep it fast and idempotent: enqueue your own job, as below. The same moment sends an `announcement_approved.shiplog` ActiveSupport notification with `announcement:` in the payload. If the hook gave up, or a translation never arrived, the admin page has a "Notify now" button, which does not wait for translations (missing ones fall back to English). Editing an approved announcement's text does not call the hook again.
+
+```ruby
+config.on_announcement_approved = ->(announcement) { BlogImportJob.perform_later(announcement.id) }
+```
+
+The announcement is a `Shiplog::Entry` that offers what you need to publish it elsewhere, in the default locale or any configured one:
+
+```ruby
+announcement.display_title(:es) # the Spanish title, or English without a current translation
+announcement.to_markdown(:es)   # the body as written (Markdown)
+announcement.to_html(:es)       # rendered and escaped, safe to embed
+announcement.to_text(:es)       # plain text, e.g. for an email's text part
+announcement.public_url         # its Shiplog page (absolute with config.canonical_url)
+announcement.slug               # "2026-10"
+```
+
+**Export.** The announcement's admin page has a preview, and Markdown, HTML and plain-text downloads in each locale, for blogs and newsletter tools without an API.
+
+**Badge.** `Shiplog.unseen_announcements_count(since:)` (and `shiplog_unseen_announcements_count(since)` in views) counts approved announcements, where `Shiplog.unseen_count` counts every feature and change. Badge the rare monthly summary rather than every daily entry. `config.on_changelog_seen` also runs on an announcement's page, and `controller.shiplog_entry` is the entry being viewed, so you can stamp a separate "announcements seen" time:
+
+```ruby
+config.on_changelog_seen = lambda do |controller|
+  user = controller.send(:current_user)
+  next unless user
+
+  if controller.shiplog_entry&.announcement?
+    user.update_column(:announcements_seen_at, Time.current) if Shiplog.unseen_announcements_count(since: user.announcements_seen_at).positive?
+  elsif Shiplog.unseen_count(since: user.changelog_seen_at).positive?
+    user.update_column(:changelog_seen_at, Time.current)
+  end
+end
+```
+
+**Translations** follow the entries' flow: an approved announcement is translated into `config.locales`, keeping its Markdown and links.
+
+**Styling.** The page uses `shiplog-announcement`, `shiplog-announcement__title` and `shiplog-announcement__body`; the month link uses `shiplog-month__announcement` and `shiplog-month__announcement-link`. All are `config.classes` keys. The body's HTML comes from a small built-in Markdown renderer (headings, paragraphs, lists, links, images, emphasis, code, quotes) that escapes everything else.
+
+**Prompt.** `config.prompt_builder` receives `kind: "announcement"` and a context Hash: `month`, `entries` (each with `kind`, `title`, `body`, `area`, `url`) and `skipped` (titles). Ask for `{"title": "...", "body": "..."}` with a Markdown body, or return `nil` for this kind to keep the built-in prompt.
+
+**Links** in the draft are the entries' permalink URLs, absolute when `config.canonical_url` is set (set it: the text travels to the feed, exports and your hook). With the engine mounted under an optional segment (`scope "(:locale)"`), they are the default locale's URLs.
 
 ## Styling
 

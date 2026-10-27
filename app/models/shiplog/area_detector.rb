@@ -99,9 +99,10 @@ module Shiplog
       end
 
       # Entries that may still get an area: drafts and approved ones with a title, no area, none chosen by an admin,
-      # not asked about yet.
+      # not asked about yet. Announcements cover a whole month and never get one.
       def candidates
         Entry.where(status: %w[draft approved], area_id: nil, area_set_by_admin: false, area_detected_at: nil).where.not(title: [ nil, "" ])
+          .where.not(kind: "announcement")
       end
 
       # Ignores ids outside the batch and areas that don't exist. The update re-checks the conditions, so an

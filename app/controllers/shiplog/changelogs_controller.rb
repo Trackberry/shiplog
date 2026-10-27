@@ -21,13 +21,23 @@ module Shiplog
       @months = records.first(PER_PAGE).group_by { |entry| entry.released_on.beginning_of_month }
       @result_count = scope.count if @query
       shown = @months.values.flatten
+      @announcements = announcements_for(@months.keys)
       preload_translations(shown)
       fresh_when etag: [ *shiplog_etag_parts, *shiplog_area_etag_parts, @areas.map(&:id), @query, @page, @older,
         shown.map { |entry| [ entry.id, entry.updated_at, entry.area_id ] },
-        shiplog_image_etag_parts(shown), shiplog_translation_etag_parts(shown) ]
+        shiplog_image_etag_parts(shown), shiplog_translation_etag_parts(shown),
+        @announcements.values.map { |announcement| [ announcement.id, announcement.slug, announcement.updated_at ] } ]
     end
 
     private
+
+    # The approved announcements of the months shown, by the month's first day (none while announcements are off).
+    def announcements_for(months)
+      return {} unless Shiplog.announcements? && months.any?
+
+      Entry.published_announcements.where(released_on: months.map(&:end_of_month))
+        .index_by { |announcement| announcement.released_on.beginning_of_month }
+    end
 
     # The areas to offer as filter links: those with published entries, in the admin's order, and only when there
     # are at least two (a single area filters nothing).

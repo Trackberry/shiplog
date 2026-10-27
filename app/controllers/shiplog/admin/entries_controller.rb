@@ -42,9 +42,11 @@ module Shiplog
 
       private
 
-      # Every subject type (issue, pull request, commit) belongs to a repository; load them once per type.
+      # Issues, pull requests and commits belong to a repository (periods don't); load them once per type.
       def preload_repositories(entries)
-        entries.filter_map(&:subject).group_by(&:class).each_value do |subjects|
+        entries.filter_map(&:subject).group_by(&:class).each do |type, subjects|
+          next unless type.reflect_on_association(:repository)
+
           ActiveRecord::Associations::Preloader.new(records: subjects, associations: :repository).call
         end
       end
@@ -53,8 +55,10 @@ module Shiplog
         @entry = Entry.find(params[:id])
       end
 
+      # An announcement's month, release date and area follow from its period: only its text is edited.
       def entry_params
-        params.expect(entry: %i[title body released_on changelog_kind area_id])
+        permitted = params.expect(entry: %i[title body released_on changelog_kind area_id])
+        @entry.announcement? ? permitted.slice(:title, :body) : permitted
       end
 
       def page_number

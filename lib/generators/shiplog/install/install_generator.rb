@@ -68,7 +68,12 @@ module Shiplog
         area_link: "rounded-full border border-gray-300 px-3 py-0.5 text-sm hover:border-indigo-500 dark:border-gray-700 [&.shiplog-areas__link--current]:border-indigo-600 [&.shiplog-areas__link--current]:bg-indigo-600 [&.shiplog-areas__link--current]:text-white",
         entry_area: "text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400",
         entry_images: "mt-3 grid w-full gap-3",
-        entry_image: "h-auto max-w-full rounded-lg border border-gray-200 dark:border-gray-800"
+        entry_image: "h-auto max-w-full rounded-lg border border-gray-200 dark:border-gray-800",
+        announcement: "rounded-xl border border-gray-200 border-l-4 border-l-indigo-600 bg-white p-5 dark:border-gray-800 dark:border-l-indigo-500 dark:bg-gray-900",
+        announcement_title: "mt-2 mb-4 text-2xl font-semibold text-gray-900 dark:text-white",
+        announcement_body: "leading-relaxed text-gray-700 dark:text-gray-300 [&_h3]:mt-6 [&_h3]:mb-2 [&_h3]:text-lg [&_h3]:font-semibold [&_h4]:mt-4 [&_h4]:font-semibold [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-indigo-600 [&_a]:underline dark:[&_a]:text-indigo-400 [&_p]:my-2",
+        month_announcement: "-mt-1 mb-3",
+        month_announcement_link: "text-sm font-semibold text-indigo-600 hover:underline dark:text-indigo-400"
       }.freeze
 
       def copy_initializer

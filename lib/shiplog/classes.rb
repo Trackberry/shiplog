@@ -58,7 +58,12 @@ module Shiplog
       area_link: "shiplog-areas__link",
       entry_area: "shiplog-entry__area",
       entry_images: "shiplog-entry__images",
-      entry_image: "shiplog-entry__image"
+      entry_image: "shiplog-entry__image",
+      announcement: "shiplog-announcement",
+      announcement_title: "shiplog-announcement__title",
+      announcement_body: "shiplog-announcement__body",
+      month_announcement: "shiplog-month__announcement",
+      month_announcement_link: "shiplog-month__announcement-link"
     }.freeze
 
     KEYS = BEM.keys.freeze

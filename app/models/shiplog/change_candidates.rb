@@ -17,6 +17,10 @@ module Shiplog
       repository.pull_requests.awaiting_upgrade_check.where(merged_at: since..).reorder(:merged_at).pick(:merged_at)
     end
 
+    # Node ids of the pull requests (of any repository) linked to an issue that is public or has a public ancestor:
+    # the feature entry of that issue covers them. The lookup reads no instance state.
+    def self.public_tree_pull_request_ids(pull_requests) = allocate.send(:pull_request_ids_in_public_tree, pull_requests)
+
     def initialize(repository:, since:, before:)
       @repository = repository
       @window = since...before
