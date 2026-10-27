@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_27_000002) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_28_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -86,6 +86,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_27_000002) do
     t.datetime "area_detected_at"
     t.jsonb "image_order", default: [], null: false
     t.jsonb "image_alts", default: {}, null: false
+    t.datetime "announced_at"
     t.index ["area_id"], name: "index_shiplog_entries_on_area_id"
     t.index ["slug"], name: "index_shiplog_entries_on_slug", unique: true, where: "(slug IS NOT NULL)"
     t.index ["status"], name: "index_shiplog_entries_on_status"
@@ -139,6 +140,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_27_000002) do
     t.index ["node_id"], name: "index_shiplog_issues_on_node_id", unique: true
     t.index ["parent_node_id"], name: "index_shiplog_issues_on_parent_node_id"
     t.index ["repository_id"], name: "index_shiplog_issues_on_repository_id"
+  end
+
+  create_table "shiplog_periods", force: :cascade do |t|
+    t.date "starts_on", null: false
+    t.date "ends_on", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["starts_on"], name: "index_shiplog_periods_on_starts_on", unique: true
   end
 
   create_table "shiplog_pull_request_upgrades", force: :cascade do |t|

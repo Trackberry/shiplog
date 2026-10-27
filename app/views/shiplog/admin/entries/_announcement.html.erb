@@ -1,0 +1,48 @@
+<%# locals: (entry:) %>
+<%# An announcement's preview (its Markdown rendered as on the public page), where it is published, whether the
+    host was told (config.on_announcement_approved) and the export links. %>
+<section class="shiplog-admin-panel">
+  <h2><%= t("shiplog.admin.announcements.publishing") %></h2>
+  <% if entry.approved? %>
+    <p>
+      <% if Shiplog.announcement_pages? && entry.public_url %>
+        <%= link_to t("shiplog.admin.announcements.view_page"), entry.public_url, target: "_blank", rel: "noopener" %>
+      <% elsif Shiplog.config.announcements == :external %>
+        <%= t("shiplog.admin.announcements.external") %>
+      <% end %>
+    </p>
+    <p class="shiplog-admin__muted">
+      <% if entry.announced_at %>
+        <%= t("shiplog.admin.announcements.announced", time: l(entry.announced_at, format: :short)) %>
+      <% elsif !entry.translations_ready? %>
+        <%= t("shiplog.admin.announcements.waiting_for_translations") %>
+      <% else %>
+        <%= t("shiplog.admin.announcements.announcing") %>
+      <% end %>
+    </p>
+    <% if entry.announced_at.nil? && Shiplog.announcements? %>
+      <%= button_to t("shiplog.admin.announcements.notify_now"), entry_announcement_notification_path(entry, inbox_filter_params), class: "shiplog-button" %>
+      <p class="shiplog-admin__muted"><%= t("shiplog.admin.announcements.notify_now_hint") %></p>
+    <% end %>
+  <% else %>
+    <p class="shiplog-admin__muted"><%= t("shiplog.admin.announcements.not_approved") %></p>
+  <% end %>
+
+  <p>
+    <%= t("shiplog.admin.announcements.export") %>
+    <% [ I18n.default_locale.to_s, *Shiplog.config.locales.map(&:to_s) ].each do |locale| %>
+      <span class="shiplog-admin-export">
+        <% if Shiplog.config.locales.any? %><strong><%= locale %></strong><% end %>
+        <% { "markdown" => "Markdown", "html" => "HTML", "text" => t("shiplog.admin.announcements.plain_text") }.each do |format, label| %>
+          <%= link_to label, entry_export_path(entry, as: format, export_locale: (locale unless locale == I18n.default_locale.to_s)) %>
+        <% end %>
+      </span>
+    <% end %>
+  </p>
+
+  <h3><%= t("shiplog.admin.announcements.preview") %></h3>
+  <div class="shiplog-admin-preview">
+    <h2><%= entry.title %></h2>
+    <%= Shiplog::Markdown.to_html(entry.body, heading_offset: 1) %>
+  </div>
+</section>

@@ -1,8 +1,15 @@
-<%# locals: (month:, entries:) %>
-<%# one month of the changelog (month is its first day) and its entries, newest first %>
+<%# locals: (month:, entries:, announcement: nil) %>
+<%# one month of the changelog (month is its first day) and its entries, newest first; a link to the month's
+    announcement under the heading when it has one (see shiplog_announcement_href) %>
 <% heading_id = "shiplog-month-#{month.strftime("%Y-%m")}" %>
+<% month_name = l(month, format: "%B %Y") %>
 <section class="<%= shiplog_class(:month) %>" aria-labelledby="<%= heading_id %>">
-  <h2 class="<%= shiplog_class(:month_title) %>" id="<%= heading_id %>"><%= l(month, format: "%B %Y") %></h2>
+  <h2 class="<%= shiplog_class(:month_title) %>" id="<%= heading_id %>"><%= month_name %></h2>
+  <% if announcement && (href = shiplog_announcement_href(announcement)) %>
+    <p class="<%= shiplog_class(:month_announcement) %>">
+      <%= link_to t("shiplog.announcements.read", month: month_name, default: "Read the %{month} summary"), href, class: shiplog_class(:month_announcement_link) %>
+    </p>
+  <% end %>
   <ul class="<%= shiplog_class(:entries) %>">
     <%= render partial: "shiplog/changelogs/entry", collection: entries, as: :entry %>
   </ul>

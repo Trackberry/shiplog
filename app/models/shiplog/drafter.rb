@@ -14,12 +14,14 @@ module Shiplog
     REQUEUE_AFTER = 1.hour
     REQUEUE_LIMIT = 100
 
-    # Returns the new entry, or nil when one already exists for the subject and kind.
-    def self.draft(subject, kind, released_on: nil)
+    # Returns the new entry, or nil when one already exists for the subject and kind. `attributes` are set on a new
+    # entry only (an announcement's slug).
+    def self.draft(subject, kind, released_on: nil, **attributes)
       entry = Entry.create_or_find_by!(subject:, kind:) do |new_entry|
         new_entry.title = subject.title
         new_entry.body = subject.body
         new_entry.released_on = released_on
+        new_entry.assign_attributes(attributes)
       end
       return unless entry.previously_new_record?
 

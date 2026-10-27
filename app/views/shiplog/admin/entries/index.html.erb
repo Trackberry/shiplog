@@ -1,6 +1,14 @@
 <%= render layout: "shiplog/admin/page" do %>
   <h1 class="shiplog-admin__title"><%= t("shiplog.admin.entries.title") %></h1>
 
+  <% if Shiplog.announcements? %>
+    <div class="shiplog-admin-actions">
+      <% Shiplog::Announcements.draftable_months.each do |month| %>
+        <%= button_to t("shiplog.admin.announcements.draft", month: l(month, format: "%B %Y")), announcements_path(month: month.strftime("%Y-%m"), **inbox_filter_params), class: "shiplog-button" %>
+      <% end %>
+    </div>
+  <% end %>
+
   <nav class="shiplog-admin-filters" aria-label="<%= t("shiplog.admin.entries.filters") %>">
     <ul class="shiplog-admin-filters__list">
       <% Shiplog::Entry.statuses.each_key do |status| %>
@@ -12,6 +20,7 @@
       <li><%= link_to t("shiplog.admin.entries.all_kinds"), entries_filter_path(status: @status),
             class: "shiplog-admin-filters__link", "aria-current": (@kind.nil? ? "true" : nil) %></li>
       <% Shiplog::Entry.kinds.each_key do |kind| %>
+        <% next if kind == "announcement" && !Shiplog.announcements? %>
         <li><%= link_to t("shiplog.admin.entries.kinds.#{kind}"), entries_filter_path(status: @status, kind:),
               class: "shiplog-admin-filters__link", "aria-current": (kind == @kind ? "true" : nil) %></li>
       <% end %>

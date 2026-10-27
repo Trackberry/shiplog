@@ -14,6 +14,7 @@ en:
     categories:
       feature: New
       change: Improved
+      announcement: Monthly update
     empty: Nothing here yet
     date_format: "%-d %B %Y"
     roadmap:
@@ -55,11 +56,34 @@ en:
       nav_label: More changelog entries
       newer: "← Newer: %{title}"
       older: "Older: %{title} →"
+    announcements:
+      read: "Read the %{month} summary"
+      back: "← Back to the changelog"
+      skeleton:
+        features: New
+        also_improved: Also improved
     feed:
       title_with_product: "%{product} changelog"
       link_title: Changelog (Atom)
       subscribe: Subscribe (Atom)
     admin:
+      announcements:
+        draft: "Draft announcement for %{month}"
+        drafted: Announcement draft ready.
+        nothing_to_announce: That month has no approved feature or change to announce yet.
+        publishing: Announcement
+        view_page: View the public page
+        external: Published by your app (config.announcements = :external).
+        announced: "Your app was notified (on_announcement_approved) at %{time}."
+        waiting_for_translations: Your app will be notified once every translation is current.
+        announcing: Notifying your app…
+        not_approved: Approve it to publish it and notify your app.
+        export: "Export:"
+        plain_text: Plain text
+        preview: Preview
+        notify_now: Notify now
+        notify_now_hint: Calls your app's hook now, without waiting for missing translations (English is used for them).
+        notify_queued: Your app will be notified in a moment.
       title: Shiplog admin
       nav:
         drafts: Drafts
@@ -126,6 +150,7 @@ en:
         area_gone: no longer exists
         regenerate_warning: Regenerating unpublishes this entry until re-approved.
         source_changed: GitHub text changed since this draft
+        entries_changed: The month's entries changed since this draft
         rewrite_error: Rewrite failed
         not_rewritten: Not rewritten yet
         public_text: Public text
@@ -175,6 +200,7 @@ en:
           roadmap: Roadmap
           feature: Feature
           change: Change
+          announcement: Announcement
         columns:
           entry: Entry
           kind: Kind

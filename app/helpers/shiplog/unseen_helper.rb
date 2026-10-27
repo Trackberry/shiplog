@@ -5,5 +5,9 @@ module Shiplog
   module UnseenHelper
     # The number of approved features and changes approved after `since` (all of them while it is nil), at most 99.
     def shiplog_unseen_count(since) = Shiplog.unseen_count(since:)
+
+    # The number of approved monthly announcements approved after `since` (all of them while it is nil), at most 99:
+    # the rare signal for a badge, where shiplog_unseen_count counts every daily entry.
+    def shiplog_unseen_announcements_count(since) = Shiplog.unseen_announcements_count(since:)
   end
 end

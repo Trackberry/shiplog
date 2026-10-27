@@ -285,6 +285,34 @@
   .shiplog-permalink__back:focus-visible,
   .shiplog-permalink__nav-link:focus-visible { outline: 2px solid var(--sl-accent); outline-offset: 2px; }
 
+  .shiplog-announcement {
+    background: var(--sl-card);
+    border: 1px solid var(--sl-border);
+    border-left: 4px solid var(--sl-accent);
+    border-radius: var(--sl-radius);
+    padding: calc(var(--sl-space) * 1.25);
+  }
+  .shiplog-announcement .shiplog-entry__category { background: var(--sl-accent); border-color: var(--sl-accent); color: #fff; }
+  .shiplog-announcement__title { font-size: 1.5rem; line-height: 1.25; margin: 0.5rem 0 var(--sl-space); }
+  .shiplog-announcement__body { line-height: 1.6; }
+  .shiplog-announcement__body h3,
+  .shiplog-announcement__body h4,
+  .shiplog-announcement__body h5 { line-height: 1.3; margin: calc(var(--sl-space) * 1.5) 0 0.5rem; }
+  .shiplog-announcement__body h3 { font-size: 1.125rem; }
+  .shiplog-announcement__body h4 { font-size: 1rem; }
+  .shiplog-announcement__body p,
+  .shiplog-announcement__body ul,
+  .shiplog-announcement__body ol,
+  .shiplog-announcement__body blockquote { margin: 0.5rem 0; }
+  .shiplog-announcement__body ul,
+  .shiplog-announcement__body ol { padding-left: 1.25rem; }
+  .shiplog-announcement__body a { color: var(--sl-accent); }
+  .shiplog-announcement__body img { border-radius: var(--sl-radius); height: auto; max-width: 100%; }
+  .shiplog-announcement__body blockquote { border-left: 3px solid var(--sl-border); color: var(--sl-muted); margin-left: 0; padding-left: var(--sl-space); }
+  .shiplog-month__announcement { margin: -0.25rem 0 0.75rem; }
+  .shiplog-month__announcement-link { color: var(--sl-accent); font-weight: 600; }
+  .shiplog-month__announcement-link:focus-visible { outline: 2px solid var(--sl-accent); outline-offset: 2px; }
+
   .shiplog-entry__area {
     color: var(--sl-muted);
     font-size: 0.75rem;

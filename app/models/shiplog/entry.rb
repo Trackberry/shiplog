@@ -8,19 +8,28 @@ module Shiplog
     belongs_to :area, class_name: "Shiplog::Area", optional: true
     has_many :translations, class_name: "Shiplog::EntryTranslation", dependent: :destroy, inverse_of: :entry
 
-    enum :kind, %w[roadmap feature change].index_by(&:itself), validate: true
+    enum :kind, %w[roadmap feature change announcement].index_by(&:itself), validate: true
     enum :status, %w[draft approved discarded].index_by(&:itself), default: "draft", validate: true
 
     CHANGELOG_KINDS = %w[feature change].freeze
+    # The slug of a month's announcement ("2026-10"). Features and changes never get one of this shape, so an
+    # announcement's page URL is known before it is drafted.
+    ANNOUNCEMENT_SLUG = /\A\d{4}-\d{2}\z/
 
     validates :released_on, presence: true, if: -> { approved? && !roadmap? }
     validate :area_exists
     validate :kind_change_allowed, on: :update
     validate :kind_free_for_subject, on: :update
 
+    # An announcement that leaves "approved" may be announced again once it is approved again.
+    before_save :clear_announced_at, if: -> { announcement? && will_save_change_to_status? && !approved? }
+
     # Approving an entry, or changing the English text of an approved one, translates it into every configured
     # locale (see TranslateEntryJob). After the commit, so the job reads what was saved.
     after_commit :enqueue_translations, on: :update, if: :translation_due?
+    # Approving an announcement calls config.on_announcement_approved once its translations are current (see
+    # AnnounceJob, which TranslateEntryJob enqueues too).
+    after_commit :enqueue_announcement, on: :update, if: -> { announcement? && approved? && saved_change_to_status? }
 
     SEARCH_MAX_LENGTH = 100
     SEARCH_MAX_WORDS = 5
@@ -84,11 +93,20 @@ module Shiplog
     # at 99. One COUNT over the (status, approved_at) index. It filters on approved_at, not on released_on (the
     # list's order): "new since you last looked" is about when an entry appeared, so an entry approved today
     # with an earlier release date still counts as new.
-    def self.unseen_count(since: nil)
-      scope = approved.where(kind: CHANGELOG_KINDS)
+    def self.unseen_count(since: nil) = count_approved_since(CHANGELOG_KINDS, since)
+
+    # The number of approved announcements approved after `since` (all of them while it is nil), capped at 99.
+    def self.unseen_announcements_count(since: nil) = count_approved_since("announcement", since)
+
+    def self.count_approved_since(kinds, since)
+      scope = approved.where(kind: kinds)
       scope = scope.where("#{table_name}.approved_at > ?", since) if since
       scope.limit(UNSEEN_COUNT_CAP).count
     end
+    private_class_method :count_approved_since
+
+    # Approved announcements: the ones with a public page (config.announcements = :page) or a host link.
+    scope :published_announcements, -> { approved.where(kind: "announcement").where.not(released_on: nil) }
 
     # Gives every published changelog entry that has no slug one (oldest first, so the oldest keeps the plain
     # slug on duplicate titles). Returns how many it filled.
@@ -134,7 +152,11 @@ module Shiplog
       self.kind = value if CHANGELOG_KINDS.include?(kind) && CHANGELOG_KINDS.include?(value)
     end
 
+    # The digest of what a draft was written from: the GitHub title and body, or for an announcement the month's
+    # entries (Period#content_digest). A draft whose stored digest differs is flagged in the admin.
     def self.digest_for(subject)
+      return subject.content_digest if subject.is_a?(Period)
+
       Digest::SHA256.hexdigest([ subject.title, subject.body ].join("\n"))
     end
 
@@ -200,6 +222,40 @@ module Shiplog
       translated.blank? && body.present? ? body : (translated || body)
     end
 
+    # Whether every configured locale has a current translation (always true without config.locales).
+    def translations_current? = Shiplog.config.locales.all? { |locale| translation(locale) }
+
+    # The title, Markdown body, HTML and plain text of an announcement in a locale (the default one when omitted):
+    # the current translation when there is one, else the English text. For config.on_announcement_approved and the
+    # admin's export.
+    def to_markdown(locale = I18n.default_locale) = display_body(locale).to_s
+    def to_html(locale = I18n.default_locale) = Markdown.to_html(display_body(locale))
+    def to_text(locale = I18n.default_locale) = Markdown.to_text(display_body(locale))
+
+    # The absolute URL of the entry's public page (see PublicLinks), or nil without a slug. For an announcement
+    # with config.announcements = :external, the host's own page is elsewhere (config.announcement_url).
+    def public_url = PublicLinks.entry_url(self)
+
+    # Whether the translations an announcement waits for are there: all current, or none can be made because there
+    # is no rewriter (then hosts get the English text, or an admin's hand-made translations).
+    def translations_ready? = Shiplog.config.rewriter.nil? || translations_current?
+
+    # Runs the block (the host's hook, see AnnounceJob) once for this approval, when this is an approved announcement
+    # not announced yet whose translations are ready (`force: true` skips that last check: the admin's "Notify
+    # now"). The block runs under the row lock and announced_at is stored in the same transaction, so two jobs
+    # never both run it, and a block that raises (or a worker that dies) stores nothing and is run again by the
+    # retry. Returns whether the block ran.
+    def announce!(force: false)
+      with_lock do
+        reload
+        next false unless announcement? && approved? && announced_at.nil? && (force || translations_ready?)
+
+        yield
+        update_columns(announced_at: Time.current)
+        true
+      end
+    end
+
     def source_changed?
       source_digest.present? && source_digest != self.class.digest_for(subject)
     end
@@ -214,16 +270,28 @@ module Shiplog
       Shiplog.config.locales.each { |locale| TranslateEntryJob.perform_later(self, locale) }
     end
 
+    # Features and changes get a slug when approved; an announcement gets its month's slug when drafted.
     def permalinked? = CHANGELOG_KINDS.include?(kind)
 
+    # Written whatever this instance holds: AnnounceJob sets the column with update_columns, so an instance loaded
+    # before it may still hold nil and would otherwise see no change to save.
+    def clear_announced_at
+      self.announced_at = nil
+      attribute_will_change!("announced_at")
+    end
+
+    def enqueue_announcement
+      AnnounceJob.perform_later(self)
+    end
+
     # The title parameterized and cut at 80 characters, made unique with -2, -3, ...; entry-<id> when the title
-    # has nothing left. The uniqueness check can lose a race, which the unique index catches (see
-    # retrying_on_slug_conflict).
+    # has nothing left. A month's shape ("2026-10") is kept for announcements and gets a suffix too. The
+    # uniqueness check can lose a race, which the unique index catches (see retrying_on_slug_conflict).
     def generate_slug
       base = dashed_title.first(SLUG_MAX_LENGTH).gsub(/\A-+|-+\z/, "").presence || "entry-#{id}"
       candidate = base
       suffix = 2
-      while self.class.where(slug: candidate).where.not(id:).exists?
+      while ANNOUNCEMENT_SLUG.match?(candidate) || self.class.where(slug: candidate).where.not(id:).exists?
         tail = "-#{suffix}"
         candidate = "#{base.first(SLUG_MAX_LENGTH - tail.length).delete_suffix("-")}#{tail}"
         suffix += 1

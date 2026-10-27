@@ -134,6 +134,8 @@
   .shiplog-admin .shiplog-admin-images__controls { display: grid; flex: 1; gap: 0.5rem; min-width: 16rem; }
   .shiplog-admin .shiplog-admin__visually-hidden { border: 0; clip-path: inset(50%); height: 1px; overflow: hidden; position: absolute; white-space: nowrap; width: 1px; }
   .shiplog-admin .shiplog-area-row__count { text-align: right; }
+  .shiplog-admin .shiplog-admin-preview { background: var(--sa-bg); border-radius: 0.5rem; overflow-wrap: anywhere; padding: 0.75rem 1rem; }
+  .shiplog-admin .shiplog-admin-export { display: inline-flex; gap: 0.5rem; margin-left: 0.75rem; }
   .shiplog-admin .shiplog-admin-source { background: var(--sa-bg); overflow-x: auto; padding: 0.75rem; white-space: pre-wrap; word-break: break-word; }
 
   .shiplog-admin .shiplog-board { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }

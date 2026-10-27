@@ -37,13 +37,30 @@ module Shiplog
       path ? link_to(name, path, html_options) : content_tag(:span, name, html_options.slice(:class))
     end
 
+    # Where a month heading's "Read the summary" link goes: the announcement's page (config.announcements = :page),
+    # or what config.announcement_url returns for it (:external; evaluated in the view with the announcement and
+    # the locale). Nil, so no link, when there is none, it raises or it is not a safe link.
+    def shiplog_announcement_href(announcement)
+      return shiplog_entry_path(announcement) if Shiplog.announcement_pages?
+
+      callable = Shiplog.config.announcement_url
+      return unless Shiplog.config.announcements == :external && callable
+
+      value = callable.is_a?(Proc) ? instance_exec(announcement, I18n.locale, &callable) : callable.call(announcement, I18n.locale)
+      value if Shiplog::Configuration.safe_url?(value)
+    rescue StandardError => error
+      Rails.logger.error("[shiplog] config.announcement_url failed for entry #{announcement.id}: #{error.class}: #{error.message}")
+      nil
+    end
+
     # The id of a month's section on the changelog list.
     def shiplog_month_anchor(date) = "shiplog-month-#{date.strftime("%Y-%m")}"
 
     # The body, on one line and cut for a meta description. Plain text: tag helpers escape it. `escape: false`
     # keeps the cut text raw (not HTML-escaped) for JSON, which escapes it its own way.
     def shiplog_entry_description(entry, escape: true)
-      truncate(entry.display_body.to_s.squish, length: DESCRIPTION_LENGTH, separator: " ", escape:)
+      text = entry.announcement? ? Shiplog::Markdown.to_text(entry.display_body) : entry.display_body.to_s
+      truncate(text.squish, length: DESCRIPTION_LENGTH, separator: " ", escape:)
     end
 
     # The Open Graph meta tags of a permalink page, for `content_for :shiplog_og` (superseded by shiplog_head_tags).
@@ -103,7 +120,8 @@ module Shiplog
         url = shiplog_image_url(image)
         tag.p(tag.img(src: url, alt: entry.image_alt(image), **shiplog_image_size(image))) if url
       end
-      safe_join([ simple_format(h(entry.display_body)), *images ], "\n")
+      text = entry.announcement? ? Shiplog::Markdown.to_html(entry.display_body) : simple_format(h(entry.display_body))
+      safe_join([ text, *images ], "\n")
     end
 
     # An entry's images in order, or none while screenshots are off.

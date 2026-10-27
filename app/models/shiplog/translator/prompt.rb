@@ -8,7 +8,7 @@ module Shiplog
       TEMPLATE = <<~PROMPT.freeze
         You translate release notes%<product>s into %<language>s (locale %<locale>s).%<audience>s
         Tone to keep: %<tone>s
-        Translate the title and the body inside <source>. Keep the meaning, the tone, product names, numbers, links, line breaks and formatting; do not add, remove or explain anything.
+        Translate the title and the body inside <source>. Keep the meaning, the tone, product names, numbers, links, line breaks and formatting (Markdown stays Markdown, link URLs unchanged); do not add, remove or explain anything.
         Leave product names, code and anything in backticks untranslated. Write the way a native speaker would, with no word-for-word calques.
         %<length_rule>s
         Reply with JSON only: {"title": "...", "body": "..."}
@@ -33,7 +33,7 @@ module Shiplog
         format(TEMPLATE, product: config.product_name.present? ? " for #{config.product_name}" : "", language: Translator.language_name(@locale),
           locale: @locale, audience: config.audience.present? ? " The readers are #{config.audience}." : "", tone: config.tone,
           length_rule: @entry.roadmap? ? ROADMAP_LENGTH_RULE : LENGTH_RULE,
-          title: Rewriter::Prompt.clean(@entry.title, MAX_TITLE_CHARS), body: Rewriter::Prompt.clean(@entry.body, Rewriter::MAX_BODY_CHARS))
+          title: Rewriter::Prompt.clean(@entry.title, MAX_TITLE_CHARS), body: Rewriter::Prompt.clean(@entry.body, Rewriter.max_body_chars(@entry)))
       end
     end
   end

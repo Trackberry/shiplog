@@ -18,6 +18,7 @@ es:
     categories:
       feature: Nuevo
       change: Mejorado
+      announcement: Resumen mensual
     empty: Todavía no hay nada
     date_format: "%-d de %B de %Y"
     roadmap:
@@ -59,11 +60,34 @@ es:
       nav_label: Más cambios
       newer: "← Más reciente: %{title}"
       older: "Anterior: %{title} →"
+    announcements:
+      read: "Leer el resumen de %{month}"
+      back: "← Volver al registro de cambios"
+      skeleton:
+        features: Novedades
+        also_improved: También mejoramos
     feed:
       title_with_product: "Registro de cambios de %{product}"
       link_title: Registro de cambios (Atom)
       subscribe: Suscribirse (Atom)
     admin:
+      announcements:
+        draft: "Redactar el anuncio de %{month}"
+        drafted: El borrador del anuncio está listo.
+        nothing_to_announce: Ese mes aún no tiene ninguna función o cambio aprobado que anunciar.
+        publishing: Anuncio
+        view_page: Ver la página pública
+        external: Lo publica tu aplicación (config.announcements = :external).
+        announced: "Se avisó a tu aplicación (on_announcement_approved) el %{time}."
+        waiting_for_translations: Se avisará a tu aplicación cuando todas las traducciones estén al día.
+        announcing: Avisando a tu aplicación…
+        not_approved: Apruébalo para publicarlo y avisar a tu aplicación.
+        export: "Exportar:"
+        plain_text: Texto sin formato
+        preview: Vista previa
+        notify_now: Avisar ahora
+        notify_now_hint: Llama ahora al hook de tu aplicación, sin esperar las traducciones que falten (se usa el inglés).
+        notify_queued: Se avisará a tu aplicación en un momento.
       title: Administración de Shiplog
       nav:
         drafts: Borradores
@@ -130,6 +154,7 @@ es:
         area_gone: ya no existe
         regenerate_warning: Al regenerar, esta entrada deja de estar publicada hasta que se apruebe de nuevo.
         source_changed: El texto de GitHub cambió desde este borrador
+        entries_changed: Las entradas del mes cambiaron desde este borrador
         rewrite_error: Falló la reescritura
         not_rewritten: Todavía sin reescribir
         public_text: Texto público
@@ -179,6 +204,7 @@ es:
           roadmap: Hoja de ruta
           feature: Función
           change: Cambio
+          announcement: Anuncio
         columns:
           entry: Entrada
           kind: Tipo

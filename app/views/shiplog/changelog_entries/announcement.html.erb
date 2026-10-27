@@ -1,0 +1,13 @@
+<%# A month's announcement: its title and Markdown body (Shiplog::Markdown, which escapes everything it does not build) %>
+<% content_for :title, t("shiplog.permalink.title", title: @entry.display_title, changelog: t("shiplog.changelog.title", default: "Changelog"), default: "%{title} · %{changelog}") %>
+<% shiplog_head_page :permalink, title: @entry.display_title, entry: @entry, url: shiplog_entry_url(@entry), json_ld: shiplog_article_json_ld(@entry) %>
+<%= render layout: "shiplog/page", locals: { name: "announcement" } do %>
+  <%= render "shiplog/page_header", title: t("shiplog.changelog.title", default: "Changelog"), lede: nil %>
+  <article class="<%= shiplog_class(:announcement) %>">
+    <span class="<%= shiplog_class(:entry_category) %>"><%= t("shiplog.categories.announcement", default: "Monthly update") %></span>
+    <time class="<%= shiplog_class(:entry_date) %>" datetime="<%= @entry.released_on.beginning_of_month.strftime("%Y-%m") %>"><%= l(@entry.released_on, format: "%B %Y") %></time>
+    <h2 class="<%= shiplog_class(:announcement_title) %>"><%= @entry.display_title %></h2>
+    <div class="<%= shiplog_class(:announcement_body) %>"><%= Shiplog::Markdown.to_html(@entry.display_body, heading_offset: 1) %></div>
+  </article>
+  <%= link_to t("shiplog.announcements.back", default: "← Back to the changelog"), changelog_path(anchor: shiplog_month_anchor(@entry.released_on)), class: shiplog_class(:permalink_back) %>
+<% end %>
