@@ -4,6 +4,9 @@ class Shiplog::RefreshJobTest < ActiveJob::TestCase
   URL = "https://api.github.com/graphql".freeze
 
   setup do
+    # The fixtures' pull requests were merged on 2026-10-20: keep them inside ScanChangesJob's 7-day window, which
+    # upgrade detection reads, whatever the date the suite runs on.
+    travel_to Time.utc(2026, 10, 26, 12)
     Shiplog.config.github_token = "tok"
     Shiplog.config.repositories = [ "Acme/widgets" ]
   end
