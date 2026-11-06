@@ -7,19 +7,7 @@ module Shiplog
 
       def initialize(repository) = @repository = repository
 
-      def import(node)
-        with_race_retry do
-          pull_request = PullRequest.find_by(node_id: node["id"])
-          pull_request&.lock!
-          pull_request ||= PullRequest.new(node_id: node["id"])
-          next pull_request if stale?(pull_request, node)
-
-          pull_request.assign_attributes(attributes_for(node))
-          pull_request.save!
-          replace_links(pull_request, node)
-          pull_request
-        end
-      end
+      def import(node) = import_record(PullRequest, node)
 
       private
 
