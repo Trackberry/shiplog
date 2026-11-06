@@ -127,21 +127,7 @@ module Shiplog
     # evaluated in the view (instance_exec), e.g. `path: -> { main_app.news_path }`.
     def extra_pages=(value)
       raise ArgumentError, "extra_pages must be an Array of { label:, path: } Hashes, got #{value.inspect}" unless value.nil? || value.is_a?(Array)
-      pages = (value || []).map do |page|
-        raise ArgumentError, "Each extra page must be a Hash with :label and :path, got #{page.inspect}" unless page.is_a?(Hash)
-        page = page.to_h.transform_keys { |key| key.to_s.to_sym }
-        unless page.keys.sort == EXTRA_PAGE_KEYS
-          raise ArgumentError, "An extra page needs exactly the keys :label and :path, got #{page.keys.inspect}"
-        end
-        page.each do |key, item|
-          valid = item.respond_to?(:call) || (item.is_a?(String) && item.present?)
-          raise ArgumentError, "Extra page #{key} must be a non-empty String or a callable, got #{item.inspect}" unless valid
-          if key == :path && item.is_a?(String) && !self.class.safe_url?(item)
-            raise ArgumentError, "Extra page path must be relative (/...), http(s):// or mailto:, got #{item.inspect}"
-          end
-        end
-        { label: page[:label], path: page[:path] }.freeze
-      end
+      pages = (value || []).map { |page| normalize_extra_page(page) }
       @extra_pages = pages.freeze
     end
 
@@ -412,6 +398,24 @@ module Shiplog
       raise ArgumentError, "#{setting} must be nil or a String #{hint}, got #{value.inspect}" unless value.is_a?(String)
 
       value.strip
+    end
+
+    # One extra page as a frozen { label:, path: } Hash, or an ArgumentError when it is not a Hash with exactly those
+    # keys, a label and path that are non-empty Strings or callables, and (for a String) a safe path.
+    def normalize_extra_page(page)
+      raise ArgumentError, "Each extra page must be a Hash with :label and :path, got #{page.inspect}" unless page.is_a?(Hash)
+      page = page.to_h.transform_keys { |key| key.to_s.to_sym }
+      unless page.keys.sort == EXTRA_PAGE_KEYS
+        raise ArgumentError, "An extra page needs exactly the keys :label and :path, got #{page.keys.inspect}"
+      end
+      page.each do |key, item|
+        valid = item.respond_to?(:call) || (item.is_a?(String) && item.present?)
+        raise ArgumentError, "Extra page #{key} must be a non-empty String or a callable, got #{item.inspect}" unless valid
+        if key == :path && item.is_a?(String) && !self.class.safe_url?(item)
+          raise ArgumentError, "Extra page path must be relative (/...), http(s):// or mailto:, got #{item.inspect}"
+        end
+      end
+      { label: page[:label], path: page[:path] }.freeze
     end
 
     def normalize_canonical_url(value)
