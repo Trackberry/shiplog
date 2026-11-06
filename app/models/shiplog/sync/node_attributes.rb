@@ -17,6 +17,22 @@ module Shiplog
         node.dig("author", "__typename") == "Bot" && login ? "#{login}[bot]" : login
       end
 
+      # Finds or builds the record of a GraphQL node and saves it from attributes_for(node), then replace_links, in a
+      # race-safe transaction. A record already updated later than the node (a stale payload) is returned untouched.
+      def import_record(model, node)
+        with_race_retry do
+          record = model.find_by(node_id: node["id"])
+          record&.lock!
+          record ||= model.new(node_id: node["id"])
+          next record if stale?(record, node)
+
+          record.assign_attributes(attributes_for(node))
+          record.save!
+          replace_links(record, node)
+          record
+        end
+      end
+
       def stale?(record, node)
         record.persisted? && record.github_updated_at && record.github_updated_at > Time.iso8601(node["updatedAt"])
       end
