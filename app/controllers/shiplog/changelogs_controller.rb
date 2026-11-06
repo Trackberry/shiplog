@@ -8,10 +8,8 @@ module Shiplog
 
     def show
       @page = page_number
-      scope = Entry.published_changelog.newest_first
       @query = search_query
-      scope = scope.search(@query, locale: I18n.locale) if @query
-      scope = scope.where(area_id: @area.id) if @area
+      scope = filtered_scope
       @areas = filter_areas
       records = scope.includes(:area).with_images_loaded.offset((@page - 1) * PER_PAGE).limit(PER_PAGE + 1).to_a
       return head(:not_found) if @page > 1 && records.empty?
@@ -23,13 +21,27 @@ module Shiplog
       shown = @months.values.flatten
       @announcements = announcements_for(@months.keys)
       preload_translations(shown)
-      fresh_when etag: [ *shiplog_etag_parts, *shiplog_area_etag_parts, @areas.map(&:id), @query, @page, @older,
+      fresh_when etag: changelog_etag_parts(shown)
+    end
+
+    private
+
+    # The published entries, narrowed to the search query and the area filter when there are any.
+    def filtered_scope
+      scope = Entry.published_changelog.newest_first
+      scope = scope.search(@query, locale: I18n.locale) if @query
+      scope = scope.where(area_id: @area.id) if @area
+      scope
+    end
+
+    # What the page shows beyond the data every public page depends on: the filters, the page, the entries shown
+    # (with their images and translations) and the announcements of their months.
+    def changelog_etag_parts(shown)
+      [ *shiplog_etag_parts, *shiplog_area_etag_parts, @areas.map(&:id), @query, @page, @older,
         shown.map { |entry| [ entry.id, entry.updated_at, entry.area_id ] },
         shiplog_image_etag_parts(shown), shiplog_translation_etag_parts(shown),
         @announcements.values.map { |announcement| [ announcement.id, announcement.slug, announcement.updated_at ] } ]
     end
-
-    private
 
     # The approved announcements of the months shown, by the month's first day (none while announcements are off).
     def announcements_for(months)
