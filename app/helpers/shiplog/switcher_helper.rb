@@ -35,12 +35,7 @@ module Shiplog
     # The switcher for host pages: the bundled stylesheet (once per page, and not when the engine page already
     # linked it; unless config.stylesheet is false) and the nav.
     def shiplog_switcher
-      stylesheet = if Shiplog.config.stylesheet && !@_shiplog_stylesheet_emitted
-        @_shiplog_stylesheet_emitted = true
-        tag.link(rel: "stylesheet", nonce: content_security_policy_nonce,
-          href: shiplog_routes.frontend_path(version: Shiplog::VERSION, name: "shiplog.css"))
-      end
-      safe_join([ stylesheet, render("shiplog/switcher") ])
+      safe_join([ shiplog_stylesheet_link_once, render("shiplog/switcher") ])
     end
 
     # The nav's aria-label: a plain String (never html_safe markup, never a translation-missing span).
@@ -72,6 +67,16 @@ module Shiplog
     end
 
     private
+
+    # The bundled stylesheet's link the first time a page asks for it (nil after that, or when config.stylesheet
+    # is false).
+    def shiplog_stylesheet_link_once
+      return unless Shiplog.config.stylesheet && !@_shiplog_stylesheet_emitted
+
+      @_shiplog_stylesheet_emitted = true
+      tag.link(rel: "stylesheet", nonce: content_security_policy_nonce,
+        href: shiplog_routes.frontend_path(version: Shiplog::VERSION, name: "shiplog.css"))
+    end
 
     # Where the engine's route helpers live: the view itself inside the engine's own pages, otherwise (host pages)
     # the proxy the host's mount defined, whatever its name.
