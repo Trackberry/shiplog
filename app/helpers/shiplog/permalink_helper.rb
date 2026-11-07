@@ -46,7 +46,7 @@ module Shiplog
       callable = Shiplog.config.announcement_url
       return unless Shiplog.config.announcements == :external && callable
 
-      value = callable.is_a?(Proc) ? instance_exec(announcement, I18n.locale, &callable) : callable.call(announcement, I18n.locale)
+      value = shiplog_call_with_locale(callable, announcement)
       value if Shiplog::Configuration.safe_url?(value)
     rescue StandardError => error
       Rails.logger.error("[shiplog] config.announcement_url failed for entry #{announcement.id}: #{error.class}: #{error.message}")
@@ -90,13 +90,18 @@ module Shiplog
       callable = Shiplog.config.og_image
       return unless callable
 
-      value = callable.is_a?(Proc) ? instance_exec(entry, I18n.locale, &callable) : callable.call(entry, I18n.locale)
+      value = shiplog_call_with_locale(callable, entry)
       url = shiplog_absolute_http_url(value)
       Rails.logger.warn("[shiplog] config.og_image ignored for entry #{entry.id}: expected an http(s) URL or a path, got #{value.inspect}") unless url
       url
     rescue StandardError => error
       Rails.logger.error("[shiplog] config.og_image failed for entry #{entry.id}: #{error.class}: #{error.message}")
       nil
+    end
+
+    # A config callable called with an entry and the locale. A Proc runs in the view, so it can use route helpers.
+    def shiplog_call_with_locale(callable, entry)
+      callable.is_a?(Proc) ? instance_exec(entry, I18n.locale, &callable) : callable.call(entry, I18n.locale)
     end
 
     # An http(s) URL as is, a path ("/cards/a.png", not "//host") made absolute with config.canonical_url or the
