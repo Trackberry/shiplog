@@ -11,12 +11,7 @@ module Shiplog
     def shiplog_newsletter_form(source: nil)
       return "".html_safe unless Shiplog.newsletter?
 
-      stylesheet = if Shiplog.config.stylesheet && !@_shiplog_stylesheet_emitted
-        @_shiplog_stylesheet_emitted = true
-        tag.link(rel: "stylesheet", nonce: content_security_policy_nonce,
-          href: shiplog_routes.frontend_path(version: Shiplog::VERSION, name: "shiplog.css"))
-      end
-      safe_join([ stylesheet, render("shiplog/newsletter/form", source:) ])
+      safe_join([ shiplog_stylesheet_link_once, render("shiplog/newsletter/form", source:) ])
     end
 
     # The form's action, in the engine's pages and the host's alike.
