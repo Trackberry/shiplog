@@ -191,8 +191,7 @@ module Shiplog
     end
 
     def og_image=(value)
-      raise ArgumentError, "og_image must be nil or a callable like ->(entry, locale) { url }, got #{value.inspect}" unless value.nil? || value.respond_to?(:call)
-      @og_image = value
+      @og_image = optional_callable!(:og_image, value, "like ->(entry, locale) { url }")
     end
 
     def announcements=(value)
@@ -204,18 +203,15 @@ module Shiplog
     end
 
     def announcement_url=(value)
-      raise ArgumentError, "announcement_url must be nil or a callable like ->(announcement, locale) { url }, got #{value.inspect}" unless value.nil? || value.respond_to?(:call)
-      @announcement_url = value
+      @announcement_url = optional_callable!(:announcement_url, value, "like ->(announcement, locale) { url }")
     end
 
     def on_announcement_approved=(value)
-      raise ArgumentError, "on_announcement_approved must be nil or a callable like ->(announcement) { ... }, got #{value.inspect}" unless value.nil? || value.respond_to?(:call)
-      @on_announcement_approved = value
+      @on_announcement_approved = optional_callable!(:on_announcement_approved, value, "like ->(announcement) { ... }")
     end
 
     def on_changelog_seen=(value)
-      raise ArgumentError, "on_changelog_seen must be nil or a callable, got #{value.inspect}" unless value.nil? || value.respond_to?(:call)
-      @on_changelog_seen = value
+      @on_changelog_seen = optional_callable!(:on_changelog_seen, value)
     end
 
     def newsletter=(value)
@@ -224,18 +220,15 @@ module Shiplog
     end
 
     def newsletter_recipients=(value)
-      raise ArgumentError, "newsletter_recipients must be nil or a callable like -> { User.where(newsletter: true) }, got #{value.inspect}" unless value.nil? || value.respond_to?(:call)
-      @newsletter_recipients = value
+      @newsletter_recipients = optional_callable!(:newsletter_recipients, value, "like -> { User.where(newsletter: true) }")
     end
 
     def newsletter_unsubscribe_url=(value)
-      raise ArgumentError, "newsletter_unsubscribe_url must be nil or a callable like ->(recipient) { url }, got #{value.inspect}" unless value.nil? || value.respond_to?(:call)
-      @newsletter_unsubscribe_url = value
+      @newsletter_unsubscribe_url = optional_callable!(:newsletter_unsubscribe_url, value, "like ->(recipient) { url }")
     end
 
     def on_newsletter_unsubscribe=(value)
-      raise ArgumentError, "on_newsletter_unsubscribe must be nil or a callable like ->(email) { ... }, got #{value.inspect}" unless value.nil? || value.respond_to?(:call)
-      @on_newsletter_unsubscribe = value
+      @on_newsletter_unsubscribe = optional_callable!(:on_newsletter_unsubscribe, value, "like ->(email) { ... }")
     end
 
     def newsletter_from=(value)
@@ -391,6 +384,13 @@ module Shiplog
     end
 
     private
+
+    # Nil or anything that responds to #call; anything else raises.
+    def optional_callable!(setting, value, hint = nil)
+      return value if value.nil? || value.respond_to?(:call)
+
+      raise ArgumentError, "#{setting} must be nil or a callable#{" #{hint}" if hint}, got #{value.inspect}"
+    end
 
     # Nil (also for a blank String) or a stripped non-empty String; anything else raises.
     def optional_string!(setting, value, hint)
