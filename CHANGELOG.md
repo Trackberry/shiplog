@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.1 (2026-11-08)
+
+### Changed
+
+- Internal refactors with no change in behaviour: the issue and pull request importers share their find-or-build-and-save step, `ChangelogsController#show` extracts its scope and ETag parts, the configuration validates callable setters and extra pages through shared helpers, and the once-per-page stylesheet link and the permalink's entry-and-locale callables each live in one place.
+
 ## 0.4.0 (2026-10-27)
 
 ### Added
