@@ -183,15 +183,20 @@ module Shiplog
       end
 
       def pull_requests_for(gem_repository, commits)
+        associated_pull_requests(commits)
+          .select { |node| node["state"] == "MERGED" && node.dig("repository", "nameWithOwner").to_s.casecmp?(gem_repository) }
+          .uniq { |node| node["number"] }.sort_by { |node| node["number"] }.last(MAX_CHANGES)
+          .map { |node| { number: node["number"], title: node["title"], body_excerpt: node["body"].to_s.squish.truncate(EXCERPT_CHARS), url: node["url"] } }
+      end
+
+      # The pull request nodes GitHub associates with the commits, COMMIT_BATCH commits per query, in any state and repository.
+      def associated_pull_requests(commits)
         ids = commits.filter_map { |commit| commit["node_id"] }
-        found = ids.each_slice(COMMIT_BATCH).flat_map do |batch|
+        ids.each_slice(COMMIT_BATCH).flat_map do |batch|
           @client.query(Github::Queries::COMMIT_PULL_REQUESTS, ids: batch)["nodes"].to_a.compact.flat_map do |commit|
             commit.dig("associatedPullRequests", "nodes").to_a.compact
           end
         end
-        found.select { |node| node["state"] == "MERGED" && node.dig("repository", "nameWithOwner").to_s.casecmp?(gem_repository) }
-          .uniq { |node| node["number"] }.sort_by { |node| node["number"] }.last(MAX_CHANGES)
-          .map { |node| { number: node["number"], title: node["title"], body_excerpt: node["body"].to_s.squish.truncate(EXCERPT_CHARS), url: node["url"] } }
       end
 
       def store(pull_request, upgrade)
