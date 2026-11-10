@@ -37,10 +37,7 @@ module Shiplog
     def log_newsletter_status
       return unless newsletter?
 
-      missing = []
-      missing << "newsletter_from" if Newsletter.from.blank?
-      missing << "newsletter_address" if config.newsletter_address.blank?
-      missing << "canonical_url (or action_mailer.default_url_options)" if Newsletter.base_url.blank?
+      missing = newsletter_missing_settings
       Rails.logger&.warn("[shiplog] config.newsletter is on, but the newsletter cannot be sent until these are set: #{missing.join(", ")}.") if missing.any?
       if config.newsletter_recipients && config.on_newsletter_unsubscribe.nil?
         Rails.logger&.warn("[shiplog] config.newsletter_recipients is set but config.on_newsletter_unsubscribe is not: Shiplog suppresses an address that unsubscribes, but your own list will not know.")
@@ -103,6 +100,15 @@ module Shiplog
     def images? = config.images && active_storage?
 
     private
+
+    # The settings the newsletter needs before it can be sent, named as the host sets them; empty when none is missing.
+    def newsletter_missing_settings
+      missing = []
+      missing << "newsletter_from" if Newsletter.from.blank?
+      missing << "newsletter_address" if config.newsletter_address.blank?
+      missing << "canonical_url (or action_mailer.default_url_options)" if Newsletter.base_url.blank?
+      missing
+    end
 
     def vips_loads?
       return true if defined?(::Vips)
