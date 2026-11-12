@@ -21,6 +21,12 @@ module Shiplog
         entry.title.presence || source_title(entry.subject)
       end
 
+      # "Sending is not possible yet: ..." with each of Newsletter.blockers(entry) spelled out.
+      def newsletter_blocked_message(entry, blockers)
+        reasons = blockers.map { |blocker| t("shiplog.admin.newsletter.blockers.#{blocker}", locales: Shiplog::Newsletter.missing_locales(entry).join(", ")) }
+        t("shiplog.admin.newsletter.send_blocked", reasons: reasons.join(", "))
+      end
+
       # The URL of an image's thumbnail: a 200x200 variant when the host can make them (image_processing and a
       # processor, see Shiplog.image_variants?), else the original (the stylesheet sizes it).
       def image_thumbnail_path(image)
