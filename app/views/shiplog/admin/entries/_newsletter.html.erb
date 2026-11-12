@@ -31,7 +31,7 @@
   <div class="shiplog-admin-inline-form">
     <% if blockers.any? %>
       <button type="button" class="shiplog-button shiplog-button--primary" disabled><%= t("shiplog.admin.newsletter.send") %></button>
-      <span class="shiplog-admin__muted"><%= t("shiplog.admin.newsletter.send_blocked", reasons: blockers.map { |blocker| t("shiplog.admin.newsletter.blockers.#{blocker}", locales: Shiplog::Newsletter.missing_locales(entry).join(", ")) }.join(", ")) %></span>
+      <span class="shiplog-admin__muted"><%= newsletter_blocked_message(entry, blockers) %></span>
     <% else %>
       <%= link_to t("shiplog.admin.newsletter.send"), entry_newsletter_path(entry, inbox_filter_params), class: "shiplog-button shiplog-button--primary" %>
     <% end %>

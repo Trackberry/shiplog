@@ -4,7 +4,7 @@
 
   <% if @blockers.any? %>
     <div class="shiplog-admin__flash shiplog-admin__flash--alert" role="alert">
-      <%= t("shiplog.admin.newsletter.send_blocked", reasons: @blockers.map { |blocker| t("shiplog.admin.newsletter.blockers.#{blocker}", locales: Shiplog::Newsletter.missing_locales(@entry).join(", ")) }.join(", ")) %>
+      <%= newsletter_blocked_message(@entry, @blockers) %>
     </div>
   <% end %>
 
