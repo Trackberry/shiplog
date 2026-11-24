@@ -172,7 +172,7 @@ Shiplog.configure do |config|
   # the entry page (kept until the English text changes) or retranslate it. Pages render the translation when
   # I18n.locale is one of these and it matches the current English text, and English otherwise. Your routes
   # decide which URLs set the locale (e.g. a /es scope). The default locale is dropped from the list.
-  # config.locales = []   # e.g. [:es]
+  # config.locales = []   # e.g. [:es] or [:es, :de, :nl]
 
   # Monthly announcements: a short summary of what shipped in a month, drafted by config.rewriter from the month's
   # approved entries and the small changes that got none, and approved in the admin like any entry. Schedule

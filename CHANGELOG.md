@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.5.0 (2026-11-24)
+
+### Added
+
+- German and Dutch texts: `config/locales/de.yml` (formal "Sie") and `config/locales/nl.yml` (formal "u") translate every `shiplog.*` key, public and admin, like `es.yml`, with their month names and date order (`1. Oktober 2026`, `1 oktober 2026`). German calls the changelog "Neuigkeiten"; "Roadmap" stays as is in both. A host with `de` or `nl` in `I18n.available_locales` gets them with no setup; override any key in your own locale files.
+
+### Changed
+
+- `test/shiplog/es_locale_test.rb` is now `test/shiplog/locales_test.rb` and checks every shipped locale file (keys, every plural key's forms, placeholders, month names), so a new `config/locales/<locale>.yml` is covered by adding the file.
+
+### Upgrading
+
+- A host that already ships its own `de` or `nl` `shiplog.*` texts keeps them (the host's locale files load after the engine's). A host whose app has `de` or `nl` available but relied on Shiplog showing English there now sees German or Dutch.
+
 ## 0.4.1 (2026-11-08)
 
 ### Changed

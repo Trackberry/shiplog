@@ -1,0 +1,370 @@
+# Shiplog-teksten in het Nederlands (aanspreekvorm “u”). Hosts kunnen elke sleutel overschrijven in hun eigen taalbestanden.
+nl:
+  activerecord:
+    attributes:
+      shiplog/entry:
+        changelog_kind: Categorie
+  # De maandnamen die het datumformaat van Shiplog gebruikt (rails-i18n levert ze ook; het zijn dezelfde).
+  date:
+    month_names: [~, januari, februari, maart, april, mei, juni, juli, augustus, september, oktober, november, december]
+  shiplog:
+    columns:
+      in_progress: In ontwikkeling
+      coming_soon: Binnenkort
+      later: Later
+      in_progress_description: Waar we nu aan bouwen
+      coming_soon_description: Hierna gepland
+      later_description: Op onze radar
+    categories:
+      feature: Nieuw
+      change: Verbeterd
+      announcement: Maandoverzicht
+    empty: Hier staat nog niets
+    date_format: "%-d %B %Y"
+    roadmap:
+      title: Roadmap
+      lede: Waar we aan werken en wat er hierna komt.
+      parts:
+        one: Bestaat uit %{count} onderdeel
+        other: Bestaat uit %{count} onderdelen
+      shipped_heading: Onlangs uitgebracht
+      shipped_date_format: "%-d %B"
+      full_changelog: Bekijk de volledige changelog
+      footnote: ""
+      suggest: Een functie voorstellen
+    switcher:
+      label: Productupdates
+      roadmap: Roadmap
+      changelog: Changelog
+    changelog:
+      title: Changelog
+      lede: Nieuwe functies en verbeteringen, zodra ze beschikbaar zijn.
+      pagination:
+        label: Paginering
+        older: Ouder
+        newer: Nieuwer
+      search:
+        label: Zoeken in de changelog
+        submit: Zoeken
+        summary:
+          one: "%{count} resultaat voor “%{query}”"
+          other: "%{count} resultaten voor “%{query}”"
+        clear: Zoekopdracht wissen
+        empty: "Geen items gevonden voor “%{query}”."
+      areas:
+        label: Filteren op onderdeel
+        all: Alle
+    permalink:
+      title: "%{title} · %{changelog}"
+      back: "← Terug naar de changelog"
+      nav_label: Meer items uit de changelog
+      newer: "← Nieuwer: %{title}"
+      older: "Ouder: %{title} →"
+    announcements:
+      read: "Lees het overzicht van %{month}"
+      back: "← Terug naar de changelog"
+      skeleton:
+        features: Nieuw
+        also_improved: Ook verbeterd
+    feed:
+      title_with_product: "Changelog van %{product}"
+      link_title: Changelog (Atom)
+      subscribe: Abonneren (Atom)
+    newsletter:
+      title: Nieuwsbrief
+      product: Productupdates
+      back: "← Terug naar de changelog"
+      form:
+        title: Ontvang het maandoverzicht per e-mail
+        hint: Eén e-mail per maand, niet meer. U kunt zich altijd afmelden.
+        email_label: E-mailadres
+        email_placeholder: u@voorbeeld.nl
+        submit: Abonneren
+        trap_label: Laat dit veld leeg
+        invalid_email: Vul een geldig e-mailadres in.
+      sent:
+        heading: Kijk in uw inbox
+        text: We hebben u een link gestuurd om uw abonnement te bevestigen. Open de link om het maandoverzicht te ontvangen. Komt er binnen een paar minuten niets binnen, kijk dan in uw spammap.
+      confirm:
+        heading: Bevestig uw abonnement
+        text: "Klik op de knop om het maandoverzicht te ontvangen op %{email}."
+        button: Bevestigen
+        done_heading: U bent geabonneerd
+        done_text: "Het maandoverzicht wordt verstuurd naar %{email}. U kunt de taal altijd wijzigen of zich afmelden via uw voorkeuren."
+      preferences:
+        heading: Uw abonnement
+        email: E-mail
+        status: Status
+        statuses:
+          pending: Wacht op bevestiging
+          confirmed: Geabonneerd
+          unsubscribed: Afgemeld
+        language: Taal
+        save: Opslaan
+        saved: Voorkeuren opgeslagen.
+        unsubscribe: Afmelden
+        unsubscribed: U bent afgemeld.
+        resubscribe: Opnieuw abonneren
+        resubscribed: U bent weer geabonneerd.
+        delete: Mijn gegevens verwijderen
+        delete_help: Als u uw gegevens verwijdert, wissen we uw adres volledig uit onze administratie, ook de vermelding dat u zich hebt afgemeld.
+        deleted_heading: Uw gegevens zijn verwijderd
+        deleted_text: Uw e-mailadres wordt niet langer bewaard. U kunt zich altijd opnieuw abonneren via de changelog.
+      unsubscribe:
+        heading: Afmelden
+        text: "Het maandoverzicht niet langer ontvangen op %{email}?"
+        button: Afmelden
+        done_heading: U bent afgemeld
+        done_text: "%{email} ontvangt het maandoverzicht niet meer."
+      invalid:
+        heading: Deze link is niet geldig
+        text: De link is misschien verlopen of al gebruikt. Abonneer u opnieuw via de changelog om een nieuwe link te ontvangen.
+      rate_limited:
+        heading: Te veel pogingen
+        text: Probeer het over een uur opnieuw.
+      mail:
+        view_in_browser: Bekijken in de browser
+        changelog_button: Bekijk alles wat we hebben uitgebracht
+        highlight_button: Zo werkt het
+        reason: "U ontvangt deze e-mail omdat u zich hebt geabonneerd op het maandoverzicht van %{product}."
+        unsubscribe: Afmelden
+        preferences: Voorkeuren
+        confirm_subject: "Bevestig uw abonnement op de nieuwsbrief van %{product}"
+        confirm_heading: Nog één stap
+        confirm_intro: "Bevestig dat u het maandoverzicht van %{product} wilt ontvangen op %{email}."
+        confirm_button: Mijn abonnement bevestigen
+        confirm_expiry: "De link werkt 7 dagen. Hebt u hier niet om gevraagd, negeer deze e-mail dan: zonder bevestiging wordt niets verstuurd."
+        confirm_link_text: "Of kopieer deze link:"
+    admin:
+      newsletter:
+        title: Nieuwsbrief
+        help: De bezoekers die zich via het formulier van de changelog hebben aangemeld. Uw eigen gebruikers (config.newsletter_recipients) staan hier niet bij.
+        total: Totaal
+        search: Zoeken
+        search_placeholder: Zoeken op e-mail
+        clear: Wissen
+        export: CSV downloaden
+        remove: Verwijderen
+        removed: "%{email} verwijderd."
+        empty: Nog geen abonnees.
+        no_match: "Geen abonnee gevonden voor “%{query}”."
+        statuses:
+          pending: In afwachting
+          confirmed: Bevestigd
+          unsubscribed: Afgemeld
+        columns:
+          email: E-mail
+          locale: Taal
+          status: Status
+          source: Aangemeld op pagina
+          subscribed_at: Aangemeld
+          recipients: Ontvangers
+        heading: Nieuwsbrief
+        not_sent: Nog niet verstuurd.
+        progress: "%{sent} verstuurd, %{failed} mislukt, %{pending} in afwachting."
+        stalled:
+          one: "%{count} staat al meer dan een uur in afwachting (de worker is misschien uitgevallen): “Mislukte opnieuw proberen” verstuurt hem opnieuw."
+          other: "%{count} staan al meer dan een uur in afwachting (de worker is misschien uitgevallen): “Mislukte opnieuw proberen” verstuurt ze opnieuw."
+        retry: Mislukte opnieuw proberen
+        retry_queued: De mislukte verzendingen worden opnieuw geprobeerd.
+        send: Versturen…
+        send_blocked: "Versturen is nog niet mogelijk: %{reasons}."
+        blockers:
+          not_approved: de aankondiging is niet goedgekeurd
+          translations: "een vertaling ontbreekt of is verouderd (%{locales})"
+          from: config.newsletter_from is niet ingesteld
+          address: config.newsletter_address is niet ingesteld
+          base_url: config.canonical_url is niet ingesteld (de links in e-mails moeten absoluut zijn)
+        test: "Stuur een test naar %{email}"
+        test_locale: Taal
+        test_sent: "Test verstuurd naar %{email} (%{language})."
+        test_failed: "De test kon niet worden verstuurd (%{error}). Zie de log."
+        test_no_email: config.current_admin geeft geen e-mailadres, dus er kan geen test worden verstuurd.
+        confirm_title: "De nieuwsbrief versturen: %{title}"
+        recipients: Ontvangers
+        recipients_none: Nog niemand om naar te versturen.
+        recipients_error: "De ontvangers konden niet worden opgehaald (%{error}). Zie de log voor details."
+        confirm_help: Elke ontvanger krijgt de e-mail één keer, in zijn of haar eigen taal. Later opnieuw versturen bereikt alleen de ontvangers die hem nog niet hebben ontvangen.
+        confirm_resend_help: Ontvangers die hem al hebben ontvangen, worden overgeslagen.
+        confirm_button:
+          one: "Versturen naar %{count} ontvanger"
+          other: "Versturen naar %{count} ontvangers"
+        queued: De nieuwsbrief wordt verstuurd. Vernieuw de pagina zo meteen.
+        back: Terug naar de aankondiging
+      announcements:
+        draft: "Aankondiging voor %{month} opstellen"
+        drafted: Concept van de aankondiging is klaar.
+        nothing_to_announce: Die maand heeft nog geen goedgekeurde functie of wijziging om aan te kondigen.
+        publishing: Aankondiging
+        view_page: Openbare pagina bekijken
+        external: Gepubliceerd door uw app (config.announcements = :external).
+        announced: "Uw app is op %{time} op de hoogte gebracht (on_announcement_approved)."
+        waiting_for_translations: Uw app wordt op de hoogte gebracht zodra alle vertalingen actueel zijn.
+        announcing: Uw app wordt op de hoogte gebracht…
+        not_approved: Keur de aankondiging goed om hem te publiceren en uw app op de hoogte te brengen.
+        export: "Exporteren:"
+        plain_text: Platte tekst
+        preview: Voorbeeld
+        notify_now: Nu op de hoogte brengen
+        notify_now_hint: Roept de hook van uw app nu aan, zonder op ontbrekende vertalingen te wachten (daarvoor wordt Engels gebruikt).
+        notify_queued: Uw app wordt zo meteen op de hoogte gebracht.
+      title: Shiplog-beheer
+      nav:
+        drafts: Concepten
+        board: Roadmapbord
+        sync: Synchronisatie
+        areas: Onderdelen
+        newsletter: Nieuwsbrief
+      areas:
+        title: Productonderdelen
+        help: De AI deelt items in onderdelen in (hoogstens %{max}) terwijl hij ze herschrijft. Bezoekers kunnen de changelog op onderdeel filteren zodra twee onderdelen gepubliceerde items hebben.
+        detect: Onderdelen herkennen
+        recheck: Items zonder onderdeel opnieuw controleren
+        recheck_help: Vraagt de AI opnieuw naar de items die hij zonder onderdeel liet, bijvoorbeeld na het hernoemen, samenvoegen of toevoegen van onderdelen.
+        no_rewriter: Herkennen vereist config.rewriter, dat niet is ingesteld.
+        last_detection: "Laatste herkenning: %{time}, %{count} toegewezen"
+        last_error: "Laatste herkenning mislukt (%{time}): %{error}"
+        detection_queued: Herkenning ingepland. Vernieuw de pagina zo meteen.
+        translate_names: Namen vertalen
+        translate_names_help: Vraagt de AI om de namen die in een taal ontbreken. Bestaande namen, ook die u hebt bewerkt, blijven behouden.
+        no_locales: Namen vertalen vereist config.locales, dat leeg is.
+        no_rewriter_translate: Namen vertalen vereist config.rewriter, dat niet is ingesteld.
+        translation_queued:
+          one: Vertaling ingepland voor %{count} onderdeel. Vernieuw de pagina zo meteen.
+          other: Vertaling ingepland voor %{count} onderdelen. Vernieuw de pagina zo meteen.
+        empty: Nog geen onderdelen. Laat onderdelen herkennen om voorstellen op basis van uw items te krijgen.
+        columns:
+          name: Naam
+          entries: Items
+          order: Volgorde
+          merge: Samenvoegen met
+        name_label: Naam
+        rename: Hernoemen
+        renamed: Onderdeel hernoemd.
+        move_up: Omhoog
+        move_down: Omlaag
+        merge: Samenvoegen
+        merge_into: Samenvoegen met
+        merged: "%{from} is samengevoegd met %{into}."
+        merge_target: Kies een ander onderdeel om mee samen te voegen.
+        merge_help: Bij samenvoegen gaan de items naar het andere onderdeel en wordt dit onderdeel verwijderd. Wordt een onderdeel verwijderd, dan hebben de items ervan geen onderdeel meer.
+        delete: Verwijderen
+        deleted: Onderdeel verwijderd. De items ervan hebben nu geen onderdeel.
+      entries:
+        title: Items
+        filters: Items filteren
+        all_kinds: Alle soorten
+        empty: Geen items gevonden.
+        pagination: Paginering
+        older: Ouder
+        newer: Nieuwer
+        saved: Item opgeslagen.
+        approved: Item goedgekeurd.
+        discarded: Item verworpen.
+        restored: Item teruggezet naar concept.
+        invalid_transition: Die actie is niet beschikbaar voor dit item in de huidige status.
+        rewrite_queued: Herschrijven ingepland. Vernieuw de pagina zo meteen.
+        edit: Bewerken
+        edit_title: "%{kind} bewerken"
+        approve: Goedkeuren
+        discard: Verwerpen
+        restore: Terugzetten
+        save: Opslaan
+        regenerate: Opnieuw genereren
+        no_area: Geen
+        area_gone: bestaat niet meer
+        regenerate_warning: Door opnieuw te genereren wordt dit item niet meer gepubliceerd tot het opnieuw is goedgekeurd.
+        source_changed: De GitHub-tekst is gewijzigd sinds dit concept
+        entries_changed: De items van de maand zijn gewijzigd sinds dit concept
+        rewrite_error: Herschrijven mislukt
+        not_rewritten: Nog niet herschreven
+        public_text: Openbare tekst
+        source: GitHub-bron
+        back: Terug naar de concepten
+        images:
+          title: Schermafbeeldingen
+          help: Worden in de changelog onder de tekst getoond (de eerste in de lijst, allemaal op de pagina van het item). Ze worden uit het GitHub-issue of de pull request gehaald wanneer het concept wordt geschreven; u kunt ook uw eigen afbeeldingen uploaden.
+          empty: Nog geen schermafbeeldingen.
+          alt: Alternatieve tekst
+          alt_placeholder: Beschrijf de afbeelding (standaard de titel)
+          save_alt: Alternatieve tekst opslaan
+          remove: Verwijderen
+          move_up: Omhoog
+          move_down: Omlaag
+          upload: Afbeeldingen uploaden
+          upload_label: Afbeeldingen (PNG, JPEG, GIF of WebP, elk maximaal 5 MB)
+          none_selected: Kies ten minste één afbeelding.
+          rejected: "Niet toegevoegd, alleen PNG-, JPEG-, GIF- en WebP-afbeeldingen tot 5 MB en 10.000 pixels per zijde worden geaccepteerd: %{names}"
+          added:
+            one: Afbeelding toegevoegd.
+            other: "%{count} afbeeldingen toegevoegd."
+          alt_saved: Alternatieve tekst opgeslagen.
+          removed: Afbeelding verwijderd.
+          moved: Afbeelding verplaatst.
+        translations:
+          title: Vertalingen
+          help: "Wanneer een item wordt goedgekeurd, wordt het automatisch vertaald en wordt de vertaling samen met de Engelse tekst gepubliceerd. Een vertaling die u bewerkt, blijft behouden tot de Engelse tekst verandert; dan wordt opnieuw vertaald. Een verouderde of ontbrekende vertaling wordt niet getoond: bezoekers zien de Engelse tekst."
+          not_approved: Vertalingen worden gemaakt wanneer het item wordt goedgekeurd.
+          missing: Ontbreekt
+          stale: Verouderd
+          current: Actueel
+          edited: Bewerkt door een beheerder
+          retranslate: Opnieuw vertalen
+          saved: Vertaling opgeslagen.
+          queued: Vertaling ingepland. Vernieuw de pagina zo meteen.
+          only_approved: Alleen goedgekeurde items worden vertaald.
+          no_rewriter: Vertalen vereist config.rewriter, dat niet is ingesteld.
+        category_options:
+          feature: Nieuwe functie
+          change: Verbetering
+        statuses:
+          draft: Concepten
+          approved: Goedgekeurd
+          discarded: Verworpen
+        kinds:
+          roadmap: Roadmap
+          feature: Functie
+          change: Wijziging
+          announcement: Aankondiging
+        columns:
+          entry: Item
+          kind: Soort
+          source: Bron
+          actions: Acties
+        fields:
+          title: Titel
+          body: Tekst
+          released_on: Uitgebracht op
+          category: Categorie
+          area: Onderdeel
+          reason: Reden
+      board:
+        title: Roadmapbord
+        help: Sleep kaarten tussen kolommen om ze vast te zetten en te herschikken. Zonder JavaScript gebruikt u de knop Verplaatsen op elke kaart.
+        updated: Bord bijgewerkt.
+        not_approved: Niet goedgekeurd
+        pinned: Vastgezet
+        move_to: Verplaatsen naar
+        move: Verplaatsen
+        unpin: Losmaken
+      sync:
+        title: Synchronisatiestatus
+        queued: Synchronisatie ingepland.
+        webhook_secret_missing: Het webhookgeheim is niet ingesteld, dus GitHub-webhooks worden geweigerd.
+        github_token_missing: Het GitHub-token is niet ingesteld, dus synchroniseren is niet mogelijk.
+        sync_now: Nu synchroniseren
+        sync_and_scan: Synchroniseren en naar wijzigingen zoeken
+        repositories: Repository's
+        no_repositories: Er zijn geen repository's ingesteld.
+        repository: Repository
+        synced_at: Laatst gesynchroniseerd
+        changes_scanned_at: Wijzigingen gecontroleerd
+        last_error: Laatste fout
+        never: Nooit
+        deliveries: Recente webhookleveringen
+        no_deliveries: Nog geen leveringen.
+        event: Gebeurtenis
+        action: Actie
+        received_at: Ontvangen
+        processed_at: Verwerkt
+        error: Fout

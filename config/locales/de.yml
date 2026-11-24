@@ -1,0 +1,370 @@
+# Shiplog-Texte auf Deutsch (förmliche Anrede „Sie“). Hosts können jeden Schlüssel in ihren eigenen Sprachdateien überschreiben.
+de:
+  activerecord:
+    attributes:
+      shiplog/entry:
+        changelog_kind: Kategorie
+  # Die Monatsnamen, die Shiplogs Datumsformat verwendet (rails-i18n liefert sie auch; es sind dieselben).
+  date:
+    month_names: [~, Januar, Februar, März, April, Mai, Juni, Juli, August, September, Oktober, November, Dezember]
+  shiplog:
+    columns:
+      in_progress: In Arbeit
+      coming_soon: Demnächst
+      later: Später
+      in_progress_description: Woran wir gerade arbeiten
+      coming_soon_description: Als Nächstes geplant
+      later_description: Auf unserem Radar
+    categories:
+      feature: Neu
+      change: Verbessert
+      announcement: Monatsrückblick
+    empty: Hier gibt es noch nichts
+    date_format: "%-d. %B %Y"
+    roadmap:
+      title: Roadmap
+      lede: Woran wir arbeiten und was als Nächstes kommt.
+      parts:
+        one: Umfasst %{count} Teil
+        other: Umfasst %{count} Teile
+      shipped_heading: Kürzlich veröffentlicht
+      shipped_date_format: "%-d. %B"
+      full_changelog: Alle Neuigkeiten ansehen
+      footnote: ""
+      suggest: Funktion vorschlagen
+    switcher:
+      label: Produkt-Updates
+      roadmap: Roadmap
+      changelog: Neuigkeiten
+    changelog:
+      title: Neuigkeiten
+      lede: Neue Funktionen und Verbesserungen, sobald sie verfügbar sind.
+      pagination:
+        label: Seitennavigation
+        older: Ältere
+        newer: Neuere
+      search:
+        label: Neuigkeiten durchsuchen
+        submit: Suchen
+        summary:
+          one: "%{count} Ergebnis für „%{query}“"
+          other: "%{count} Ergebnisse für „%{query}“"
+        clear: Suche zurücksetzen
+        empty: "Keine Einträge passen zu „%{query}“."
+      areas:
+        label: Nach Bereich filtern
+        all: Alle
+    permalink:
+      title: "%{title} · %{changelog}"
+      back: "← Zurück zu den Neuigkeiten"
+      nav_label: Weitere Neuigkeiten
+      newer: "← Neuer: %{title}"
+      older: "Älter: %{title} →"
+    announcements:
+      read: "Rückblick auf %{month} lesen"
+      back: "← Zurück zu den Neuigkeiten"
+      skeleton:
+        features: Neu
+        also_improved: Außerdem verbessert
+    feed:
+      title_with_product: "Neuigkeiten von %{product}"
+      link_title: Neuigkeiten (Atom)
+      subscribe: Abonnieren (Atom)
+    newsletter:
+      title: Newsletter
+      product: Produkt-Updates
+      back: "← Zurück zu den Neuigkeiten"
+      form:
+        title: Den Monatsrückblick per E-Mail erhalten
+        hint: Eine E-Mail pro Monat, nicht mehr. Sie können sich jederzeit abmelden.
+        email_label: E-Mail-Adresse
+        email_placeholder: sie@beispiel.de
+        submit: Abonnieren
+        trap_label: Lassen Sie dieses Feld leer
+        invalid_email: Geben Sie eine gültige E-Mail-Adresse ein.
+      sent:
+        heading: Bitte prüfen Sie Ihr Postfach
+        text: Wir haben Ihnen einen Link zur Bestätigung Ihres Abonnements geschickt. Öffnen Sie ihn, um den Monatsrückblick zu erhalten. Falls in einigen Minuten nichts ankommt, sehen Sie bitte in Ihrem Spam-Ordner nach.
+      confirm:
+        heading: Abonnement bestätigen
+        text: "Klicken Sie auf die Schaltfläche, um den Monatsrückblick an %{email} zu erhalten."
+        button: Bestätigen
+        done_heading: Sie haben den Newsletter abonniert
+        done_text: "Der Monatsrückblick geht an %{email}. In Ihren Einstellungen können Sie jederzeit die Sprache ändern oder sich abmelden."
+      preferences:
+        heading: Ihr Abonnement
+        email: E-Mail
+        status: Status
+        statuses:
+          pending: Wartet auf Bestätigung
+          confirmed: Abonniert
+          unsubscribed: Abgemeldet
+        language: Sprache
+        save: Speichern
+        saved: Einstellungen gespeichert.
+        unsubscribe: Abmelden
+        unsubscribed: Sie sind abgemeldet.
+        resubscribe: Erneut abonnieren
+        resubscribed: Sie haben den Newsletter wieder abonniert.
+        delete: Meine Daten löschen
+        delete_help: Wenn Sie Ihre Daten löschen, entfernen wir Ihre Adresse vollständig aus unseren Unterlagen, auch den Vermerk über Ihre Abmeldung.
+        deleted_heading: Ihre Daten wurden gelöscht
+        deleted_text: Ihre E-Mail-Adresse ist nicht mehr gespeichert. Über die Neuigkeiten-Seite können Sie den Newsletter jederzeit wieder abonnieren.
+      unsubscribe:
+        heading: Abmelden
+        text: "Den Monatsrückblick nicht mehr an %{email} senden?"
+        button: Abmelden
+        done_heading: Sie sind abgemeldet
+        done_text: "%{email} erhält den Monatsrückblick nicht mehr."
+      invalid:
+        heading: Dieser Link ist ungültig
+        text: Er ist möglicherweise abgelaufen oder wurde bereits verwendet. Abonnieren Sie über die Neuigkeiten-Seite erneut, um einen neuen Link zu erhalten.
+      rate_limited:
+        heading: Zu viele Versuche
+        text: Bitte versuchen Sie es in einer Stunde erneut.
+      mail:
+        view_in_browser: Im Browser ansehen
+        changelog_button: Alle Neuerungen ansehen
+        highlight_button: So funktioniert es
+        reason: "Sie erhalten diese E-Mail, weil Sie den Monatsrückblick von %{product} abonniert haben."
+        unsubscribe: Abmelden
+        preferences: Einstellungen
+        confirm_subject: "Bestätigen Sie Ihr Abonnement des Newsletters von %{product}"
+        confirm_heading: Nur noch ein Schritt
+        confirm_intro: "Bestätigen Sie, dass Sie den Monatsrückblick von %{product} an %{email} erhalten möchten."
+        confirm_button: Abonnement bestätigen
+        confirm_expiry: "Der Link ist 7 Tage gültig. Falls Sie dies nicht angefordert haben, ignorieren Sie diese E-Mail: Ohne Bestätigung wird nichts verschickt."
+        confirm_link_text: "Oder kopieren Sie diesen Link:"
+    admin:
+      newsletter:
+        title: Newsletter
+        help: Die Besucher, die sich über das Formular der Neuigkeiten-Seite angemeldet haben. Ihre eigenen Nutzer (config.newsletter_recipients) werden hier nicht aufgeführt.
+        total: Gesamt
+        search: Suchen
+        search_placeholder: Nach E-Mail suchen
+        clear: Zurücksetzen
+        export: CSV herunterladen
+        remove: Entfernen
+        removed: "%{email} entfernt."
+        empty: Noch keine Abonnenten.
+        no_match: "Kein Abonnent passt zu „%{query}“."
+        statuses:
+          pending: Ausstehend
+          confirmed: Bestätigt
+          unsubscribed: Abgemeldet
+        columns:
+          email: E-Mail
+          locale: Sprache
+          status: Status
+          source: Angemeldet auf
+          subscribed_at: Angemeldet am
+          recipients: Empfänger
+        heading: Newsletter
+        not_sent: Noch nicht versendet.
+        progress: "%{sent} gesendet, %{failed} fehlgeschlagen, %{pending} ausstehend."
+        stalled:
+          one: "%{count} ist seit über einer Stunde ausstehend (der Worker ist möglicherweise abgestürzt): „Fehlgeschlagene erneut senden“ verschickt sie erneut."
+          other: "%{count} sind seit über einer Stunde ausstehend (der Worker ist möglicherweise abgestürzt): „Fehlgeschlagene erneut senden“ verschickt sie erneut."
+        retry: Fehlgeschlagene erneut senden
+        retry_queued: Die fehlgeschlagenen Zustellungen werden erneut versucht.
+        send: Senden…
+        send_blocked: "Senden ist noch nicht möglich: %{reasons}."
+        blockers:
+          not_approved: die Ankündigung ist nicht freigegeben
+          translations: "eine Übersetzung fehlt oder ist veraltet (%{locales})"
+          from: config.newsletter_from ist nicht gesetzt
+          address: config.newsletter_address ist nicht gesetzt
+          base_url: config.canonical_url ist nicht gesetzt (die Links in E-Mails müssen absolut sein)
+        test: "Test an %{email} senden"
+        test_locale: Sprache
+        test_sent: "Test an %{email} gesendet (%{language})."
+        test_failed: "Der Test konnte nicht gesendet werden (%{error}). Siehe Log."
+        test_no_email: config.current_admin liefert keine E-Mail-Adresse, daher kann kein Test gesendet werden.
+        confirm_title: "Newsletter senden: %{title}"
+        recipients: Empfänger
+        recipients_none: Noch niemand, an den gesendet werden kann.
+        recipients_error: "Die Empfänger konnten nicht ermittelt werden (%{error}). Details stehen im Log."
+        confirm_help: Jeder Empfänger erhält die E-Mail einmal, in seiner Sprache. Ein späterer erneuter Versand erreicht nur die Empfänger, die sie noch nicht erhalten haben.
+        confirm_resend_help: Empfänger, die sie bereits erhalten haben, werden übersprungen.
+        confirm_button:
+          one: "An %{count} Empfänger senden"
+          other: "An %{count} Empfänger senden"
+        queued: Der Newsletter wird gesendet. Aktualisieren Sie die Seite gleich.
+        back: Zurück zur Ankündigung
+      announcements:
+        draft: "Ankündigung für %{month} entwerfen"
+        drafted: Entwurf der Ankündigung ist fertig.
+        nothing_to_announce: Für diesen Monat gibt es noch keine freigegebene Funktion oder Änderung zum Ankündigen.
+        publishing: Ankündigung
+        view_page: Öffentliche Seite ansehen
+        external: Von Ihrer App veröffentlicht (config.announcements = :external).
+        announced: "Ihre App wurde am %{time} benachrichtigt (on_announcement_approved)."
+        waiting_for_translations: Ihre App wird benachrichtigt, sobald alle Übersetzungen aktuell sind.
+        announcing: Ihre App wird benachrichtigt…
+        not_approved: Geben Sie sie frei, um sie zu veröffentlichen und Ihre App zu benachrichtigen.
+        export: "Exportieren:"
+        plain_text: Nur Text
+        preview: Vorschau
+        notify_now: Jetzt benachrichtigen
+        notify_now_hint: Ruft den Hook Ihrer App jetzt auf, ohne auf fehlende Übersetzungen zu warten (für diese wird Englisch verwendet).
+        notify_queued: Ihre App wird gleich benachrichtigt.
+      title: Shiplog-Verwaltung
+      nav:
+        drafts: Entwürfe
+        board: Roadmap-Board
+        sync: Synchronisierung
+        areas: Bereiche
+        newsletter: Newsletter
+      areas:
+        title: Produktbereiche
+        help: Die KI ordnet Einträge beim Umschreiben Bereichen zu (höchstens %{max}). Besucher können die Neuigkeiten nach Bereich filtern, sobald zwei Bereiche veröffentlichte Einträge haben.
+        detect: Bereiche erkennen
+        recheck: Einträge ohne Bereich erneut prüfen
+        recheck_help: Fragt die KI erneut nach den Einträgen, die sie ohne Bereich gelassen hat, z. B. nach dem Umbenennen, Zusammenführen oder Hinzufügen von Bereichen.
+        no_rewriter: Die Erkennung benötigt config.rewriter, das nicht gesetzt ist.
+        last_detection: "Letzte Erkennung: %{time}, %{count} zugeordnet"
+        last_error: "Letzte Erkennung fehlgeschlagen (%{time}): %{error}"
+        detection_queued: Erkennung eingeplant. Aktualisieren Sie die Seite gleich.
+        translate_names: Namen übersetzen
+        translate_names_help: Fragt die KI nach den Namen, die in einer Sprache fehlen. Vorhandene Namen, auch von Ihnen bearbeitete, bleiben erhalten.
+        no_locales: Das Übersetzen der Namen benötigt config.locales, das leer ist.
+        no_rewriter_translate: Das Übersetzen der Namen benötigt config.rewriter, das nicht gesetzt ist.
+        translation_queued:
+          one: Übersetzung für %{count} Bereich eingeplant. Aktualisieren Sie die Seite gleich.
+          other: Übersetzung für %{count} Bereiche eingeplant. Aktualisieren Sie die Seite gleich.
+        empty: Noch keine Bereiche. Lassen Sie Bereiche erkennen, um aus Ihren Einträgen Vorschläge zu erhalten.
+        columns:
+          name: Name
+          entries: Einträge
+          order: Reihenfolge
+          merge: Zusammenführen mit
+        name_label: Name
+        rename: Umbenennen
+        renamed: Bereich umbenannt.
+        move_up: Nach oben
+        move_down: Nach unten
+        merge: Zusammenführen
+        merge_into: Zusammenführen mit
+        merged: "%{from} wurde mit %{into} zusammengeführt."
+        merge_target: Wählen Sie einen anderen Bereich zum Zusammenführen.
+        merge_help: Beim Zusammenführen werden die Einträge in den anderen Bereich verschoben und dieser gelöscht. Wird ein Bereich gelöscht, haben seine Einträge keinen Bereich mehr.
+        delete: Löschen
+        deleted: Bereich gelöscht. Seine Einträge haben jetzt keinen Bereich.
+      entries:
+        title: Einträge
+        filters: Einträge filtern
+        all_kinds: Alle Arten
+        empty: Keine passenden Einträge.
+        pagination: Seitennavigation
+        older: Ältere
+        newer: Neuere
+        saved: Eintrag gespeichert.
+        approved: Eintrag freigegeben.
+        discarded: Eintrag verworfen.
+        restored: Eintrag wieder als Entwurf gespeichert.
+        invalid_transition: Diese Aktion ist für diesen Eintrag in seinem aktuellen Zustand nicht verfügbar.
+        rewrite_queued: Umschreiben eingeplant. Aktualisieren Sie die Seite gleich.
+        edit: Bearbeiten
+        edit_title: "%{kind} bearbeiten"
+        approve: Freigeben
+        discard: Verwerfen
+        restore: Wiederherstellen
+        save: Speichern
+        regenerate: Neu erstellen
+        no_area: Keiner
+        area_gone: existiert nicht mehr
+        regenerate_warning: Durch das Neuerstellen ist dieser Eintrag nicht mehr veröffentlicht, bis er erneut freigegeben wird.
+        source_changed: Der GitHub-Text hat sich seit diesem Entwurf geändert
+        entries_changed: Die Einträge des Monats haben sich seit diesem Entwurf geändert
+        rewrite_error: Umschreiben fehlgeschlagen
+        not_rewritten: Noch nicht umgeschrieben
+        public_text: Öffentlicher Text
+        source: GitHub-Quelle
+        back: Zurück zu den Entwürfen
+        images:
+          title: Screenshots
+          help: Werden in den Neuigkeiten unter dem Text angezeigt (der erste in der Liste, alle auf der Seite des Eintrags). Sie werden beim Schreiben des Entwurfs aus dem GitHub-Issue oder Pull Request übernommen; Sie können auch eigene hochladen.
+          empty: Noch keine Screenshots.
+          alt: Alternativtext
+          alt_placeholder: Beschreiben Sie das Bild (standardmäßig der Titel)
+          save_alt: Alternativtext speichern
+          remove: Entfernen
+          move_up: Hoch
+          move_down: Runter
+          upload: Bilder hochladen
+          upload_label: Bilder (PNG, JPEG, GIF oder WebP, jeweils bis 5 MB)
+          none_selected: Wählen Sie mindestens ein Bild aus.
+          rejected: "Nicht hinzugefügt, es werden nur PNG-, JPEG-, GIF- und WebP-Bilder bis 5 MB und 10.000 Pixel Kantenlänge akzeptiert: %{names}"
+          added:
+            one: Bild hinzugefügt.
+            other: "%{count} Bilder hinzugefügt."
+          alt_saved: Alternativtext gespeichert.
+          removed: Bild entfernt.
+          moved: Bild verschoben.
+        translations:
+          title: Übersetzungen
+          help: "Wird ein Eintrag freigegeben, wird er automatisch übersetzt, und die Übersetzung wird zusammen mit dem englischen Text veröffentlicht. Eine von Ihnen bearbeitete Übersetzung bleibt erhalten, bis sich der englische Text ändert; dann wird neu übersetzt. Eine veraltete oder fehlende Übersetzung wird nicht angezeigt: Besucher sehen den englischen Text."
+          not_approved: Übersetzungen werden erstellt, wenn der Eintrag freigegeben wird.
+          missing: Fehlt
+          stale: Veraltet
+          current: Aktuell
+          edited: Von einem Admin bearbeitet
+          retranslate: Neu übersetzen
+          saved: Übersetzung gespeichert.
+          queued: Übersetzung eingeplant. Aktualisieren Sie die Seite gleich.
+          only_approved: Nur freigegebene Einträge werden übersetzt.
+          no_rewriter: Zum Übersetzen wird config.rewriter benötigt, das nicht gesetzt ist.
+        category_options:
+          feature: Neue Funktion
+          change: Verbesserung
+        statuses:
+          draft: Entwürfe
+          approved: Freigegeben
+          discarded: Verworfen
+        kinds:
+          roadmap: Roadmap
+          feature: Funktion
+          change: Änderung
+          announcement: Ankündigung
+        columns:
+          entry: Eintrag
+          kind: Art
+          source: Quelle
+          actions: Aktionen
+        fields:
+          title: Titel
+          body: Text
+          released_on: Veröffentlicht am
+          category: Kategorie
+          area: Bereich
+          reason: Grund
+      board:
+        title: Roadmap-Board
+        help: Ziehen Sie Karten zwischen den Spalten, um sie anzuheften und neu zu ordnen. Ohne JavaScript verwenden Sie die Schaltfläche „Verschieben“ auf jeder Karte.
+        updated: Board aktualisiert.
+        not_approved: Nicht freigegeben
+        pinned: Angeheftet
+        move_to: Verschieben nach
+        move: Verschieben
+        unpin: Lösen
+      sync:
+        title: Synchronisierungsstatus
+        queued: Synchronisierung eingeplant.
+        webhook_secret_missing: Das Webhook-Secret ist nicht konfiguriert, daher werden GitHub-Webhooks abgelehnt.
+        github_token_missing: Das GitHub-Token ist nicht konfiguriert, daher kann nicht synchronisiert werden.
+        sync_now: Jetzt synchronisieren
+        sync_and_scan: Synchronisieren und nach Änderungen suchen
+        repositories: Repositorys
+        no_repositories: Es sind keine Repositorys konfiguriert.
+        repository: Repository
+        synced_at: Zuletzt synchronisiert
+        changes_scanned_at: Änderungen geprüft
+        last_error: Letzter Fehler
+        never: Nie
+        deliveries: Letzte Webhook-Zustellungen
+        no_deliveries: Noch keine Zustellungen.
+        event: Ereignis
+        action: Aktion
+        received_at: Empfangen
+        processed_at: Verarbeitet
+        error: Fehler
