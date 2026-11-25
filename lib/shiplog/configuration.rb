@@ -146,23 +146,19 @@ module Shiplog
 
     # How many recently shipped changelog entries the roadmap lists; 0 hides the section.
     def roadmap_shipped_count=(value)
-      raise ArgumentError, "roadmap_shipped_count must be a non-negative Integer, got #{value.inspect}" unless value.is_a?(Integer) && value >= 0
-      @roadmap_shipped_count = value
+      @roadmap_shipped_count = non_negative_integer!(:roadmap_shipped_count, value)
     end
 
     def max_areas=(value)
-      raise ArgumentError, "max_areas must be a non-negative Integer, got #{value.inspect}" unless value.is_a?(Integer) && value >= 0
-      @max_areas = value
+      @max_areas = non_negative_integer!(:max_areas, value)
     end
 
     def images=(value)
-      raise ArgumentError, "images must be true or false, got #{value.inspect}" unless [ true, false ].include?(value)
-      @images = value
+      @images = boolean!(:images, value)
     end
 
     def max_images_per_entry=(value)
-      raise ArgumentError, "max_images_per_entry must be a non-negative Integer, got #{value.inspect}" unless value.is_a?(Integer) && value >= 0
-      @max_images_per_entry = value
+      @max_images_per_entry = non_negative_integer!(:max_images_per_entry, value)
     end
 
     # Locales entries are translated into when approved, e.g. [:es] (default none), as symbols and without the
@@ -215,8 +211,7 @@ module Shiplog
     end
 
     def newsletter=(value)
-      raise ArgumentError, "newsletter must be true or false, got #{value.inspect}" unless [ true, false ].include?(value)
-      @newsletter = value
+      @newsletter = boolean!(:newsletter, value)
     end
 
     def newsletter_recipients=(value)
@@ -390,6 +385,18 @@ module Shiplog
       return value if value.nil? || value.respond_to?(:call)
 
       raise ArgumentError, "#{setting} must be nil or a callable#{" #{hint}" if hint}, got #{value.inspect}"
+    end
+
+    def non_negative_integer!(setting, value)
+      return value if value.is_a?(Integer) && value >= 0
+
+      raise ArgumentError, "#{setting} must be a non-negative Integer, got #{value.inspect}"
+    end
+
+    def boolean!(setting, value)
+      return value if [ true, false ].include?(value)
+
+      raise ArgumentError, "#{setting} must be true or false, got #{value.inspect}"
     end
 
     # Nil (also for a blank String) or a stripped non-empty String; anything else raises.
